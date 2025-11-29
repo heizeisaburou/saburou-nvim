@@ -28,21 +28,10 @@ unmap("n", "<leader>e") -- NvimTreeFocus
 -- --------------------------------------------------------------------------
 -- Recortes especiales
 -- --------------------------------------------------------------------------
--- TODO: Hacer un modulo que deje todo esto preparado para invocar y mapear de una
--- sin que ocupen tanto espacio aquí en Mappings
---
 -- d — delete
 -- D — delete (and copy)
 -- e — enter
 -- c — cut and enter
-
--- map("n", "<leader>ls", function()
---   Methods.delete_word { copy = true, insert = true }
--- end, { buffer = 0, desc = "Saburou (TEST)" })
---
--- map("n", "<leader>lS", function()
---   Methods.find_word(0, true)
--- end, { buffer = 0, desc = "Saburou (TEST)" })
 
 -- Descripciones de los comandos (alias)
 local cuts_desc = {
@@ -137,7 +126,7 @@ vim.api.nvim_set_keymap("t", "<C-q>", "<C-\\><C-n>", noremap_silent)
 -- --------------------------------------------------------------------------
 map("n", ";", ":", { desc = "CMD enter command mode" })
 
--- Ctrl+x para cortar sin entrar a modo insert
+-- Agregar líneas en modo normal la tecla ñÑ
 map("n", "ñ", ':call append(line("."), "")<CR>==', noremap_silent)
 map("n", "Ñ", ':call append(line(".") - 1, "")<CR>==', noremap_silent)
 
