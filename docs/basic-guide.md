@@ -1,4 +1,8 @@
-# Guía básica provisional
+# Guía rápida
+
+> [!NOTE]
+>
+> **Versión actual: `v0.1.0-alpha.1` — requiere Neovim 0.12+.**
 
 Esta guía recoge las decisiones básicas de uso de esta configuración. Está incompleta y puede cambiar con el tiempo.
 
@@ -10,6 +14,61 @@ falta información o crees que se puede explicar mejor, cualquier sugerencia es 
 > El feedback es lo más importante para mejorar tanto la configuración como la documentación. Puedes enviar sugerencias,
 > comentarios o preguntas a través de [mi perfil de GitHub](https://github.com/heizeisaburou) o abrir un issue en el
 > repositorio de esta configuración.
+
+## Índice
+
+- [Requisitos](#requisitos)
+- [Resumen rápido](#resumen-rápido)
+- [Instalación aislada de Neovim](#instalación-aislada-de-neovim)
+  - [Linux](#linux)
+  - [macOS](#macos)
+  - [Windows](#windows)
+  - [Usar varias configuraciones con `NVIM_APPNAME`](#usar-varias-configuraciones-con-nvim_appname)
+  - [Alias recomendados](#alias-recomendados)
+- [Nuevos usuarios](#nuevos-usuarios)
+- [Instalación de plugins y herramientas](#instalación-de-plugins-y-herramientas)
+- [Tema](#tema)
+- [IA](#ia)
+- [Markdown](#markdown)
+- [Undo / Redo](#undo--redo)
+- [Clipboard](#clipboard)
+- [Licencia](#licencia)
+
+## Requisitos
+
+- **Neovim 0.12 o superior.** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12 y no se
+  garantiza compatibilidad con versiones anteriores. Comprueba tu versión con `nvim --version`.
+- `git`, `curl` y un compilador de C (`gcc`/`clang`) en el `PATH` para que `lazy.nvim`, `mason.nvim` y `nvim-treesitter`
+  puedan instalar lo que necesitan.
+- Una _Nerd Font_ configurada en la terminal para los iconos.
+
+## Resumen rápido
+
+Si solo quieres lo esencial:
+
+1. Asegúrate de tener Neovim 0.12+ instalado con un binario fijo (por ejemplo `nvim12`, ver
+   [Instalación aislada](#instalación-aislada-de-neovim)).
+2. Clona el repositorio en `~/.config/nvim12`:
+
+   ```bash
+   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
+   ```
+
+3. Lanza Neovim con la configuración aislada:
+
+   ```bash
+   NVIM_APPNAME=nvim12 nvim12
+   ```
+
+4. Cuando termine la instalación automática de plugins, dentro de Neovim ejecuta:
+
+   ```vim
+   :Lazy sync
+   :MasonInstallAll
+   :TSInstallAll
+   ```
+
+El resto de la guía explica cada paso con detalle.
 
 ## Instalación aislada de Neovim
 
@@ -254,7 +313,7 @@ Si eres nuevo en Neovim, esta configuración puede resultar un poco abrumadora a
 Te recomendamos ir poco a poco: explora las secciones de la configuración, revisa la documentación de los plugins
 incluidos y prueba las funcionalidades según las vayas necesitando. No hace falta entenderlo todo desde el primer día.
 
-## Instalación
+## Instalación de plugins y herramientas
 
 > [!WARNING]
 >
@@ -429,3 +488,13 @@ Recupérala después:
 ```vim
 "ap
 ```
+
+## Licencia
+
+Este repositorio contiene código bajo varias licencias:
+
+- La mayor parte del código original se publica bajo los términos de la [Apache License 2.0](../LICENSE)
+  ([texto oficial](https://www.apache.org/licenses/LICENSE-2.0)).
+- El directorio [`lua/hzsr/mason/nvchad/`](../lua/hzsr/mason/nvchad/) contiene código derivado de NvChad/ui y está
+  licenciado bajo [GPL-3.0-only](../lua/hzsr/mason/nvchad/LICENSE). Consulta también
+  [`lua/hzsr/mason/nvchad/NOTICE.md`](../lua/hzsr/mason/nvchad/NOTICE.md) para más detalles.

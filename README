@@ -1,10 +1,40 @@
 # saburou-nvim
 
-Configuración personal de Neovim, escrita íntegramente en Lua.
+Configuración de Neovim lista para usar, escrita íntegramente en Lua y pensada para que cualquiera pueda adoptarla como
+punto de partida.
+
+> [!NOTE]
+>
+> **Versión actual: `v0.1.0-alpha.1` — requiere Neovim 0.12+.** Consulta la [guía rápida](./docs/basic-guide.md) para
+> instalarla.
 
 > [!WARNING]
 >
 > El proyecto está en fase temprana. La estructura, los keymaps y los plugins incluidos pueden cambiar sin previo aviso.
+
+## Requisitos
+
+- **Neovim 0.12 o superior.** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12 y no se
+  garantiza compatibilidad con versiones anteriores ni futuras.
+- `git`, `curl` y un compilador de C (`gcc`/`clang`) disponibles en el `PATH` para que `lazy.nvim`, `mason.nvim` y
+  `nvim-treesitter` puedan instalar lo que necesitan.
+- Una _Nerd Font_ configurada en la terminal para que se vean bien los iconos.
+
+## Inicio rápido
+
+1. Instala Neovim 0.12+ con un binario fijo (recomendado: `nvim12`).
+2. Clona este repositorio en `~/.config/nvim12` (o el `NVIM_APPNAME` que prefieras).
+3. Abre Neovim por primera vez con `NVIM_APPNAME=nvim12 nvim12`. `lazy.nvim` instalará los plugins automáticamente.
+4. Ejecuta dentro de Neovim:
+
+   ```vim
+   :Lazy sync
+   :MasonInstallAll
+   :TSInstallAll
+   ```
+
+El procedimiento completo, los alias recomendados y las particularidades de cada sistema (Linux, macOS y Windows) están
+en la **[guía rápida](docs/basic-guide.md)**.
 
 ## Características
 
@@ -21,27 +51,10 @@ Configuración personal de Neovim, escrita íntegramente en Lua.
 - **Sesiones persistentes** entre reinicios (estado de buffers, `nvim-tree`, `bufferline`, etc.).
 - **Markdown** con renderizado en vivo mediante `render-markdown.nvim`.
 
-## Instalación rápida
+## Documentación
 
-La configuración está pensada para usarse de forma aislada con un binario fijo de Neovim y `NVIM_APPNAME`. El
-procedimiento completo, los alias recomendados y las particularidades de cada sistema (Linux, macOS y Windows) están en
-la [guía básica](docs/basic-guide.md).
-
-Una vez clonado el repositorio en el directorio de configuración correcto, al abrir Neovim por primera vez `lazy.nvim`
-instalará los plugins automáticamente. Después conviene ejecutar:
-
-```vim
-:Lazy sync
-:MasonInstallAll
-:TSInstallAll
-```
-
-## Docs
-
-- [Guía básica provisional](docs/basic-guide.md)
-
-La guía cubre la instalación aislada, el uso de `NVIM_APPNAME`, los temas, la integración con IA, el renderizado de
-Markdown y el manejo del clipboard y los registros de Vim.
+- **[Guía rápida](docs/basic-guide.md)** — instalación aislada, uso de `NVIM_APPNAME`, alias por sistema, temas,
+  integración con IA, renderizado de Markdown y manejo del clipboard y los registros de Vim.
 
 ## Agradecimientos
 
@@ -57,12 +70,12 @@ Si esta configuración te resulta útil y quieres apoyar el proyecto, puedes inv
 
 Cualquier aportación es completamente voluntaria y se agradece muchísimo.
 
-## License
+## Licencia
 
-This repository contains code under multiple licenses.
+Este repositorio contiene código bajo varias licencias:
 
-Most original code in this repository is licensed under the terms of the [Apache License 2.0](LICENSE).
-
-The directory `lua/hzsr/mason/nvchad/` contains code derived from NvChad/ui and is licensed under GPL-3.0-only.
-
-See `lua/hzsr/mason/nvchad/LICENSE` and `lua/hzsr/mason/nvchad/NOTICE.md` for details.
+- La mayor parte del código original se publica bajo los términos de la [Apache License 2.0](LICENSE)
+  ([texto oficial](https://www.apache.org/licenses/LICENSE-2.0)).
+- El directorio [`lua/hzsr/mason/nvchad/`](lua/hzsr/mason/nvchad/) contiene código derivado de NvChad/ui y está
+  licenciado bajo [GPL-3.0-only](lua/hzsr/mason/nvchad/LICENSE). Consulta también
+  [`lua/hzsr/mason/nvchad/NOTICE.md`](lua/hzsr/mason/nvchad/NOTICE.md) para más detalles.
