@@ -1,12 +1,16 @@
 # saburou-nvim
 
-Configuración de Neovim lista para usar, escrita íntegramente en Lua y pensada para que cualquiera pueda adoptarla como
-punto de partida.
+![Vista previa](docs/preview.png)
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.1` — requiere Neovim 0.12+.** Consulta la [guía rápida](./docs/basic-guide.md) para
-> instalarla.
+> **Versión actual: `v0.1.0-alpha.1` — requiere Neovim 0.12+.**
+
+> 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
+> particularidades por sistema (Linux, macOS, Windows).
+
+Configuración de Neovim lista para usar, escrita íntegramente en Lua y pensada para que cualquiera pueda adoptarla como
+punto de partida.
 
 > [!WARNING]
 >
@@ -14,11 +18,31 @@ punto de partida.
 
 ## Requisitos
 
-- **Neovim 0.12 o superior.** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12 y no se
-  garantiza compatibilidad con versiones anteriores ni futuras.
-- `git`, `curl` y un compilador de C (`gcc`/`clang`) disponibles en el `PATH` para que `lazy.nvim`, `mason.nvim` y
-  `nvim-treesitter` puedan instalar lo que necesitan.
+### Imprescindibles
+
+- **[Neovim](https://neovim.io/) 0.12 o superior.** La configuración usa APIs y comportamientos disponibles a partir de
+  Neovim 0.12 y no se garantiza compatibilidad con versiones anteriores ni futuras.
+- **[Git](https://git-scm.com/)** — necesario para clonar el repositorio y para que `lazy.nvim` instale los plugins.
+- **`curl`** y un compilador de C (`gcc`/`clang`) disponibles en el `PATH` para que `lazy.nvim`, `mason.nvim` y
+  `nvim-treesitter` puedan descargar y compilar lo que necesitan.
 - Una _Nerd Font_ configurada en la terminal para que se vean bien los iconos.
+
+### Recomendadas
+
+Estas dependencias no son estrictamente obligatorias, pero las usan plugins, servidores LSP y herramientas instaladas
+por Mason. Sin ellas, parte de la experiencia (búsquedas, parsers, formatters, linters, depuradores) no funcionará
+correctamente.
+
+- **[Rust](https://www.rust-lang.org/)** — necesario para compilar e instalar
+- **[`tree-sitter-cli`](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md)** — herramienta de
+  línea de comandos de Tree-sitter usada por `nvim-treesitter` para compilar parsers.
+- **[Go](https://go.dev/)** — requerido por varios servidores LSP, formatters y linters (incluido el toolchain de Go).
+- **[Python](https://www.python.org/)** — necesario para servidores LSP y herramientas externas escritas en Python, así
+  como para `nvim-dap` con adaptadores Python.
+- **[Node.js](https://nodejs.org/)** — usado por servidores LSP y herramientas TypeScript/JavaScript/HTML/CSS instaladas
+  vía Mason, además de `copilot.lua`.
+- **[ripgrep](https://github.com/BurntSushi/ripgrep)** — recomendado para que `telescope.nvim` realice búsquedas rápidas
+  por contenido (`live_grep`).
 
 ## Inicio rápido
 
@@ -51,9 +75,6 @@ punto de partida.
    :MasonInstallAll
    :TSInstallAll
    ```
-
-El procedimiento completo, los alias recomendados y las particularidades de cada sistema (Linux, macOS y Windows) están
-en la **[guía rápida](docs/basic-guide.md)**.
 
 ## Limpieza de instalaciones previas
 
