@@ -55,6 +55,29 @@ punto de partida.
 El procedimiento completo, los alias recomendados y las particularidades de cada sistema (Linux, macOS y Windows) están
 en la **[guía rápida](docs/basic-guide.md)**.
 
+## Limpieza de instalaciones previas
+
+Si vienes de una configuración diferente bajo el mismo `NVIM_APPNAME` (o si quieres empezar desde cero), conviene
+eliminar los datos y el estado que pudieran haber quedado de la instalación anterior antes de abrir Neovim por primera
+vez con esta configuración. Sustituye `nvim12` por el `NVIM_APPNAME` que estés usando.
+
+Eliminar datos y estado de una instalación previa (plugins, caché, sesiones, undo, etc.):
+
+```bash
+rm -rf ~/.local/share/nvim12 ~/.local/state/nvim12
+```
+
+Eliminar la configuración en sí (el directorio donde clonaste el repositorio):
+
+```bash
+rm -rf ~/.config/nvim12
+```
+
+> [!WARNING]
+>
+> Estos comandos borran directorios completos. Asegúrate de que el `NVIM_APPNAME` es el correcto y de que no tienes
+> trabajo sin guardar (sesiones, historial de undo, etc.) antes de ejecutarlos.
+
 ## Características
 
 - **Tema propio:** [Moonfly](https://github.com/bluz71/vim-moonfly-colors) con personalizaciones e integraciones para
