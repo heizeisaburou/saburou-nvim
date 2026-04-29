@@ -1,0 +1,68 @@
+# saburou-nvim
+
+Configuración personal de Neovim, escrita íntegramente en Lua.
+
+> [!WARNING]
+>
+> El proyecto está en fase temprana. La estructura, los keymaps y los plugins incluidos pueden cambiar sin previo aviso.
+
+## Características
+
+- **Tema propio:** [Moonfly](https://github.com/bluz71/vim-moonfly-colors) con personalizaciones e integraciones para
+  `lualine`, `bufferline`, `nvim-tree`, `statuscol` y `render-markdown`.
+- **LSP listo de fábrica** vía `nvim-lspconfig` y `mason.nvim`, con servidores preconfigurados para Lua, Python, C/C++,
+  Rust, Go, TypeScript/JavaScript, HTML, CSS, Bash, CMake, Markdown, Elixir y Ansible.
+- **Autocompletado** con `nvim-cmp`, `LuaSnip` y `friendly-snippets`.
+- **Treesitter**, formateo con `conform.nvim` y depuración con `nvim-dap` / `nvim-dap-ui`.
+- **Git integrado:** `gitsigns.nvim`, `git-conflict.nvim` y `git-blame.nvim`.
+- **IA integrada:** `claude-code.nvim`, `copilot.lua` y `codex.nvim`.
+- **Búsqueda y navegación:** `telescope.nvim`, `nvim-tree.lua`, `workspaces.nvim` y `mru-nav.nvim`.
+- **Terminales integradas** en horizontal, vertical y flotante.
+- **Sesiones persistentes** entre reinicios (estado de buffers, `nvim-tree`, `bufferline`, etc.).
+- **Markdown** con renderizado en vivo mediante `render-markdown.nvim`.
+
+## Instalación rápida
+
+La configuración está pensada para usarse de forma aislada con un binario fijo de Neovim y `NVIM_APPNAME`. El
+procedimiento completo, los alias recomendados y las particularidades de cada sistema (Linux, macOS y Windows) están en
+la [guía básica](docs/basic-guide.md).
+
+Una vez clonado el repositorio en el directorio de configuración correcto, al abrir Neovim por primera vez `lazy.nvim`
+instalará los plugins automáticamente. Después conviene ejecutar:
+
+```vim
+:Lazy sync
+:MasonInstallAll
+:TSInstallAll
+```
+
+## Docs
+
+- [Guía básica provisional](docs/basic-guide.md)
+
+La guía cubre la instalación aislada, el uso de `NVIM_APPNAME`, los temas, la integración con IA, el renderizado de
+Markdown y el manejo del clipboard y los registros de Vim.
+
+## Agradecimientos
+
+Gracias a [NvChad](https://github.com/NvChad/NvChad) por haber sido durante mucho tiempo mi editor de cabecera y por
+servir de base e inspiración para varias partes de esta configuración. En concreto, el directorio
+`lua/hzsr/mason/nvchad/` contiene código adaptado de NvChad (consulta la sección de licencias).
+
+## Invítame a un café
+
+Si esta configuración te resulta útil y quieres apoyar el proyecto, puedes invitarme a un café:
+
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC)
+
+Cualquier aportación es completamente voluntaria y se agradece muchísimo.
+
+## License
+
+This repository contains code under multiple licenses.
+
+Most original code in this repository is licensed under the terms of the [Apache License 2.0](LICENSE).
+
+The directory `lua/hzsr/mason/nvchad/` contains code derived from NvChad/ui and is licensed under GPL-3.0-only.
+
+See `lua/hzsr/mason/nvchad/LICENSE` and `lua/hzsr/mason/nvchad/NOTICE.md` for details.

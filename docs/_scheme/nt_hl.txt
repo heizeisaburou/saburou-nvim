@@ -1,0 +1,115 @@
+NvimTreeFolderIcon xxx guifg=#6791c9
+NvimTreeFolderName xxx guifg=#6791c9
+NvimTreeIndentMarker xxx links to MoonflyGrey23
+NvimTreeOpenedFolderName xxx guifg=#6791c9
+NvimTreeRootFolder xxx links to MoonflyPurple
+NvimTreeSpecialFile xxx links to MoonflyYellow
+NvimTreeWindowPicker xxx links to DiffChange
+NvimTreeCursorLine xxx guibg=#0c0e0f
+NvimTreeExecFile xxx guifg=#6791c9
+NvimTreeImageFile xxx guifg=#cf87e8
+NvimTreeNormalFloat xxx guifg=#b2b2b2 guibg=#0c0e0f
+NvimTreeOpenedFile xxx guifg=#ecd28b
+NvimTreeSymlink xxx guifg=#79dac8
+NvimTreeDiagnosticWarnFolderHL xxx links to NvimTreeDiagnosticWarnFileHL
+NvimTreeLspDiagnosticsWarningFolderText xxx cleared
+NvimTreeGitDirtyIcon xxx links to Statement
+NvimTreeGitDirty xxx guifg=#df5b61
+NvimTreeDiagnosticErrorFolderHL xxx links to NvimTreeDiagnosticErrorFileHL
+NvimTreeLspDiagnosticsErrorFolderText xxx cleared
+NvimTreeDiagnosticHintFileHL xxx links to DiagnosticUnderlineHint
+NvimTreeLspDiagnosticsHintText xxx cleared
+NvimTreeModifiedIcon xxx links to Type
+NvimTreeModifiedFile xxx cleared
+NvimTreeDiagnosticInfoFileHL xxx links to DiagnosticUnderlineInfo
+NvimTreeLspDiagnosticsInformationText xxx cleared
+NvimTreeBookmarkIcon xxx links to NvimTreeFolderIcon
+NvimTreeBookmark xxx cleared
+NvimTreeDiagnosticWarnFileHL xxx links to DiagnosticUnderlineWarn
+NvimTreeLspDiagnosticsWarningText xxx cleared
+NvimTreeDiagnosticErrorFileHL xxx links to DiagnosticUnderlineError
+NvimTreeLspDiagnosticsErrorText xxx cleared
+NvimTreeDiagnosticHintIcon xxx links to DiagnosticHint
+NvimTreeLspDiagnosticsHint xxx cleared
+NvimTreeDiagnosticInfoIcon xxx links to DiagnosticInfo
+NvimTreeLspDiagnosticsInformation xxx cleared
+NvimTreeDiagnosticWarnIcon xxx links to DiagnosticWarn
+NvimTreeLspDiagnosticsWarning xxx cleared
+NvimTreeDiagnosticErrorIcon xxx links to DiagnosticError
+NvimTreeLspDiagnosticsError xxx cleared
+NvimTreeGitFolderStagedHL xxx links to NvimTreeGitFileStagedHL
+NvimTreeFolderStaged xxx cleared
+NvimTreeGitFolderMergeHL xxx links to NvimTreeGitFileMergeHL
+NvimTreeFolderMerge xxx cleared
+NvimTreeGitFolderIgnoredHL xxx links to NvimTreeGitFileIgnoredHL
+NvimTreeFolderIgnored xxx cleared
+NvimTreeGitFolderDirtyHL xxx links to NvimTreeGitFileDirtyHL
+NvimTreeFolderDirty xxx cleared
+NvimTreeGitFolderDeletedHL xxx links to NvimTreeGitFileDeletedHL
+NvimTreeFolderDeleted xxx cleared
+NvimTreeGitFileStagedHL xxx links to NvimTreeGitStagedIcon
+NvimTreeFileStaged xxx cleared
+NvimTreeGitFileMergeHL xxx links to NvimTreeGitMergeIcon
+NvimTreeFileMerge xxx cleared
+NvimTreeGitFileIgnoredHL xxx links to NvimTreeGitIgnoredIcon
+NvimTreeFileIgnored xxx cleared
+NvimTreeGitNewIcon xxx guifg=#ecd28b
+NvimTreeGitNew xxx cleared
+NvimTreeGitRenamedIcon xxx guifg=#ecd28b
+NvimTreeGitRenamed xxx cleared
+NvimTreeGitFileNewHL xxx guifg=#ecd28b
+NvimTreeFileNew xxx cleared
+NvimTreeGitFileRenamedHL xxx guifg=#ecd28b
+NvimTreeFileRenamed xxx cleared
+NvimTreeGitFolderNewHL xxx guifg=#ecd28b
+NvimTreeFolderNew xxx cleared
+NvimTreeGitFolderRenamedHL xxx guifg=#ecd28b
+NvimTreeFolderRenamed xxx cleared
+NvimTreeGitMergeIcon xxx links to Constant
+NvimTreeGitMerge xxx cleared
+NvimTreeOpenedHL xxx links to NvimTreeOpenedFile
+NvimTreeGitDeletedIcon xxx links to Statement
+NvimTreeGitDeleted xxx cleared
+NvimTreeGitFileDirtyHL xxx links to NvimTreeGitDirtyIcon
+NvimTreeFileDirty xxx cleared
+NvimTreeGitStagedIcon xxx links to Constant
+NvimTreeGitStaged xxx cleared
+NvimTreeDiagnosticHintFolderHL xxx links to NvimTreeDiagnosticHintFileHL
+NvimTreeLspDiagnosticsHintFolderText xxx cleared
+NvimTreeGitFileDeletedHL xxx links to NvimTreeGitDeletedIcon
+NvimTreeFileDeleted xxx cleared
+NvimTreeDiagnosticInfoFolderHL xxx links to NvimTreeDiagnosticInfoFileHL
+NvimTreeLspDiagnosticsInformationFolderText xxx cleared
+NvimTreeGitIgnoredIcon xxx links to Comment
+NvimTreeGitIgnored xxx cleared
+NvimTreeNormal xxx guifg=#edeff0 guibg=#060809
+NvimTreeNormalFloatBorder xxx links to FloatBorder
+NvimTreeNormalNC xxx guifg=#edeff0 guibg=#060809
+NvimTreeLineNr xxx links to LineNr
+NvimTreeWinSeparator xxx guifg=#545657
+NvimTreeEndOfBuffer xxx cleared
+NvimTreePopup  xxx links to Normal
+NvimTreeSignColumn xxx links to NvimTreeNormal
+NvimTreeCursorColumn xxx links to CursorColumn
+NvimTreeCursorLineNr xxx links to CursorLineNr
+NvimTreeStatusLine xxx links to StatusLine
+NvimTreeStatusLineNC xxx links to StatusLineNC
+NvimTreeEmptyFolderName xxx guifg=#6791c9
+NvimTreeSymlinkFolderName xxx guifg=#6791c9
+NvimTreeFileIcon xxx links to NvimTreeNormal
+NvimTreeSymlinkIcon xxx links to NvimTreeNormal
+NvimTreeOpenedFolderIcon xxx guifg=#6791c9
+NvimTreeClosedFolderIcon xxx guifg=#6791c9
+NvimTreeFolderArrowClosed xxx links to NvimTreeIndentMarker
+NvimTreeFolderArrowOpen xxx links to NvimTreeIndentMarker
+NvimTreeLiveFilterPrefix xxx links to PreProc
+NvimTreeLiveFilterValue xxx links to ModeMsg
+NvimTreeCutHL  xxx links to SpellBad
+NvimTreeCopiedHL xxx links to SpellRare
+NvimTreeBookmarkHL xxx links to SpellLocal
+NvimTreeModifiedFileHL xxx links to NvimTreeModifiedIcon
+NvimTreeModifiedFolderHL xxx links to NvimTreeModifiedFileHL
+NvimTreeHiddenIcon xxx links to Conceal
+NvimTreeHiddenFileHL xxx links to NvimTreeHiddenIcon
+NvimTreeHiddenFolderHL xxx links to NvimTreeHiddenFileHL
+NvimTreeHiddenDisplay xxx links to Conceal
