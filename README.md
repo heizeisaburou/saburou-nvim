@@ -23,8 +23,27 @@ punto de partida.
 ## Inicio rápido
 
 1. Instala Neovim 0.12+ con un binario fijo (recomendado: `nvim12`).
-2. Clona este repositorio en `~/.config/nvim12` (o el `NVIM_APPNAME` que prefieras).
-3. Abre Neovim por primera vez con `NVIM_APPNAME=nvim12 nvim12`. `lazy.nvim` instalará los plugins automáticamente.
+2. Clona el repositorio en `~/.config/nvim` (la ruta por defecto de Neovim) o en `~/.config/$NVIM_APPNAME` si prefieres
+   mantener la configuración aislada.
+
+   Configuración por defecto:
+
+   ```bash
+   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim
+   ```
+
+   Configuración aislada (recomendado, usando `nvim12` como ejemplo de `NVIM_APPNAME`):
+
+   ```bash
+   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
+   ```
+
+3. Abre Neovim por primera vez:
+   - Con la configuración por defecto: `nvim`.
+   - Con la configuración aislada: `NVIM_APPNAME=nvim12 nvim12`.
+
+   `lazy.nvim` instalará los plugins automáticamente.
+
 4. Ejecuta dentro de Neovim:
 
    ```vim
