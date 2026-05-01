@@ -40,7 +40,7 @@ o.wrap = false
 o.breakindent = true
 
 -- Dejar margen vertical para que el cursor no quede pegado arriba o abajo
-o.scrolloff = 10
+o.scrolloff = 1
 
 -- Mantener estable la vista al abrir o cerrar splits
 o.splitkeep = "screen"
