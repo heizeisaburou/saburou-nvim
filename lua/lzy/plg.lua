@@ -251,12 +251,13 @@ return {
 
       -- --- └─ [ auotpairs ] --------------------------------------------------
       -- cerrar automáticamente llaves como p.ej. ()[]{}
-      {
-        "windwp/nvim-autopairs",
-        config = function()
-          require("lzy.l_autopairs").setup()
-        end,
-      },
+      -- [TIP] Activalo si te gusta.
+      -- {
+      --   "windwp/nvim-autopairs",
+      --   config = function()
+      --     require("lzy.l_autopairs").setup()
+      --   end,
+      -- },
 
       -- --- └─ [ cmp.plugins ] ------------------------------------------------
       {
