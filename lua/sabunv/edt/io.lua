@@ -134,6 +134,15 @@ function M.close_all_windows()
 end
 
 -- -----------------------------------------------------------------------------
+-- Close wrappers: close window only (keep buffer alive)
+
+function M.close_current_window_only()
+  return hzsr.edt.io.close.close_window(nil, {
+    protect_last_normal = true,
+  })
+end
+
+-- -----------------------------------------------------------------------------
 -- Close all and leave wrapper
 
 function M.close_all_windows_and_quit()
@@ -181,8 +190,8 @@ function M.mappings.setup()
   end, { desc = "hzsr close current buffer replacing windows" })
 
   map("n", "<A-c>", function()
-    run_editor_action(M.close_current_window)
-  end, { desc = "hzsr close current buffer closing windows" })
+    run_editor_action(M.close_current_window_only)
+  end, { desc = "hzsr close current window (keep buffer alive)" })
 
   map("n", "<C-A-x>", function()
     run_editor_action(M.close_all_replace)

@@ -11,6 +11,7 @@ local IO = require "hzsr.edt.io.detail"
 ---@field modified_policy? hzsr.edt.io.modified_policy
 ---@field conflict_policy? hzsr.edt.io.conflict_policy
 ---@field explicit_cancel? boolean
+---@field path_policy? hzsr.edt.io.path_policy
 ---@field reveal_mode? hzsr.edt.reveal.mode
 ---@field reveal_strategy? hzsr.edt.reveal.strategy
 ---@field reveal_hl? string
@@ -22,6 +23,7 @@ local IO = require "hzsr.edt.io.detail"
 ---@field modified_policy hzsr.edt.io.modified_policy
 ---@field conflict_policy hzsr.edt.io.conflict_policy
 ---@field explicit_cancel boolean
+---@field path_policy hzsr.edt.io.path_policy
 ---@field window_policy hzsr.edt.io.window_policy
 ---@field exit_last boolean
 
@@ -80,9 +82,11 @@ function M.close(bufnr, opts)
   local path = Detail.get_buffer_path(b)
   local was_normal = hzsr.buf.filter.normal(b)
 
+  -- Si está modificado dependiendo de las políticas guardamos directamente, preguntamos, ... etc.
   local decision = Detail.resolve_modified_decision(b, o, false)
 
   if decision == "save_all" then
+    -- Esta función trabaja con un solo buffer, así save_all == save
     decision = "save"
   elseif decision == "discard_all" then
     decision = "discard"

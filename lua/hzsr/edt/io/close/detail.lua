@@ -20,13 +20,17 @@ function M.parse_close_args(bufnr, opts)
 
   vim.validate("opts.modified_policy", opts.modified_policy, function(v)
     return v == nil or hzsr.enum.one_of(v, hzsr.edt.io.modified_policy)
-  end, [["confirm"|"save"|"discard"|"require"?]])
+  end, "hzsr.edt.io.modified_policy?")
 
   vim.validate("opts.conflict_policy", opts.conflict_policy, function(v)
     return v == nil or hzsr.enum.one_of(v, hzsr.edt.io.conflict_policy)
-  end, [["confirm"|"force"|"require"?]])
+  end, "hzsr.edt.io.conflict_policy?")
 
   vim.validate("opts.explicit_cancel", opts.explicit_cancel, "boolean", true)
+
+  vim.validate("opts.path_policy", opts.path_policy, function(v)
+    return v == nil or hzsr.enum.one_of(v, hzsr.edt.io.path_policy)
+  end, "hzsr.edt.io.path_policy?")
 
   vim.validate("opts.reveal_mode", opts.reveal_mode, function(v)
     return v == nil or hzsr.enum.one_of(v, hzsr.edt.reveal.mode)
@@ -40,7 +44,7 @@ function M.parse_close_args(bufnr, opts)
 
   vim.validate("opts.window_policy", opts.window_policy, function(v)
     return v == nil or hzsr.enum.one_of(v, hzsr.edt.io.window_policy)
-  end, [["replace"|"close"|"default"?]])
+  end, "hzsr.edt.io.window_policy?")
 
   vim.validate("opts.exit_last", opts.exit_last, "boolean", true)
   vim.validate("opts.async", opts.async, "boolean", true)
@@ -50,6 +54,7 @@ function M.parse_close_args(bufnr, opts)
     modified_policy = hzsr.edt.io.modified_policy.CONFIRM,
     conflict_policy = hzsr.edt.io.conflict_policy.CONFIRM,
     explicit_cancel = false,
+    path_policy = hzsr.edt.io.path_policy.AUTO,
     reveal_mode = hzsr.edt.reveal.mode.RESTORE,
     reveal_strategy = hzsr.edt.reveal.strategy.SIMPLE,
     reveal_hl = "DiffDelete",
@@ -64,8 +69,9 @@ end
 
 -- -----------------------------------------------------------------------------
 
----@param bufnr integer
----@return string?
+-- Retorna el path del buffer resuelto. Si no tiene path, retorna `nil`.
+--- @param bufnr integer
+--- @return string?
 function M.get_buffer_path(bufnr)
   local name = vim.api.nvim_buf_get_name(bufnr)
 
@@ -129,10 +135,21 @@ function M.confirm_modified_close(reveal, bufnr, opts, allow_all)
   return "cancel"
 end
 
----@param bufnr integer
----@param opts hzsr.edt.io.close.modified_opts
----@param allow_all boolean?
----@return hzsr.edt.io.close.modified_decision decision
+-- Determina la acción que hay que llevar a cabo con un buffer que va a ser cerrado.
+--
+-- 1. Si el buffer no tiene modificaciones entonces retorna `discard`.
+-- 2. Sino, entonces se basa en modified_policy
+--  - `SAVE`: retorna `save`
+--  - `DISCARD`: retorna `discard`
+--  - `REJECT`: retorna `reject`
+--
+-- 3. Sino es `CONFIRM`, por lo tanto, se mostrará el buffer al usuario dependiendo de
+-- las opciones, y se pedirá confirmación.
+--
+--- @param bufnr integer
+--- @param opts hzsr.edt.io.close.modified_opts
+--- @param allow_all boolean?
+--- @return hzsr.edt.io.close.modified_decision decision
 function M.resolve_modified_decision(bufnr, opts, allow_all)
   if not vim.bo[bufnr].modified then
     return "discard"
@@ -160,83 +177,92 @@ end
 
 -- -----------------------------------------------------------------------------
 
----@param bufnr integer
----@param opts hzsr.edt.io.close.opts.internal
----@return hzsr.edt.io.save.out?
+-- Invoca a save con las mismas opciones que acepta close.
+--- @param bufnr integer
+--- @param opts hzsr.edt.io.close.opts.internal
+--- @return hzsr.edt.io.save.out?
 function M.save_before_close(bufnr, opts)
   local Save = require "hzsr.edt.io.save"
 
   return Save.save(bufnr, {
-    path_policy = hzsr.edt.io.path_policy.AUTO,
+    path_policy = opts.path_policy,
     conflict_policy = opts.conflict_policy,
     explicit_cancel = opts.explicit_cancel,
     reveal_mode = opts.reveal_mode,
     reveal_strategy = opts.reveal_strategy,
-    reveal_hl = "DiffAdd",
+    reveal_hl = opts.reveal_hl,
     async = opts.async,
   })
 end
 
----@param bufnr integer
----@param save_out hzsr.edt.io.save.out?
----@return hzsr.edt.io.close.out?
+-- Retorna nil si el guardado fue exitoso, sino, invoca a make_out para generar una
+-- salida de error.
+--- @param bufnr integer
+--- @param save_out hzsr.edt.io.save.out?
+--- @return hzsr.edt.io.close.out?
 function M.make_close_out_from_save_failure(bufnr, save_out)
-  if not save_out then
-    return IO.make_out(
-      hzsr.edt.io.status.ERROR,
-      bufnr,
-      M.get_buffer_path(bufnr),
-      "no se pudo guardar antes de cerrar"
-    )
-  end
+  -- nil check
+  assert(save_out, "save_out no debería ser nil")
 
   if save_out.status == hzsr.edt.io.status.SUCCESS then
     return nil
   end
 
-  return IO.make_out(
-    save_out.status,
-    bufnr,
-    save_out.path,
-    "cierre interrumpido por guardado no exitoso",
-    {
-      save_status = save_out.status,
-      write_status = save_out.write_status,
-      existing_buf = save_out.existing_buf,
-    }
-  )
+  return IO.make_out(save_out.status, bufnr, save_out.path, "cierre interrumpido por guardado no exitoso", {
+    save_status = save_out.status,
+    write_status = save_out.write_status,
+    existing_buf = save_out.existing_buf,
+  })
 end
 
 -- -----------------------------------------------------------------------------
 
----@param bufnr integer
----@return boolean ok
----@return string? err
+-- Cierra una ventana respetando que Neovim no permite cerrar la última.
+-- Si la ventana es inválida o ya es la única, retorna `ok = true` sin hacer nada.
+--- @param winid integer
+--- @return boolean ok
+--- @return string? err
+function M.close_window(winid)
+  if not vim.api.nvim_win_is_valid(winid) then
+    return true, nil
+  end
+
+  if #vim.api.nvim_list_wins() <= 1 then
+    return true, nil
+  end
+
+  local ok, err = pcall(vim.api.nvim_win_close, winid, true)
+
+  if not ok then
+    return false, tostring(err)
+  end
+
+  return true, nil
+end
+
+-- Cierra todas las ventanas que contienen el buffer indicado; si alguna es la última
+-- ventana restante, la deja viva porque Neovim no permite cerrarla y permite que el
+-- cierre continúe con `bwipeout`.
+--- @param bufnr integer Buffer cuyas ventanas contenedoras se van a cerrar.
+--- @return boolean ok `true` si las ventanas se cerraron correctamente o si no había nada que cerrar.
+--- @return string? err Mensaje de error si alguna ventana no pudo cerrarse.
 function M.close_containing_windows(bufnr)
-  local wins = vim.fn.win_findbuf(bufnr)
+  for _, winid in ipairs(vim.fn.win_findbuf(bufnr)) do
+    local ok, err = M.close_window(winid)
 
-  for _, winid in ipairs(wins) do
-    if vim.api.nvim_win_is_valid(winid) then
-      -- Neovim no permite cerrar la última ventana.
-      -- En ese caso dejamos la ventana viva y seguimos con el bwipeout.
-      if #vim.api.nvim_list_wins() <= 1 then
-        return true, nil
-      end
-
-      local ok, err = pcall(vim.api.nvim_win_close, winid, true)
-
-      if not ok then
-        return false, tostring(err)
-      end
+    if not ok then
+      return false, err
     end
   end
 
   return true, nil
 end
 
----@param bufnr integer
----@return boolean ok
----@return string? err
+-- Reemplaza el buffer indicado en todas las ventanas que lo contienen por un buffer
+-- de reemplazo válido; si no hay reemplazo válido, no hace nada.
+--- @param bufnr integer
+--- @return boolean ok
+--- @return string? err
 function M.replace_containing_windows(bufnr)
   local replacement = hzsr.buf.get_replacement(bufnr)
 
@@ -249,11 +275,15 @@ function M.replace_containing_windows(bufnr)
   return true, nil
 end
 
----@param bufnr integer
----@param was_normal boolean
----@param opts hzsr.edt.io.close.opts.internal
----@return boolean ok
----@return string? err
+-- Aplica la política de ventanas antes de cerrar un buffer normal, dejando las
+-- ventanas intactas, cerrándolas o reemplazando el buffer mostrado según
+-- `opts.window_policy`.
+--
+--- @param bufnr integer
+--- @param was_normal boolean
+--- @param opts hzsr.edt.io.close.opts.internal
+--- @return boolean ok
+--- @return string? err
 function M.handle_normal_windows(bufnr, was_normal, opts)
   if not was_normal then
     return true, nil
@@ -270,12 +300,17 @@ function M.handle_normal_windows(bufnr, was_normal, opts)
   return M.replace_containing_windows(bufnr)
 end
 
----@param bufnr integer
----@param force boolean
----@param was_normal boolean
----@param opts hzsr.edt.io.close.opts.internal
----@return boolean ok
----@return string? err
+-- -----------------------------------------------------------------------------
+
+-- Elimina definitivamente un buffer con `bwipeout`, gestionando antes sus ventanas
+-- contenedoras según la política configurada y usando `bwipeout!` cuando `force`
+-- es verdadero.
+--- @param bufnr integer
+--- @param force boolean
+--- @param was_normal boolean
+--- @param opts hzsr.edt.io.close.opts.internal
+--- @return boolean ok
+--- @return string? err
 function M.delete_buffer(bufnr, force, was_normal, opts)
   local ok, err = pcall(function()
     local ok_windows, windows_err = M.handle_normal_windows(bufnr, was_normal, opts)
@@ -306,36 +341,24 @@ function M.would_leave_no_meaningful_normal(current)
       local name = vim.api.nvim_buf_get_name(bufnr)
 
       if name ~= "" then
-        vim.notify(
-          ('Cannot quit: normal buffer "%s" is still open'):format(name),
-          vim.log.levels.ERROR
-        )
+        vim.notify(('Cannot quit: normal buffer "%s" is still open'):format(name), vim.log.levels.ERROR)
         return false
       end
 
       if vim.bo[bufnr].modified then
-        vim.notify(
-          ("Cannot quit: buffer %d has unsaved changes"):format(bufnr),
-          vim.log.levels.ERROR
-        )
+        vim.notify(("Cannot quit: buffer %d has unsaved changes"):format(bufnr), vim.log.levels.ERROR)
         return false
       end
 
       local line_count = vim.api.nvim_buf_line_count(bufnr)
       if line_count > 1 then
-        vim.notify(
-          ("Cannot quit: unnamed buffer %d still has content"):format(bufnr),
-          vim.log.levels.ERROR
-        )
+        vim.notify(("Cannot quit: unnamed buffer %d still has content"):format(bufnr), vim.log.levels.ERROR)
         return false
       end
 
       local lines = vim.api.nvim_buf_get_lines(bufnr, 0, 1, false)
       if (lines[1] or "") ~= "" then
-        vim.notify(
-          ("Cannot quit: unnamed buffer %d still has content"):format(bufnr),
-          vim.log.levels.ERROR
-        )
+        vim.notify(("Cannot quit: unnamed buffer %d still has content"):format(bufnr), vim.log.levels.ERROR)
         return false
       end
     end
