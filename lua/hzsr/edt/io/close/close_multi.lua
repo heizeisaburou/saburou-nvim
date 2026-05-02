@@ -96,8 +96,9 @@ end
 
 ---@param opts hzsr.edt.io.close_multi.opts.internal
 ---@param modified_policy? hzsr.edt.io.modified_policy
+---@param after_buf? hzsr.edt.io.close.after_buf
 ---@return hzsr.edt.io.close.opts
-local function make_close_opts_for_multi(opts, modified_policy)
+local function make_close_opts_for_multi(opts, modified_policy, after_buf)
   return {
     modified_policy = modified_policy or opts.modified_policy,
     conflict_policy = opts.conflict_policy,
@@ -106,6 +107,7 @@ local function make_close_opts_for_multi(opts, modified_policy)
     reveal_strategy = opts.reveal_strategy,
     reveal_hl = opts.reveal_hl,
     window_policy = opts.window_policy,
+    after_buf = after_buf,
     async = opts.async,
     -- `close_multi` es dueño de `exit_last`.
     -- Los cierres individuales no deben ejecutarlo.
@@ -198,7 +200,10 @@ function M.close_multi(bufnrs, opts)
       end
     end
 
-    local out = Close.close(bufnr, make_close_opts_for_multi(o, modified_policy))
+    ---@type hzsr.edt.io.close.after_buf
+    local after_buf = index < #buffers and buffers[index + 1] or "next"
+
+    local out = Close.close(bufnr, make_close_opts_for_multi(o, modified_policy, after_buf))
 
     if not out then
       report.ok = false

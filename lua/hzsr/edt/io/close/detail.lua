@@ -46,6 +46,10 @@ function M.parse_close_args(bufnr, opts)
     return v == nil or hzsr.enum.one_of(v, hzsr.edt.io.window_policy)
   end, "hzsr.edt.io.window_policy?")
 
+  vim.validate("opts.after_buf", opts.after_buf, function(v)
+    return v == nil or v == "next" or v == "nothing" or type(v) == "number"
+  end, [["next"|"nothing"|integer?]])
+
   vim.validate("opts.exit_last", opts.exit_last, "boolean", true)
   vim.validate("opts.async", opts.async, "boolean", true)
 
@@ -59,6 +63,7 @@ function M.parse_close_args(bufnr, opts)
     reveal_strategy = hzsr.edt.reveal.strategy.SIMPLE,
     reveal_hl = "DiffDelete",
     window_policy = hzsr.edt.io.window_policy.REPLACE,
+    after_buf = "next",
     exit_last = false,
   }, opts)
 
@@ -258,13 +263,62 @@ function M.close_containing_windows(bufnr)
   return true, nil
 end
 
--- Reemplaza el buffer indicado en todas las ventanas que lo contienen por un buffer
--- de reemplazo válido; si no hay reemplazo válido, no hace nada.
+---Devuelve el buffer contiguo a `bufnr` en el orden de btabs.
+---Si `bufnr` es el último, devuelve el anterior. Devuelve `nil` si no está en btabs.
+---@param bufnr integer
+---@return integer?
+function M.get_btab_next(bufnr)
+  local tabs = hzsr.buf.source.btabs.adapter()
+  local found_idx = nil
+
+  for i, b in ipairs(tabs) do
+    if b == bufnr then
+      found_idx = i
+      break
+    end
+  end
+
+  if not found_idx then
+    return nil
+  end
+
+  if found_idx < #tabs then
+    return tabs[found_idx + 1]
+  elseif found_idx > 1 then
+    return tabs[found_idx - 1]
+  end
+
+  return nil
+end
+
+-- Reemplaza el buffer indicado en todas las ventanas que lo contienen.
+-- `after_buf` controla el destino: un buffer concreto, "next" (siguiente en btabs),
+-- "nothing" (no hacer nada) o nil (selección automática via get_replacement).
 --- @param bufnr integer
+--- @param after_buf hzsr.edt.io.close.after_buf?
 --- @return boolean ok
 --- @return string? err
-function M.replace_containing_windows(bufnr)
-  local replacement = hzsr.buf.get_replacement(bufnr)
+function M.replace_containing_windows(bufnr, after_buf)
+  if after_buf == "nothing" then
+    return true, nil
+  end
+
+  local replacement
+
+  if after_buf == "next" then
+    local candidate = M.get_btab_next(bufnr)
+    if candidate and hzsr.buf.is_valid(candidate) then
+      replacement = candidate
+    end
+  elseif type(after_buf) == "number" then
+    if hzsr.buf.is_valid(after_buf) and after_buf ~= bufnr then
+      replacement = after_buf
+    end
+  end
+
+  if not replacement then
+    replacement = hzsr.buf.get_replacement(bufnr)
+  end
 
   if not replacement or not hzsr.buf.is_valid(replacement) then
     return true, nil
@@ -297,7 +351,7 @@ function M.handle_normal_windows(bufnr, was_normal, opts)
     return M.close_containing_windows(bufnr)
   end
 
-  return M.replace_containing_windows(bufnr)
+  return M.replace_containing_windows(bufnr, opts.after_buf)
 end
 
 -- -----------------------------------------------------------------------------

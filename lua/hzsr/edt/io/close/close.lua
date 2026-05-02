@@ -7,6 +7,8 @@ local IO = require "hzsr.edt.io.detail"
 
 -- -----------------------------------------------------------------------------
 
+---@alias hzsr.edt.io.close.after_buf integer | "next" | "nothing"
+
 ---@class hzsr.edt.io.close.opts
 ---@field modified_policy? hzsr.edt.io.modified_policy
 ---@field conflict_policy? hzsr.edt.io.conflict_policy
@@ -16,6 +18,7 @@ local IO = require "hzsr.edt.io.detail"
 ---@field reveal_strategy? hzsr.edt.reveal.strategy
 ---@field reveal_hl? string
 ---@field window_policy? hzsr.edt.io.window_policy
+---@field after_buf? hzsr.edt.io.close.after_buf
 ---@field exit_last? boolean
 ---@field async? boolean
 
@@ -25,6 +28,7 @@ local IO = require "hzsr.edt.io.detail"
 ---@field explicit_cancel boolean
 ---@field path_policy hzsr.edt.io.path_policy
 ---@field window_policy hzsr.edt.io.window_policy
+---@field after_buf? hzsr.edt.io.close.after_buf
 ---@field exit_last boolean
 
 ---@alias hzsr.edt.io.close.modified_opts
