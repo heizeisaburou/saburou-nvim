@@ -20,6 +20,7 @@ M.base_json = {
   },
   workspace = {
     library = {
+      "${workspaceFolder}/lua",
       vim.env.VIMRUNTIME,
       "${3rd}/luv/library",
       "${3rd}/busted/library",

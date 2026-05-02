@@ -12,6 +12,3 @@ hzsr.lzy.setup()
 
 -- Instala comando :Luarc [NVIM_APPNAME]
 sabunv.nvim.luarc.setup()
-
--- Persistencia del tema
--- sabunv.moonfly.state()

@@ -11,7 +11,7 @@ function M.adapter()
   local combined = {}
 
   -- orden basado en tabs > mru > nvim
-  vim.list_extend(combined, hzsr.buf.source.tabs.adapter())
+  vim.list_extend(combined, hzsr.buf.source.btabs.adapter())
   vim.list_extend(combined, hzsr.buf.source.mru.adapter())
   vim.list_extend(combined, hzsr.buf.source.nvim.adapter())
 

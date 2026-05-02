@@ -1,4 +1,4 @@
--- hzsr.buf.source.tabs
+-- hzsr.buf.source.btabs
 
 local M = {}
 
