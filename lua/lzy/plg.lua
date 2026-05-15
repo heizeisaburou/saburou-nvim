@@ -353,7 +353,7 @@ return {
   {
     "lsproule/reg-edit",
     lazy = false,
-    commit = "158ff192a5182e2d9d257f79fd7cc924bb8a7e7f",
+    commit = "ee2763a804ad69c2c1afe70b153c6058cd02bb51",
     config = function ()
       require("lzy.l_reg-edit").setup()
     end

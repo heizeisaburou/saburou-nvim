@@ -74,7 +74,6 @@ sabunv.edt.mappings.setup()
 map("n", "ñ", ':call append(line("."), "")<CR>==')
 map("n", "Ñ", ':call append(line(".") - 1, "")<CR>==')
 
-map("n", "<leader>re", "<cmd>RegEdit<CR>", {desc = "Reg-edit: modificar registros"})
 
 -- -----------------------------------------------------------------------------
 -- Undo / redo
