@@ -346,4 +346,16 @@ return {
       sabunv.moonfly.setup.moonfly()
     end,
   },
+  -- ---------------------------------------------------------------------------
+  -- Editor
+  -- ---------------------------------------------------------------------------
+  -- TODO: Mover cosas de otras secciones a esta en un futuro
+  {
+    "lsproule/reg-edit",
+    lazy = false,
+    commit = "158ff192a5182e2d9d257f79fd7cc924bb8a7e7f",
+    config = function ()
+      require("lzy.l_reg-edit").setup()
+    end
+  }
 }
