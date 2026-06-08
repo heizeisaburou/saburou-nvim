@@ -148,7 +148,7 @@ map({ "n", "t" }, "<A-i>", sabunv.terminal.toggle_float, {
 -- Session / restart
 -- =============================================================================
 
-sabunv.restart.setup()
+-- sabunv.restart.setup()
 
 vim.api.nvim_create_user_command("Re", function()
   sabunv.restart.restart()
