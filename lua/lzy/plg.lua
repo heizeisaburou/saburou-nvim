@@ -152,6 +152,7 @@ return {
       require("lzy.l_git-conflict").setup()
     end,
   },
+  -- --- [ git-blame ] ---------------------------------------------------------
   {
     "f-person/git-blame.nvim",
     -- load the plugin at startup
@@ -164,14 +165,23 @@ return {
       require("lzy.l_git-blame").setup()
     end,
   },
+  -- --- [ nvim-web-devicons ] -------------------------------------------------
+  {
+    "nvim-tree/nvim-web-devicons",
+    lazy = false,
+    config = function()
+      require("lzy.l_nvim-web-devicons").setup()
+    end,
+  },
+  -- --- [ render-markdown ] ---------------------------------------------------
   {
     "MeanderingProgrammer/render-markdown.nvim",
-    -- event = { "BufReadPre", "BufNewFile" },
     lazy = false,
     dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" }, -- if you prefer nvim-web-devicons
     config = function()
       require("lzy.l_render-markdown").setup()
     end,
+    ft = { "markdown", "Avante", "copilot-chat", "opencode_output" },
   },
   -- ---------------------------------------------------------------------------
   -- AI
@@ -217,11 +227,6 @@ return {
       "nvim-lua/plenary.nvim",
       {
         "MeanderingProgrammer/render-markdown.nvim",
-        opts = {
-          anti_conceal = { enabled = false },
-          file_types = { "markdown", "opencode_output" },
-        },
-        ft = { "markdown", "Avante", "copilot-chat", "opencode_output" },
       },
       -- Optional, for file mentions and commands completion, pick only one
       -- "saghen/blink.cmp",

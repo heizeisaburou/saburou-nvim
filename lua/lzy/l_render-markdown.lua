@@ -20,7 +20,7 @@ local is_setup = false
 ---@type render.md.UserConfig
 M.opts = {
   enabled = true,
-  file_types = { "markdown", "quarto", "markdown.mdx" },
+  file_types = { "markdown", "quarto", "markdown.mdx", "opencode_output" },
 
   completions = {
     lsp = {
