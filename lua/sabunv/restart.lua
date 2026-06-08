@@ -624,14 +624,14 @@ function M.restart()
   end)()
 end
 
-function M.setup()
-  vim.api.nvim_create_user_command("Re", function()
-    M.restart()
-  end, { desc = "hzsr: Previous" })
-
-  vim.keymap.set("n", "<A-r>", function()
-    M.restart()
-  end, { desc = "hzsr: Restart" })
-end
+-- function M.setup()
+--   vim.api.nvim_create_user_command("Re", function()
+--     M.restart()
+--   end, { desc = "hzsr: Previous" })
+--
+--   vim.keymap.set("n", "<A-r>", function()
+--     M.restart()
+--   end, { desc = "hzsr: Restart" })
+-- end
 
 return M

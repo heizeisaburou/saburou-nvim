@@ -74,7 +74,6 @@ sabunv.edt.mappings.setup()
 map("n", "ñ", ':call append(line("."), "")<CR>==')
 map("n", "Ñ", ':call append(line(".") - 1, "")<CR>==')
 
-
 -- -----------------------------------------------------------------------------
 -- Undo / redo
 -- -----------------------------------------------------------------------------
@@ -150,6 +149,14 @@ map({ "n", "t" }, "<A-i>", sabunv.terminal.toggle_float, {
 -- =============================================================================
 
 sabunv.restart.setup()
+
+vim.api.nvim_create_user_command("Re", function()
+  sabunv.restart.restart()
+end, { desc = "hzsr: Previous" })
+
+map("n", "<A-r>", function()
+  sabunv.restart.restart()
+end, { desc = "hzsr: Restart" })
 
 -- =============================================================================
 -- UI / mouse

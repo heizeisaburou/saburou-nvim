@@ -44,7 +44,7 @@ local opts = {
 
   layout = {
     -- Ancho máximo de 40 columnas o 20% de la ventana
-    max_width = { 50, 0.2 },
+    max_width = { 70, 0.2 },
     -- Dirección por defecto para abrir la ventana
     default_direction = "prefer_right",
     -- Redimensionar para ajustar el contenido
