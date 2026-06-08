@@ -551,6 +551,15 @@ function M.restore_state()
   save_normalized_state(state)
 end
 
+function M.close_opencode()
+  local ok, opencode = pcall(require, "lzy.l_opencode")
+  if not ok or type(opencode.kill_opencode) ~= "function" then
+    return
+  end
+
+  pcall(opencode.kill_opencode)
+end
+
 function M.close_nvim_tree()
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if vim.api.nvim_win_is_valid(win) then
@@ -608,6 +617,7 @@ function M.restart()
     local force = save_result and save_result.force == true
 
     -- Cerrar paneles antes de mksession para no persistir sus huecos.
+    M.close_opencode()
     M.close_nvim_tree()
     M.close_aerial()
 

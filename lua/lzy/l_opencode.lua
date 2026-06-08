@@ -2,7 +2,7 @@
 
 local M = {}
 
-local function kill_opencode()
+function M.kill_opencode()
   vim.cmd "stopinsert"
   require("opencode.api").close()
 
@@ -110,7 +110,7 @@ M.opts = {
     editor = {
       ["<C-/>"] = { "toggle" }, -- Open opencode. Close if opened (puede que necesites <C-_> según tu terminal)
 
-      ["<leader>oK"] = { kill_opencode, desc = "Kill opencode server" }, -- Kill opencode server
+      ["<leader>oK"] = { M.kill_opencode, desc = "Kill opencode server" }, -- Kill opencode server
       ["<leader>og"] = { "toggle" }, -- Open opencode. Close if opened
       ["<leader>oi"] = { "open_input" }, -- Opens and focuses on input window on insert mode
       ["<leader>oI"] = { "open_input_new_session" }, -- Opens and focuses on input window on insert mode. Creates a new session
@@ -158,14 +158,18 @@ M.opts = {
       },
       -- ["<C-c>"] = { "cancel", defer_to_completion = true }, -- Cancel opencode request while it is running
       ["<C-c>"] = {
-        function()
-          vim.cmd "stopinsert"
-          vim.schedule(kill_opencode)
-        end,
+        M.kill_opencode,
         mode = { "i" },
         desc = "Kill opencode server",
       },
       -- ["<M-r>"] = { "cycle_variant", mode = { "n", "i" } }, -- Cycle through available model variants
+      ["<A-r>"] = {
+        function()
+          sabunv.restart.restart()
+        end,
+        mode = { "n" },
+        desc = "hzsr: Restart",
+      },
       ["<M-.>"] = {
         variant_up,
         mode = { "n", "i" },
@@ -368,24 +372,6 @@ M.opts = {
 
 function M.setup()
   require("opencode").setup(M.opts)
-  local map = vim.keymap.set
-
-  -- map({ "n", "t" }, "<leader>oK", kill_opencode, {
-  --   desc = "Kill opencode server",
-  -- })
-  --
-  -- vim.api.nvim_create_autocmd("FileType", {
-  --   pattern = {
-  --     "opencode_output",
-  --     "opencode_input",
-  --   },
-  --   callback = function(ev)
-  --     vim.keymap.set({ "n", "t" }, "<leader>oK", kill_opencode, {
-  --       buffer = ev.buf,
-  --       desc = "Kill opencode server",
-  --     })
-  --   end,
-  -- })
 end
 
 return M
