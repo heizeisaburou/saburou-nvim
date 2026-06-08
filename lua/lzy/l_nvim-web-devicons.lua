@@ -52,7 +52,7 @@ M.opts = {
     },
     ["rs"] = {
       icon = "",
-      color = "#dea584",
+      color = "#F74C00",
       cterm_color = "216",
       name = "Rust",
     },
