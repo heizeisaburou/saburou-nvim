@@ -206,6 +206,34 @@ return {
       require("lzy.l_claude").setup()
     end,
   },
+  --- [ opencode ] -------------------------------------------------------------
+  {
+    "sudo-tee/opencode.nvim",
+    lazy = false,
+    config = function()
+      require("lzy.l_opencode").setup()
+    end,
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      {
+        "MeanderingProgrammer/render-markdown.nvim",
+        opts = {
+          anti_conceal = { enabled = false },
+          file_types = { "markdown", "opencode_output" },
+        },
+        ft = { "markdown", "Avante", "copilot-chat", "opencode_output" },
+      },
+      -- Optional, for file mentions and commands completion, pick only one
+      -- "saghen/blink.cmp",
+      "hrsh7th/nvim-cmp",
+
+      -- Optional, for file mentions picker, pick only one
+      "folke/snacks.nvim",
+      -- 'nvim-telescope/telescope.nvim',
+      -- 'ibhagwan/fzf-lua',
+      -- 'nvim_mini/mini.nvim',
+    },
+  },
   -- ---------------------------------------------------------------------------
   -- UI
   -- ---------------------------------------------------------------------------
@@ -354,8 +382,8 @@ return {
     "lsproule/reg-edit",
     lazy = false,
     commit = "ee2763a804ad69c2c1afe70b153c6058cd02bb51",
-    config = function ()
+    config = function()
       require("lzy.l_reg-edit").setup()
-    end
-  }
+    end,
+  },
 }

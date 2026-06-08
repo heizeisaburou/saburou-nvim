@@ -291,6 +291,17 @@ local function find_bufferline_index_by_name(name)
   return nil, nil
 end
 
+local function set_current_buf_safely(bufnr)
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_is_valid(win) and not vim.wo[win].winfixbuf then
+      pcall(vim.api.nvim_set_current_win, win)
+      return pcall(vim.api.nvim_set_current_buf, bufnr)
+    end
+  end
+
+  return false
+end
+
 local function restore_bufferline_order(saved_bufferline)
   if not saved_bufferline.installed then
     return
@@ -309,15 +320,20 @@ local function restore_bufferline_order(saved_bufferline)
     local current_index, bufnr = find_bufferline_index_by_name(name)
 
     if current_index and bufnr then
-      vim.api.nvim_set_current_buf(bufnr)
+      local ok = set_current_buf_safely(bufnr)
 
-      while current_index > target_index do
-        local ok = pcall(vim.cmd, "BufferLineMovePrev")
-        if not ok then
-          break
+      if ok then
+        while current_index > target_index do
+          local moved = pcall(function()
+            vim.cmd.BufferLineMovePrev()
+          end)
+
+          if not moved then
+            break
+          end
+
+          current_index = current_index - 1
         end
-
-        current_index = current_index - 1
       end
     end
   end
@@ -346,8 +362,7 @@ local function is_bufferline_ready()
     return false
   end
 
-  return type(bufferline_internal_state.components) == "table"
-    and #bufferline_internal_state.components > 0
+  return type(bufferline_internal_state.components) == "table" and #bufferline_internal_state.components > 0
 end
 
 local function save_all_fn()

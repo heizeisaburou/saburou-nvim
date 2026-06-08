@@ -61,6 +61,10 @@ local function solid()
         icon = "󰞶",
         fg = col.blue,
       },
+      opencode = {
+        icon = "󰚩",
+        fg = "#7aa2f7",
+      },
       copilot = {
         icon = "",
         fg = col.light_green,
@@ -131,6 +135,10 @@ local function transparent()
         icon = "󰞶",
         fg = col.light_blue,
       },
+      opencode = {
+        icon = "󰚩",
+        fg = "#7aa2f7",
+      },
       copilot = {
         icon = "",
         fg = col.light_green,
@@ -179,6 +187,7 @@ function M.config()
     M.setup(sabunv.moonfly.state())
   end
 
+  ---@diagnostic disable-next-line: return-type-mismatch
   return vim.deepcopy(M._config)
 end
 

@@ -35,6 +35,10 @@ local FALLBACK_CONFIG = {
       icon = "󰞶",
       fg = "#51afef",
     },
+    opencode = {
+      icon = "󰚩",
+      fg = "#7aa2f7",
+    },
     copilot = {
       icon = "",
       fg = "#98c379",
@@ -53,11 +57,7 @@ local function moonfly_config()
     return vim.deepcopy(FALLBACK_CONFIG)
   end
 
-  return vim.tbl_deep_extend(
-    "force",
-    vim.deepcopy(FALLBACK_CONFIG),
-    sabunv.moonfly.lualine.config()
-  )
+  return vim.tbl_deep_extend("force", vim.deepcopy(FALLBACK_CONFIG), sabunv.moonfly.lualine.config())
 end
 
 -- -----------------------------------------------------------------------------
@@ -186,6 +186,20 @@ local function codex_statusline()
   return ""
 end
 
+local function opencode_statusline()
+  local ok, state = pcall(require, "opencode.state")
+
+  if not ok or not state.opencode_server then
+    return ""
+  end
+
+  if state.opencode_server.is_running and state.opencode_server:is_running() then
+    return "OpenCode"
+  end
+
+  return ""
+end
+
 local function copilot_statusline()
   local ok, client = pcall(require, "copilot.client")
 
@@ -241,6 +255,7 @@ local function build_opts()
       lualine_c = {
         component(claude_statusline, theme.claude),
         component(codex_statusline, theme.codex),
+        component(opencode_statusline, theme.opencode),
         component(copilot_statusline, theme.copilot),
         {
           filename,
