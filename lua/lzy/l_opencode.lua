@@ -173,7 +173,7 @@ local editor_keymap = {}
 
 -- Afecta a los 2 keymap: input, outpu
 local input_output_keymap = {
-  ["<C-s>"] = { "select_session", mode = { "n", "i" }, desc = "Select session" }, -- Select and load a opencode session
+  ["<A-s>"] = { "select_session", mode = { "n", "i" }, desc = "Select session" }, -- Select and load a opencode session
   -- ["<M-r>"] = { "cycle_variant", mode = { "n", "i" } }, -- Cycle through available model variants
   ["<M-.>"] = { variant_up, mode = { "n", "i" }, desc = "Increase variant" },
   ["<M-,>"] = { variant_down, mode = { "n", "i" }, desc = "Decrease variant" },
