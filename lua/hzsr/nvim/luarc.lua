@@ -134,6 +134,14 @@ function M.generate(appname)
   res.diagnostics.globals = dedup(res.diagnostics.globals)
   res.workspace.library = dedup(res.workspace.library)
 
+  -- Normaliza paths al estilo Windows para que lua-language-server los resuelva correctamente
+  if hzsr.sys.iswin then
+    local sys_path = require "hzsr.sys.path"
+    for i, lib_path in ipairs(res.workspace.library) do
+      res.workspace.library[i] = sys_path.normalize(lib_path)
+    end
+  end
+
   return res
 end
 

@@ -19,9 +19,7 @@ M.opts = {
 function M.init_setup()
   local mason_bin = vim.fn.stdpath "data" .. "/mason/bin"
 
-  if not vim.env.PATH:find(vim.pesc(mason_bin), 1) then
-    vim.env.PATH = mason_bin .. ":" .. vim.env.PATH
-  end
+  require("hzsr.sys.path").prepend_env_path(mason_bin)
 
   vim.api.nvim_create_user_command("MasonInstallAll", function()
     -- Carga mason.nvim si sigue lazy.
