@@ -4,7 +4,7 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.1` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.3` — requiere Neovim 0.12+.**
 
 > 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
 > particularidades por sistema (Linux, macOS, Windows).
@@ -15,6 +15,13 @@ punto de partida.
 > [!WARNING]
 >
 > El proyecto está en fase temprana. La estructura, los keymaps y los plugins incluidos pueden cambiar sin previo aviso.
+
+> [!IMPORTANT]
+>
+> **`alpha.3` es probablemente una de las últimas versiones antes de una limpieza completa del proyecto.** La fase alpha
+> termina aquí y, salvo parches puntuales, el siguiente paso es una versión refactorizada con un rumbo claro — lo que
+> implica revisar la arquitectura, consolidar los componentes core y eliminar deuda técnica acumulada. El detalle de la
+> dirección que tomará el proyecto puede consultarse en los [TODOs de saburou-nvim](docs/saburou-nvim.md#todos).
 
 ## Requisitos
 
@@ -118,6 +125,9 @@ rm -rf ~/.config/nvim12
 
 - **[Guía rápida](docs/basic-guide.md)** — instalación aislada, uso de `NVIM_APPNAME`, alias por sistema, temas,
   integración con IA, renderizado de Markdown y manejo del clipboard y los registros de Vim.
+- **[Neovim](docs/neovim.md)** — pre-requisitos, instalación por sistema y lanzadores seguros (`safe-nvim`,
+  `strict-nvim`).
+- **[saburou-nvim](docs/saburou-nvim.md)** — notas del proyecto, TODOs de configuración y hoja de ruta.
 
 ## Agradecimientos
 
