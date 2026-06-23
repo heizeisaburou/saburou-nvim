@@ -39,6 +39,7 @@ local formatters_by_ft = {
   eelixir = { "mix" },
   heex = { "mix" },
   surface = { "mix" },
+  qml = { "qmlformat" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -145,6 +146,17 @@ local formatters = {
       "column_width=" .. tostring(line_length),
       "--option",
       "indent_string=" .. string.rep(" ", tab_width),
+    },
+  },
+
+  qmlformat = {
+    -- Usamos el path completo porque `qmlformat` referencia el de Qt5
+    command = "/usr/lib/qt6/bin/qmlformat",
+    append_args = {
+      "--indent-width",
+      tostring(tab_width),
+      "--column-width",
+      tostring(line_length),
     },
   },
 

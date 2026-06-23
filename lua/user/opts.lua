@@ -150,3 +150,9 @@ vim.filetype.add {
     gotmpl = "gotmpl",
   },
 }
+vim.filetype.add({
+  extension = {
+    qml = "qml",
+    qmljs = "qmljs",
+  },
+})

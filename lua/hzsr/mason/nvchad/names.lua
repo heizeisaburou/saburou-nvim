@@ -162,6 +162,7 @@ return {
   pylyzer = "pylyzer",
   pyre = "pyre",
   pyright = "pyright",
+  qmlls = "qmlls",
   quick_lint_js = "quick-lint-js",
   r_language_server = "r-languageserver",
   raku_navigator = "raku-navigator",

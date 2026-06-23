@@ -22,3 +22,4 @@ Within this `nvchad` directory only, attribution to Saburou is not required for 
 - Moved into a local `nvchad` adapter directory.
 - Adapted require paths from `nvchad.mason.*` to the local adapter namespace.
 - Used through a wrapper from the parent Mason module.
+- Added `elixirls`, `expert`, `qmlls`

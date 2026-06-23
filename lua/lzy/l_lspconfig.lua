@@ -48,6 +48,7 @@ M.servers = {
   "vtsls",
   -- "expert",
   "elixirls",
+  "qmlls",
 }
 
 --- Servidores deshabilitados para esta capa.
@@ -191,6 +192,18 @@ M.config = {
     },
   },
 
+  qmlls = {
+    -- cmd = {
+    --   "/usr/lib/qt6/bin/qmlls",
+    --   "--no-cmake-calls",
+    --   "-I",
+    --   "/usr/lib/qt6/qml",
+    --   "-I",
+    --   "/usr/bin",
+    -- },
+    filetypes = { "qml", "qmljs" },
+    root_markers = { ".qmlls.ini", "shell.qml", ".git" },
+  },
   vtsls = {},
 }
 
@@ -546,6 +559,37 @@ local function create_lsp_commands()
   })
 end
 
+-- Hotfix qmlls: Pesé a que se generan los diagnosticos al volver al modo normal no se renderizan en las lineas;
+--   - El contador de warnings, etc se actualiza, y puedes listar todos los
+--     diagnosticos, pero no se muestran en el documento. 
+--   - Con vim.diagnostic.show() los obligamos a salir
+--
+-- Protecciones
+-- - `update_in_insert`: en este modo el hotfix no es necesario
+local function qmlls_diags_hotfix_with_autocmd()
+  vim.api.nvim_create_autocmd("ModeChanged", {
+    group = vim.api.nvim_create_augroup("lzy_qmlls_diagnostic_refresh", { clear = true }),
+    callback = function(args)
+      local ft = vim.bo[args.buf].filetype
+      if ft ~= "qml" and ft ~= "qmljs" then
+        return
+      end
+
+      local has_qmlls = #vim.lsp.get_clients { bufnr = args.buf, name = "qmlls" } > 0
+      if not has_qmlls then
+        return
+      end
+
+      local cfg = vim.diagnostic.config() or {}
+      if cfg.update_in_insert then
+        return
+      end
+
+      vim.diagnostic.show(nil, args.buf)
+    end,
+  })
+end
+
 -- =============================================================================
 -- Setup
 -- =============================================================================
@@ -563,6 +607,7 @@ M.setup = function()
   create_lsp_commands()
   setup_global_mappings()
   enable_all_servers()
+  qmlls_diags_hotfix_with_autocmd()
 end
 
 return M
