@@ -40,6 +40,8 @@ local formatters_by_ft = {
   heex = { "mix" },
   surface = { "mix" },
   qml = { "qmlformat" },
+  tex = { "latexindent" },
+  plaintex = { "latexindent" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -159,7 +161,14 @@ local formatters = {
       tostring(line_length),
     },
   },
-
+  latexindent = {
+    stdin = true,
+    prepend_args = {
+      "-m",
+      "-l",
+      "-",
+    },
+  },
   yamlfmt = {
     append_args = { "-formatter", "retain_line_breaks_single=true" },
   },

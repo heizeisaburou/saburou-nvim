@@ -49,6 +49,7 @@ M.servers = {
   -- "expert",
   "elixirls",
   "qmlls",
+  "texlab",
 }
 
 --- Servidores deshabilitados para esta capa.
@@ -138,31 +139,16 @@ M.config = {
 
   ---@type lspconfig.settings.lua_ls
   lua_ls = {
-    -- Para configurar lua-language-server para la configuración de Neovim, puedes generar un .luarc.json con:
+    -- TIP: Para configurar lua-language-server para la configuración de Neovim, puedes generar un .luarc.json con:
     --   :Luarc [NVIM_APPNAME]
-    --
-    -- Si prefieres mantener la configuración aquí, puedes descomentar el bloque de abajo.
-    --
-    -- settings = {
-    --   Lua = {
-    --     runtime = { version = "LuaJIT" },
-    --     diagnostics = {
-    --       enable = true,
-    --       globals = { "vim", "describe", "it", "before_each", "after_each", "Snacks" },
-    --     },
-    --     workspace = {
-    --       library = {
-    --         vim.fn.expand "$VIMRUNTIME/lua",
-    --         vim.fn.expand "$VIMRUNTIME/lua/vim/lsp",
-    --         "${3rd}/luv/library",
-    --         "${3rd}/busted/library",
-    --         vim.fn.stdpath "config" .. "/lua",
-    --       },
-    --       maxPreload = 10000,
-    --       preloadFileSize = 10000,
-    --     },
-    --   },
-    -- },
+    settings = {
+      Lua = {
+        hover = {
+          previewFields = 0, -- o más; default 50
+          enumsLimit = 0, -- default 5
+        },
+      },
+    },
   },
 
   marksman = {
@@ -561,7 +547,7 @@ end
 
 -- Hotfix qmlls: Pesé a que se generan los diagnosticos al volver al modo normal no se renderizan en las lineas;
 --   - El contador de warnings, etc se actualiza, y puedes listar todos los
---     diagnosticos, pero no se muestran en el documento. 
+--     diagnosticos, pero no se muestran en el documento.
 --   - Con vim.diagnostic.show() los obligamos a salir
 --
 -- Protecciones
