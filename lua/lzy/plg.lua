@@ -145,11 +145,20 @@ return {
     end,
   },
   -- --- [ git-conflict ] ------------------------------------------------------
+  -- {
+  --   "akinsho/git-conflict.nvim",
+  --   event = "BufReadPre",
+  --   config = function()
+  --     require("lzy.l_git-conflict").setup()
+  --   end,
+  -- },
+  -- --- [ diffview ] ----------------------------------------------------------
   {
-    "akinsho/git-conflict.nvim",
+    "sindrets/diffview.nvim",
     event = "BufReadPre",
+    dependencies = { "nvim-lua/plenary.nvim" },
     config = function()
-      require("lzy.l_git-conflict").setup()
+      require("lzy.l_diffview").setup()
     end,
   },
   -- --- [ git-blame ] ---------------------------------------------------------
