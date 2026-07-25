@@ -19,6 +19,8 @@ M.languages = {
   "html",
   "htmldjango",
   "javascript",
+  "typescript",
+  "tsx", -- typescriptreact
   "json",
   "json5",
   "lua",
@@ -54,6 +56,8 @@ M.enabled_highlights = {
   html = true,
   htmldjango = true,
   javascript = true,
+  typescript = true,
+  typescriptreact = true,
   json = true,
   json5 = true,
   lua = true,
