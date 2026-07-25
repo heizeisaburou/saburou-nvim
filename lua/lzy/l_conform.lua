@@ -19,29 +19,31 @@ local formatters_by_ft = {
   c = { "clang_format" },
   cpp = { "clang_format" },
   css = { "prettier" },
+  eelixir = { "mix" },
+  elixir = { "mix" },
   gleam = { "gleam" },
   go = { "gofmt" },
+  heex = { "mix" },
   html = { "prettier" },
   javascript = { "prettier" },
   javascriptreact = { "prettier" },
   json = { "biome" },
   lua = { "stylua" },
   markdown = { "prettier" }, -- mdformat (bug con tablas grandes)
+  php = { "php_cs_fixer" },
+  plaintex = { "latexindent" },
   python = { "ruff_format" },
+  qml = { "qmlformat" },
   rust = { "rustfmt" },
   scss = { "prettier" },
+  surface = { "mix" },
+  svelte = { "prettier_svelte" },
+  tex = { "latexindent" },
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
   vue = { "prettier" },
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
-  elixir = { "mix" },
-  eelixir = { "mix" },
-  heex = { "mix" },
-  surface = { "mix" },
-  qml = { "qmlformat" },
-  tex = { "latexindent" },
-  plaintex = { "latexindent" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -103,12 +105,45 @@ local formatters = {
     end,
   },
 
+  prettier_svelte = {
+    command = vim.fn.stdpath("data") .. "/mason/bin/prettier",
+    args = function()
+      local plugin = vim.fn.glob(
+        vim.fn.stdpath("data") .. "/mason/packages/svelte-language-server/**/prettier-plugin-svelte/plugin.js",
+        true,
+        true
+      )[1]
+
+      if not plugin or plugin == "" then
+        error("prettier-plugin-svelte no está instalado; ejecuta :MasonInstallAll")
+      end
+
+      return {
+        "--plugin",
+        plugin,
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(tab_width),
+        "--parser",
+        "svelte",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
   mdformat = {
     append_args = {
       "--wrap",
       tostring(line_length),
       "--end-of-line",
       "lf",
+    },
+  },
+
+  php_cs_fixer = {
+    append_args = {
+      "--rules",
+      '{"@PSR12":true,"indentation_type":true,"line_ending":true}',
     },
   },
 

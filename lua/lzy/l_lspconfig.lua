@@ -34,22 +34,24 @@ local M = {}
 --- Esta tabla no instala servidores.
 M.servers = {
   -- "ansiblels",
-  "bashls",
+  -- "expert",
   "basedpyright",
+  "bashls",
   "clangd",
   "cssls",
+  "elixirls",
   "gopls",
   "html",
   "lua_ls",
   "marksman",
   "neocmake",
+  "phpactor",
+  "qmlls",
   "ruff",
   "rust_analyzer",
-  "vtsls",
-  -- "expert",
-  "elixirls",
-  "qmlls",
+  "svelte",
   "texlab",
+  "vtsls",
 }
 
 --- Servidores deshabilitados para esta capa.

@@ -313,6 +313,7 @@ return {
   -- phpinsights
   pint = "pint",
   prettier = "prettier",
+  prettier_svelte = "svelte-language-server",
   prettierd = "prettierd",
   ["pretty-php"] = "pretty-php",
   -- puppet-lint

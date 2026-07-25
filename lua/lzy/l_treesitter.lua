@@ -34,6 +34,8 @@ M.languages = {
   "vimdoc",
   "yaml",
   "qmljs",
+  "php",
+  "svelte",
 }
 
 M.enabled_highlights = {
@@ -67,6 +69,8 @@ M.enabled_highlights = {
   vimdoc = true,
   yaml = true,
   qml = true,
+  php = true,
+  svelte = true,
 }
 
 local function install_all()
