@@ -5,7 +5,7 @@ Notas del proyecto — [Neovim](neovim.md)
 ## Brief
 
 Versión Neovim (testeada): 0.12+
-Versión de saburou-nvim: 0.1.0-alpha.3
+Versión de saburou-nvim: 0.1.0-alpha.4
 
 ## TODOs
 

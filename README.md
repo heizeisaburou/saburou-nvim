@@ -4,7 +4,7 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.3` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.4` — requiere Neovim 0.12+.**
 
 > 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
 > particularidades por sistema (Linux, macOS, Windows).
@@ -18,10 +18,11 @@ punto de partida.
 
 > [!IMPORTANT]
 >
-> **`alpha.3` es probablemente una de las últimas versiones antes de una limpieza completa del proyecto.** La fase alpha
-> termina aquí y, salvo parches puntuales, el siguiente paso es una versión refactorizada con un rumbo claro — lo que
-> implica revisar la arquitectura, consolidar los componentes core y eliminar deuda técnica acumulada. El detalle de la
-> dirección que tomará el proyecto puede consultarse en los [TODOs de saburou-nvim](docs/saburou-nvim.md#todos).
+> **`alpha.4` continúa siendo una versión de transición previa a una limpieza completa del proyecto.**
+>
+> Esta actualización incorpora una política de indentación compartida por Neovim y Conform, con configuración por
+> lenguaje y overrides temporales persistentes durante los reinicios. El rumbo de la futura refactorización puede
+> consultarse en los [TODOs de saburou-nvim](docs/saburou-nvim.md#todos).
 
 ## Requisitos
 
@@ -114,12 +115,62 @@ rm -rf ~/.config/nvim12
   Rust, Go, TypeScript/JavaScript, HTML, CSS, Bash, CMake, Markdown, Elixir y Ansible.
 - **Autocompletado** con `nvim-cmp`, `LuaSnip` y `friendly-snippets`.
 - **Treesitter**, formateo con `conform.nvim` y depuración con `nvim-dap` / `nvim-dap-ui`.
-- **Git integrado:** `gitsigns.nvim`, `git-conflict.nvim` y `git-blame.nvim`.
+- **Git integrado:** `gitsigns.nvim`, `diffview.nvim` y `git-blame.nvim`.
 - **IA integrada:** `claude-code.nvim`, `copilot.lua` y `codex.nvim`.
 - **Búsqueda y navegación:** `telescope.nvim`, `nvim-tree.lua`, `workspaces.nvim` y `mru-nav.nvim`.
 - **Terminales integradas** en horizontal, vertical y flotante.
 - **Sesiones persistentes** entre reinicios (estado de buffers, `nvim-tree`, `bufferline`, etc.).
 - **Markdown** con renderizado en vivo mediante `render-markdown.nvim`.
+
+## Indentación por lenguaje
+
+La política de indentación se define en [`lua/user/indent.lua`](lua/user/indent.lua). La configuración base usa dos
+espacios y permite sobrescribir el estilo y el ancho de cualquier `filetype`:
+
+```lua
+return {
+  default = {
+    style = "spaces",
+    width = 2,
+  },
+
+  filetypes = {
+    markdown = {
+      style = "tabs",
+      width = 4,
+    },
+  },
+}
+```
+
+Neovim aplica esta política mediante opciones locales de buffer (`expandtab`, `shiftwidth`, `tabstop` y `softtabstop`).
+Conform consulta la misma fuente al ejecutar los formateadores compatibles, por lo que escribir y formatear mantienen
+el mismo criterio. Los formateadores que imponen un estilo propio por diseño, como `gofmt`, pueden conservar sus reglas.
+
+Markdown utiliza tabs reales de cuatro columnas para mantener el mismo comportamiento que Obsidian y CommonMark.
+Prettier recibe `useTabs` y, como su printer de Markdown todavía genera espacios en parte de la estructura, una segunda
+pasada interna normaliza únicamente la sangría inicial sin modificar el contenido.
+
+La configuración puede sobrescribirse temporalmente sin editar archivos:
+
+```vim
+:IndentSet tabs 4 markdown
+:IndentSet spaces 2 lua
+:IndentReset markdown
+:IndentReset!
+```
+
+También está disponible desde Lua:
+
+```lua
+sabunv.indent.set("markdown", { style = "tabs", width = 4 })
+sabunv.indent.reset("markdown")
+```
+
+Los overrides se aplican inmediatamente a todos los buffers abiertos del `filetype`, afectan a las siguientes
+ejecuciones de Conform y sobreviven tanto a una recarga con `:source` como a los reinicios realizados por la
+configuración. Siguen siendo temporales: tras cerrar Neovim normalmente no sustituyen la configuración declarada en
+`lua/user/indent.lua`.
 
 ## Documentación
 

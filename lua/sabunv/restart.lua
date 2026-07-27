@@ -29,6 +29,9 @@ local DEFAULT_STATE = {
     installed = false,
     buffers = {},
   },
+  indent = {
+    overrides = {},
+  },
 }
 
 M.session = vim.fn.stdpath "state" .. "/restart_session.vim"
@@ -136,6 +139,13 @@ local function normalize_state(state)
           uniq_push(normalized.bufferline.buffers, seen, item.name)
         end
       end
+    end
+  end
+
+  if type(state.indent) == "table" then
+    local ok, indent = pcall(require, "sabunv.indent")
+    if ok and type(indent.normalize_overrides) == "function" then
+      normalized.indent.overrides = indent.normalize_overrides(state.indent.overrides)
     end
   end
 
@@ -430,13 +440,32 @@ function M.path()
 end
 
 function M.collect_state()
+  local indent_overrides = {}
+
+  if sabunv and sabunv.indent and type(sabunv.indent.overrides) == "function" then
+    indent_overrides = sabunv.indent.overrides()
+  end
+
   return {
     restart = {
       pending = true,
     },
     nvim_tree = nvim_tree_state(),
     bufferline = bufferline_state(),
+    indent = {
+      overrides = indent_overrides,
+    },
   }
+end
+
+function M.load_indent_overrides()
+  local state = load_state()
+
+  if not state.restart.pending then
+    return {}
+  end
+
+  return vim.deepcopy(state.indent.overrides)
 end
 
 function M.save_state(state)

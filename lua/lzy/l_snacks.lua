@@ -68,7 +68,7 @@ M.dashboard = {
 ╚══════╝╚═════╝ ╚═╝  ╚═══╝  ╚═══╝  
                                    
  heizeisaburou/saburou-nvim
-v0.1.0-alpha.1 for Neovim 0.12+]],
+]] .. sabunv.VERSION .. " for Neovim " .. sabunv.NVIM_VERSION,
   },
   -- item field formatters
   formats = {

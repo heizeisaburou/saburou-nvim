@@ -62,20 +62,12 @@ o.termguicolors = true
 -- Activa el ratón en todos los modos
 o.mouse = "a"
 
--- Lo correcto sería que sea 2 en algunos lenguajes y 4 en otros, aquí se ve implicado l_conform
--- así que bueno, lo voy a dejar en 2 en ambos lugares de momento
-local tab_width = 2
-
 -- Autoindentación inteligente
 o.smartindent = true
--- Indentación con espacios en vez de tabs reales
-o.expandtab = true
--- Tamaño de indentación
-o.shiftwidth = tab_width
--- Ancho visual de un tab
-o.tabstop = tab_width
--- Número de espacios al tabular o borrar una tabulación
-o.softtabstop = tab_width
+
+-- Fuente única para expandtab/shiftwidth/tabstop/softtabstop. Conform consume
+-- esta misma política para que escribir y formatear produzcan el mismo estilo.
+require("sabunv.indent").setup(require "user.indent")
 
 -- Búsqueda sin distinguir mayúsculas/minúsculas,
 -- salvo que se use \C o haya mayúsculas en el patrón
