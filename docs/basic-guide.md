@@ -2,9 +2,10 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.4` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.7` — requiere Neovim 0.12+.**
 
-Esta guía recoge las decisiones básicas de uso de esta configuración. Está incompleta y puede cambiar con el tiempo.
+Esta guía recoge las decisiones básicas de uso de la última alpha. La configuración está cerrada funcionalmente, aunque
+la documentación puede seguir recibiendo correcciones y aclaraciones.
 
 El objetivo es que sirva tanto a usuarios nuevos como a usuarios con experiencia en Neovim. Si algo no queda claro,
 falta información o crees que se puede explicar mejor, cualquier sugerencia es bienvenida.

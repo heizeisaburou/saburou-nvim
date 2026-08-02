@@ -4,7 +4,7 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.6` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.7` — requiere Neovim 0.12+.**
 
 > 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
 > particularidades por sistema (Linux, macOS, Windows).
@@ -12,17 +12,48 @@
 Configuración de Neovim lista para usar, escrita íntegramente en Lua y pensada para que cualquiera pueda adoptarla como
 punto de partida.
 
-> [!WARNING]
->
-> El proyecto está en fase temprana. La estructura, los keymaps y los plugins incluidos pueden cambiar sin previo aviso.
-
 > [!IMPORTANT]
 >
-> **`alpha.6` continúa siendo una versión de transición previa a una limpieza completa del proyecto.**
+> **`alpha.7` cierra el desarrollo funcional de esta primera alpha.**
 >
-> Esta actualización incorpora una política de indentación compartida por Neovim y Conform, con configuración por
-> lenguaje y overrides temporales persistentes durante los reinicios. El rumbo de la futura refactorización puede
-> consultarse en los [TODOs de saburou-nvim](docs/saburou-nvim.md#todos).
+> No se prevén más cambios salvo correcciones de errores o problemas de seguridad. La única validación importante que
+> queda pendiente es comprobar la configuración completa en Windows 11; si funciona correctamente, esta versión se
+> mantendrá tal cual mientras se prepara la siguiente etapa.
+
+## Estado del proyecto
+
+Esta alpha cumple las funcionalidades que motivaron el proyecto y seguirá disponible como una configuración completa.
+También ha servido para descubrir qué partes merecen ser realmente _core_ y dónde la flexibilidad dejó de compensar.
+
+El intento inicial de permitir una configuración muy amplia introdujo adaptadores, casos especiales y relaciones
+implícitas difíciles de entender. La persistencia durante los reinicios, el orden de los buffers y, sobre todo, las
+integraciones del tema acabaron añadiéndose por capas. Seguir ampliando esa arquitectura haría el código todavía más
+difícil de mantener.
+
+La siguiente etapa partirá de una configuración limpia y contenida. No pretende portar cada abstracción actual, sino
+fijar primero las decisiones invariables y reconstruir sólo el núcleo que ha demostrado ser útil.
+
+### Núcleo de la siguiente etapa
+
+- **Configuración pequeña y explícita:** reducir opciones, fijar comportamientos estables y evitar adaptadores hasta
+  que exista una necesidad concreta.
+- **Persistencia como sistema propio:** definir qué estado se guarda, cuándo se restaura y cómo evoluciona su formato.
+  El reinicio dejará de depender de parches repartidos entre buffers, interfaz y plugins.
+- **Buffers y MRU:** controlar historial, orden, apertura, cierre y recarga desde un mismo modelo. Esto permitirá retirar
+  el código específico que hoy fuerza la reordenación de `bufferline`.
+- **Temas como parte del núcleo:** separar paleta, estado e integraciones. Cada tema declarará sus variantes y los
+  componentes que soporta, sin mezclar esa lógica con la configuración funcional de cada plugin.
+- **Un plugin por archivo:** eliminar `lua/lzy/plg.lua` y colocar la especificación, carga y configuración de cada plugin
+  en una unidad fácil de localizar.
+- **LSP, formatters e indentación:** definir claramente qué responsabilidad pertenece a Neovim, Mason, el servidor LSP
+  y Conform. La política por lenguaje sustituirá la configuración de indentación actual, que resulta costosa de ampliar
+  y mantener.
+- **Pruebas del comportamiento del core:** cubrir persistencia, transiciones de buffers, rutas y procesos por sistema
+  operativo. Un formato de estado versionado permitirá detectar incompatibilidades en vez de restaurar datos antiguos
+  a ciegas.
+
+Plugins, keymaps y detalles visuales deberán consumir estos sistemas; no definir su arquitectura. La hoja de ruta más
+detallada está en las [notas de saburou-nvim](docs/saburou-nvim.md).
 
 ## Requisitos
 
@@ -41,7 +72,7 @@ Estas dependencias no son estrictamente obligatorias, pero las usan plugins, ser
 por Mason. Sin ellas, parte de la experiencia (búsquedas, parsers, formatters, linters, depuradores) no funcionará
 correctamente.
 
-- **[Rust](https://www.rust-lang.org/)** — necesario para compilar e instalar
+- **[Rust](https://www.rust-lang.org/)** — necesario para compilar herramientas instaladas mediante `cargo`.
 - **[`tree-sitter-cli`](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md)** — herramienta de
   línea de comandos de Tree-sitter usada por `nvim-treesitter` para compilar parsers.
 - **[Go](https://go.dev/)** — requerido por varios servidores LSP, formatters y linters (incluido el toolchain de Go).
@@ -119,7 +150,7 @@ rm -rf ~/.config/nvim12
 - **IA integrada:** `claude-code.nvim`, `copilot.lua` y `codex.nvim`.
 - **Búsqueda y navegación:** `telescope.nvim`, `nvim-tree.lua`, `workspaces.nvim` y `mru-nav.nvim`.
 - **Terminales integradas** en horizontal, vertical y flotante.
-- **Sesiones persistentes** entre reinicios (estado de buffers, `nvim-tree`, `bufferline`, etc.).
+- **Reinicio controlado** que intenta conservar el estado temporal de buffers, `nvim-tree` y `bufferline`.
 - **Markdown** con renderizado en vivo mediante `render-markdown.nvim`.
 
 ## Indentación por lenguaje

@@ -2,58 +2,68 @@
 
 Notas del proyecto — [Neovim](neovim.md)
 
-## Brief
+## Estado
 
-Versión Neovim (testeada): 0.12+
-Versión de saburou-nvim: 0.1.0-alpha.4
+- Versión de Neovim: 0.12+.
+- Versión de saburou-nvim: 0.1.0-alpha.7.
+- Desarrollo funcional de la alpha: terminado.
+- Validación pendiente: Windows 11.
 
-## TODOs
+Esta configuración queda congelada salvo correcciones de errores o de seguridad. La siguiente etapa no continuará
+añadiendo capas sobre la arquitectura actual: volverá a partir de una base limpia, pequeña y explícita.
 
-### TODO Configuración
+## Motivo de la reconstrucción
 
-- Elegir componentes **CORE** de nuestra configuración, que sean inamovibles con el fin de evitar tener que crear
-  adaptadores desde el principio. Los adaptadores deberían llegar al final.
+La alpha comenzó buscando mucha capacidad de configuración. Esa flexibilidad obligó a crear adaptadores y estados
+intermedios antes de saber qué decisiones eran realmente variables. Con el tiempo, comprender una función empezó a
+exigir conocer detalles de varios plugins y sistemas a la vez.
 
-- Sistema de persistencia simple basado en un diccionario de variable con consulta, escritura, y reconocimiento de
-  tipos.
+Los casos más claros son la persistencia durante el reinicio, la reordenación de buffers y el tema. Funcionan, pero su
+comportamiento está distribuido entre parches e integraciones que se condicionan mutuamente. La reconstrucción fijará
+primero los comportamientos invariables y sólo expondrá opciones que tengan un caso de uso demostrado.
 
-- Terminal: Al redimensionar la ventana de nvim debería redimensionarse la terminal de ALT+I también, ya que si la
-  terminal era muy baja, entonces la terminal queda muy baja también.
+## Core previsto
 
-- Sistema de MRU completo que se refresque desde el momento en el que se abre Neovim ya que es necesario para un
-  correcto funcionamiento de sistemas como reload etc.
+### Estado y persistencia
 
-- Sistema para que al abrir un nuevo archivo te permita elegir donde lo quieres mostrar si hay más de una ventana
-  normal.
-  - Hacer que no colisione recursivamente con `nvim-tree` claro.
+- Un almacén con tipos y formato versionado.
+- Ciclo de vida explícito: consulta, escritura, restauración y descarte.
+- Persistencia completa del estado elegido, no parches independientes durante el reinicio.
+- Migraciones o rechazo claro cuando un estado antiguo sea incompatible.
 
-- Sistema de guardado/cerrado:
-  - Guardar todo no debería pedir confirmación por defecto.
+### Buffers y MRU
 
-- Sistema de temas:
-  - Crear un sistema de temas propio que incluya todos nuestros componentes core. Sin alternativas, cada tema es
-    independiente —transparente, roja, azul, y la clara la dejamos para un futuro—
-  - Crear un tema propio idéntico al que ya tenemos, pulido, con variante roja y azul, y transparente de ambas.
+- Un único modelo para historial, orden y selección de buffers.
+- Comportamiento definido para abrir, cerrar, guardar, recargar y reemplazar buffers.
+- MRU propio, actualizado desde el inicio de Neovim y utilizable por el resto del core.
+- Eliminación del hardcode necesario actualmente para reordenar `bufferline`.
 
-- Zoom in/out del buffer actual.
+### Temas
 
-- Adaptadores / Integraciones:
-  - Crear un sistema centralizado para elegir el `indent` y `tab-width` en medida de lo posible que unifique los flags
-    de neovim con conform.
+- Sistema propio de paletas, variantes e integraciones.
+- Temas cerrados y coherentes en lugar de combinaciones arbitrarias.
+- Separación entre estado visual, configuración funcional y adaptadores de plugins.
+- Integración del tema con la persistencia sin acoplarla al mecanismo de reinicio.
 
-  - Crear un adaptador para `qmlformat` en conform que permita formatear qml tanto en Windows como en Linux.
+### Plugins
 
-#### Arreglo de bugs y/o mejoras leves
+- Eliminación de `lua/lzy/plg.lua`.
+- Una especificación por archivo junto a su carga y configuración.
+- Dependencias y relaciones visibles, sin registros centralizados difíciles de recorrer.
 
-- `:Luarc` trata de *generar* `.luarc.json` en `~/.config/nvim` incluso si la `NVIM_APPNAME` != `nvim`.
-- Volver a meter en `todo-comments` la necesidad de prefijar las tags con `:` de alguna manera: `TODO:` > `:TODO:`.
-- Keybind para buscar en la configuración `<leader>fc`.
+### LSP, formatters e indentación
 
-### TODO No Configuración
+- Responsabilidades explícitas para Neovim, Mason, LSP y Conform.
+- Perfiles por lenguaje que definan servidor, formatter y política de indentación.
+- Sustitución del sistema actual de indentación por una fuente más sencilla de mantener.
+- Comportamiento equivalente de rutas, ejecutables y argumentos en Linux y Windows.
 
-- Anotar todas las dependencias reales utilizando máquinas virtuales para probar la configuración desde sistemas base.
+## Condiciones de calidad
 
-- Hacer una guía completa de instalación y configuración para tanto Windows como Linux, y pedir donaciones específicas
-  para dar soporte a macOS, Android, iOS, utilizando VPS con entorno gráfico que cuestan como `20$-30$` al mes.
+- Pruebas pequeñas sobre las invariantes del core: persistencia, orden de buffers, MRU, rutas y procesos.
+- Sin abstracciones anticipadas: los adaptadores se incorporan después del comportamiento principal.
+- Errores explícitos cuando no se pueda restaurar estado o resolver una herramienta.
+- Windows 11 tratado como plataforma real, no como compatibilidad inferida desde Linux.
 
-- Guía de uso unificada bajo las mismas condiciones.
+El resto —selección concreta de plugins, keymaps y detalles visuales— es intercambiable. Debe apoyarse en este núcleo y
+no determinar su diseño.
