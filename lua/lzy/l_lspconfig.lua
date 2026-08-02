@@ -260,6 +260,11 @@ end
 local function setup_global_mappings()
   local map = vim.keymap.set
   local opts = lsp_global_opts
+  local native_gx = vim.fn.maparg("gx", "n", false, true)
+
+  if type(native_gx) == "table" and type(native_gx.callback) == "function" then
+    map("n", "gx", native_gx.callback, opts "Open link under cursor")
+  end
 
   map("n", "<leader>li", function()
     vim.cmd "LspInfo"
