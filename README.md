@@ -4,7 +4,7 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.7` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.8` — requiere Neovim 0.12+.**
 
 > 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
 > particularidades por sistema (Linux, macOS, Windows).
@@ -202,6 +202,19 @@ Los overrides se aplican inmediatamente a todos los buffers abiertos del `filety
 ejecuciones de Conform y sobreviven tanto a una recarga con `:source` como a los reinicios realizados por la
 configuración. Siguen siendo temporales: tras cerrar Neovim normalmente no sustituyen la configuración declarada en
 `lua/user/indent.lua`.
+
+## Formateo manual
+
+`Alt+F` formatea el buffer actual con Conform; `<leader>fm` hace lo mismo y también permite formatear una selección
+visual. Cada ejecución informa si aplicó cambios, si no produjo cambios —porque el contenido ya estaba formateado o lo
+excluye `.prettierignore`— o si ocurrió un error. El error concreto se muestra en la notificación y `:ConformInfo`
+permite consultar los formateadores disponibles y el log de depuración.
+
+Prettier 3 usa por defecto tanto `.gitignore` como `.prettierignore`. Esta configuración distingue sus propósitos para
+el formateo manual: un archivo excluido de Git continúa siendo formateable, mientras que el `.prettierignore` más
+cercano sí se respeta. Así, directorios de notas o referencias como `.reference` pueden permanecer fuera del repositorio
+sin convertir silenciosamente `Alt+F` en una operación vacía. Si un proyecto necesita impedir que Prettier toque un
+archivo, debe declararlo en `.prettierignore`.
 
 ## Documentación
 

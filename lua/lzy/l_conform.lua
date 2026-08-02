@@ -21,8 +21,6 @@ local function filetype_for(ctx)
   return vim.bo.filetype
 end
 
-vim.g.conform_log_level = vim.log.levels.DEBUG
-
 -- ----------------------------------------------------------------------------
 -- Formateadores por filetype
 -- ----------------------------------------------------------------------------
@@ -122,10 +120,21 @@ local formatters = {
   prettier = {
     append_args = function(_, ctx)
       local config = indent_for(ctx)
+      -- Desde Prettier 3, el CLI usa `.gitignore` y `.prettierignore` por
+      -- defecto. Un archivo no versionado sigue siendo formateable cuando el
+      -- usuario lo pide explícitamente: sólo conservamos el ignore específico
+      -- de Prettier, si existe.
+      local prettier_ignore = vim.fs.find(".prettierignore", {
+        path = ctx.dirname,
+        upward = true,
+        type = "file",
+      })[1] or "/dev/null"
       local args = {
         "--print-width=" .. tostring(line_length),
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--ignore-path",
+        prettier_ignore,
       }
 
       local ft = filetype_for(ctx)
@@ -341,20 +350,37 @@ local formatters = {
 M.opts = {
   formatters_by_ft = formatters_by_ft,
   formatters = formatters,
+  log_level = vim.log.levels.DEBUG,
+  -- Los mappings de abajo muestran el error concreto mediante el callback y
+  -- evitan el aviso genérico duplicado de Conform.
+  notify_on_error = false,
+  notify_no_formatters = false,
 }
+
+local function format_buffer()
+  require("conform").format({ lsp_format = "fallback" }, function(err, did_edit)
+    if err then
+      vim.notify("No se pudo formatear:\n" .. err, vim.log.levels.ERROR, { title = "Conform" })
+    elseif did_edit then
+      vim.notify("Formato aplicado", vim.log.levels.INFO, { title = "Conform" })
+    else
+      vim.notify(
+        "Sin cambios: el buffer ya estaba formateado o `.prettierignore` lo excluye",
+        vim.log.levels.INFO,
+        { title = "Conform" }
+      )
+    end
+  end)
+end
 
 function M.setup()
   require("conform").setup(M.opts)
 
   local map = vim.keymap.set
 
-  map({ "n", "x" }, "<leader>fm", function()
-    require("conform").format { lsp_fallback = true }
-  end, { desc = "Conform: format file" })
+  map({ "n", "x" }, "<leader>fm", format_buffer, { desc = "Conform: format file" })
 
-  map("n", "<A-f>", function()
-    require("conform").format { lsp_fallback = true }
-  end, { desc = "Conform: format file" })
+  map("n", "<A-f>", format_buffer, { desc = "Conform: format file" })
 end
 
 return M

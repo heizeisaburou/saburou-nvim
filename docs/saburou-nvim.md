@@ -5,7 +5,7 @@ Notas del proyecto — [Neovim](neovim.md)
 ## Estado
 
 - Versión de Neovim: 0.12+.
-- Versión de saburou-nvim: 0.1.0-alpha.7.
+- Versión de saburou-nvim: 0.1.0-alpha.8.
 - Desarrollo funcional de la alpha: terminado.
 - Validación pendiente: Windows 11.
 
