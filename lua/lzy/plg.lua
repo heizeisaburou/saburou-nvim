@@ -21,6 +21,7 @@ return {
   -- --- [ mru-nav ] -----------------------------------------------------------
   {
     "mjacobs/mru-nav.nvim",
+    commit = "581f9f1132b003ea4fc4241ff30158ee247305ac",
     cmd = { "MruFile", "MruBuffer", "MruClearFiles" },
     lazy = false,
     config = function()
@@ -207,6 +208,7 @@ return {
   --- [ codex ] ----------------------------------------------------------------
   {
     "kkrampis/codex.nvim",
+    commit = "4317788afc091d5e913109c55d5a04f32be4e14a",
     lazy = true,
     cmd = { "Codex", "CodexToggle" }, -- Optional: Load only on command execution
     keys = require("lzy.l_codex").keys,
