@@ -1,4 +1,5 @@
 local M = {}
+local leading_padding_namespace = vim.api.nvim_create_namespace "todo-comments-leading-padding"
 
 -- NOTE: algo
 
@@ -142,7 +143,8 @@ M.opts = {
     before = "fg", -- "fg" or "bg" or empty
     keyword = "wide", -- "fg", "bg", "wide", "wide_bg", "wide_fg" or empty. (wide and wide_bg is the same as bg, but will also highlight surrounding characters, wide_fg acts accordingly but with fg)
     after = "fg", -- "fg" or "bg" or empty
-    pattern = [[.*<(KEYWORDS)\s*:]],
+    -- Etiquetas delimitadas por ambos lados: :TODO:, :FIX:, etc.
+    pattern = [[.*:(KEYWORDS)\s*:]],
     comments_only = false, -- uses treesitter to match keywords in comments only
     max_line_len = 400, -- ignore lines longer than this
     exclude = {}, -- list of file types to exclude highlighting
@@ -179,12 +181,84 @@ M.opts = {
     },
     -- regex that will be used to match keywords.
     -- don't replace the (KEYWORDS) comment
-    pattern = [[\b(KEYWORDS):]], -- ripgrep regex
+    pattern = [[:(KEYWORDS)\s*:]], -- ripgrep regex
   },
 }
 
+local function refresh_leading_padding_highlights()
+  local config = require "todo-comments.config"
+
+  for keyword in pairs(config.options.keywords) do
+    local todo_bg = vim.api.nvim_get_hl(0, { name = "TodoBg" .. keyword, link = false })
+
+    if todo_bg.bg then
+      vim.api.nvim_set_hl(0, "TodoLeadingPadding" .. keyword, {
+        fg = todo_bg.bg,
+        bg = todo_bg.bg,
+      })
+    end
+  end
+end
+
+---@param bufnr integer
+---@param first? integer
+---@param last? integer
+local function update_leading_padding(bufnr, first, last)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local config = require "todo-comments.config"
+  local highlight = require "todo-comments.highlight"
+  first = first or 0
+  last = last or vim.api.nvim_buf_line_count(bufnr)
+
+  vim.api.nvim_buf_clear_namespace(bufnr, leading_padding_namespace, first, last)
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, first, last, false)
+  for offset, line in ipairs(lines) do
+    local ok, start, _, keyword = pcall(highlight.match, line)
+    local colon_col = start and start - 2 or -1
+
+    if ok and keyword and colon_col >= 0 and line:sub(colon_col + 1, colon_col + 1) == ":" then
+      keyword = config.keywords[keyword] or keyword
+      vim.api.nvim_buf_set_extmark(bufnr, leading_padding_namespace, first + offset - 1, colon_col, {
+        end_col = colon_col + 1,
+        hl_group = "TodoLeadingPadding" .. keyword,
+        priority = 501,
+      })
+    end
+  end
+end
+
+local function setup_leading_padding()
+  refresh_leading_padding_highlights()
+
+  local group = vim.api.nvim_create_augroup("TodoCommentsLeadingPadding", { clear = true })
+  vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged" }, {
+    group = group,
+    callback = function(args)
+      update_leading_padding(args.buf)
+    end,
+  })
+  vim.api.nvim_create_autocmd("TextChangedI", {
+    group = group,
+    callback = function(args)
+      local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+      update_leading_padding(args.buf, math.max(row - 1, 0), row + 2)
+    end,
+  })
+  vim.api.nvim_create_autocmd("ColorScheme", {
+    group = group,
+    callback = refresh_leading_padding_highlights,
+  })
+
+  update_leading_padding(vim.api.nvim_get_current_buf())
+end
+
 function M.setup()
   require("todo-comments").setup(M.opts)
+  vim.schedule(setup_leading_padding)
 end
 
 return M
