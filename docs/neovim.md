@@ -5,9 +5,8 @@
 - Revisar y recuperar los scripts `safe-nvim` y `strict-nvim`; opcionalmente pensar si conviene utilizar parámetros
   aunque yo los mantendría separados y simples.
 
-- Revisar todas las dependencias de instalación y agregarlas a su sección correcta:
-  [Python](https://www.python.org/), [Node.js](https://nodejs.org/),
-  [Rust](https://www.rust-lang.org/) + [Cargo](https://doc.rust-lang.org/cargo/),
+- Revisar todas las dependencias de instalación y agregarlas a su sección correcta: [Python](https://www.python.org/),
+  [Node.js](https://nodejs.org/), [Rust](https://www.rust-lang.org/) + [Cargo](https://doc.rust-lang.org/cargo/),
   [Go](https://go.dev/) (+ las que aparezcan por el camino).
 
 ## Navegación
@@ -24,8 +23,8 @@ _(pendiente de documentar)_
 
 - Neovim 0.12+
 - [Nerd Font](https://www.nerdfonts.com/)
-  - Utiliza una fuente sin Mono al final para evitar iconos pequeños:
-  - Ej: ~~JetBrains Nerd Font Mono~~ > JetBrains Nerd Font
+	- Utiliza una fuente sin Mono al final para evitar iconos pequeños:
+	- Ej: ~~JetBrains Nerd Font Mono~~ > JetBrains Nerd Font
 
 - [Tree-sitter CLI](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md)
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (para Telescope, etc)
@@ -33,6 +32,7 @@ _(pendiente de documentar)_
 - Eliminar carpetas viejas de nvim (comandos incluidos en [Instalación](#instalación))
 
 Dependiendo de la configuración:
+
 - [Python](https://www.python.org/)
 - [Node.js](https://nodejs.org/)
 - [Rust](https://www.rust-lang.org/) + [Cargo](https://doc.rust-lang.org/cargo/)
@@ -52,6 +52,7 @@ _(pendiente de completar)_
 ### Instalación en Linux
 
 Si quieres instalar una versión concreta de Neovim en Linux considera:
+
 - [Flatpak](#instalación-con-flatpak)
 - [Snap](#instalación-con-snap)
 
@@ -84,6 +85,7 @@ sudo pacman -S neovim
 - Tener en cuenta [Snap](#instalación-con-snap) (sinceramente, mucho más cómodo que Flatpak)
 
 Tiene las siguientes ventajas o inconvenientes:
+
 - Para actualizar tienes que utilizar `flatpak update` manualmente.
 - Utiliza sus propios paths y comandos diferentes a los paths del sistema; requiere ajustes manuales.
 
@@ -114,9 +116,10 @@ snap list nvim
 evitando algunos mecanismos persistentes que pueden dejar rastro en disco.
 
 Concretamente:
+
 - Carga tu configuración normal.
 - `-i NONE` evita leer o escribir archivos ShaDa.
-- `-n` desactiva el *swap file*.
+- `-n` desactiva el _swap file_.
 
 ```sh
 nvim -i NONE -n
@@ -142,10 +145,11 @@ rm -f /tmp/safe-nvim
 queremos que Neovim cargue configuración de usuario, plugins ni estado persistente.
 
 Concretamente:
+
 - No carga archivos de configuración.
 - No carga plugins.
 - No lee ni escribe archivos ShaDa.
-- Desactiva el *swap file*.
+- Desactiva el _swap file_.
 
 ```sh
 nvim -u NONE -i NONE -n
@@ -153,7 +157,7 @@ nvim -u NONE -i NONE -n
 
 - `-u NONE` hace que Neovim no cargue archivos de configuración ni plugins.
 - `-i NONE` evita leer o escribir archivos ShaDa.
-- `-n` desactiva el *swap file*.
+- `-n` desactiva el _swap file_.
 
 Para instalarlo con permisos adecuados:
 

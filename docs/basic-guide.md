@@ -21,11 +21,11 @@ falta información o crees que se puede explicar mejor, cualquier sugerencia es 
 - [Requisitos](#requisitos)
 - [Resumen rápido](#resumen-rápido)
 - [Instalación aislada de Neovim](#instalación-aislada-de-neovim)
-  - [Linux](#linux)
-  - [macOS](#macos)
-  - [Windows](#windows)
-  - [Usar varias configuraciones con `NVIM_APPNAME`](#usar-varias-configuraciones-con-nvim_appname)
-  - [Alias recomendados](#alias-recomendados)
+	- [Linux](#linux)
+	- [macOS](#macos)
+	- [Windows](#windows)
+	- [Usar varias configuraciones con `NVIM_APPNAME`](#usar-varias-configuraciones-con-nvim_appname)
+	- [Alias recomendados](#alias-recomendados)
 - [Nuevos usuarios](#nuevos-usuarios)
 - [Instalación de plugins y herramientas](#instalación-de-plugins-y-herramientas)
 - [Tema](#tema)
@@ -51,23 +51,23 @@ Si solo quieres lo esencial:
    [Instalación aislada](#instalación-aislada-de-neovim)).
 2. Clona el repositorio en `~/.config/nvim12`:
 
-   ```bash
-   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
-   ```
+	```bash
+	git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
+	```
 
 3. Lanza Neovim con la configuración aislada:
 
-   ```bash
-   NVIM_APPNAME=nvim12 nvim12
-   ```
+	```bash
+	NVIM_APPNAME=nvim12 nvim12
+	```
 
 4. Cuando termine la instalación automática de plugins, dentro de Neovim ejecuta:
 
-   ```vim
-   :Lazy sync
-   :MasonInstallAll
-   :TSInstallAll
-   ```
+	```vim
+	:Lazy sync
+	:MasonInstallAll
+	:TSInstallAll
+	```
 
 El resto de la guía explica cada paso con detalle.
 
