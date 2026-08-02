@@ -146,14 +146,21 @@ local formatters = {
   },
 
   prettier_svelte = {
-    command = vim.fn.stdpath("data") .. "/mason/bin/prettier",
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
     args = function(_, ctx)
       local config = indent_for(ctx)
-      local plugin = vim.fn.glob(
-        vim.fn.stdpath("data") .. "/mason/packages/svelte-language-server/**/prettier-plugin-svelte/plugin.js",
-        true,
-        true
-      )[1]
+      local plugin_pattern = vim.fs.joinpath(
+        vim.fn.stdpath "data",
+        "mason",
+        "packages",
+        "svelte-language-server",
+        "**",
+        "prettier-plugin-svelte",
+        "plugin.js"
+      )
+      local plugin = vim.fn.glob(plugin_pattern, true, true)[1]
 
       if not plugin or plugin == "" then
         error("prettier-plugin-svelte no está instalado; ejecuta :MasonInstallAll")
@@ -286,22 +293,12 @@ local formatters = {
   },
 
   qmlformat = {
-    -- Usamos el path completo porque `qmlformat` referencia el de Qt5
-    command = "/usr/lib/qt6/bin/qmlformat",
-    append_args = function(_, ctx)
-      local config = indent_for(ctx)
-      local args = {
-        "--indent-width",
-        tostring(config.width),
-        "--column-width",
-        tostring(line_length),
-      }
-
-      if config.style == "tabs" then
-        table.insert(args, "--tabs")
-      end
-
-      return args
+    -- qmlformat pertenece a Qt, no a Mason. Se resuelve desde PATH y se acepta
+    -- el alias qmlformat6 que usan algunas distribuciones. Conservamos los
+    -- argumentos oficiales de Conform (`-i $FILENAME`): qmlformat no ofrece
+    -- flags portables para ancho de sangría o columna entre versiones de Qt.
+    command = function()
+      return hzsr.sys.executable.resolve { "qmlformat", "qmlformat6" }
     end,
   },
   latexindent = {

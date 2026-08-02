@@ -17,10 +17,24 @@ M.opts = {
 }
 
 function M.init_setup()
-  local mason_bin = vim.fn.stdpath "data" .. "/mason/bin"
+  local mason_bin = vim.fs.joinpath(vim.fn.stdpath "data", "mason", "bin")
+  local current_path = vim.env.PATH or ""
+  local path_entries = vim.split(current_path, hzsr.sys.path_list_sep, {
+    plain = true,
+    trimempty = true,
+  })
+  local normalized_mason_bin = vim.fs.normalize(mason_bin)
 
-  if not vim.env.PATH:find(vim.pesc(mason_bin), 1) then
-    vim.env.PATH = mason_bin .. ":" .. vim.env.PATH
+  local has_mason_bin = vim.iter(path_entries):any(function(path)
+    local normalized = vim.fs.normalize(path)
+    if hzsr.sys.iswin then
+      return normalized:lower() == normalized_mason_bin:lower()
+    end
+    return normalized == normalized_mason_bin
+  end)
+
+  if not has_mason_bin then
+    vim.env.PATH = current_path == "" and mason_bin or (mason_bin .. hzsr.sys.path_list_sep .. current_path)
   end
 
   vim.api.nvim_create_user_command("MasonInstallAll", function()

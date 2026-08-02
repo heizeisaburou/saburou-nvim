@@ -16,8 +16,6 @@ vim.api.nvim_create_user_command("Bp", function()
   hzsr.edt.go_previous_buffer()
 end, { desc = "Buffer: Previous" })
 
-map("n", "<A-r>", "<cmd>edit<CR>", { desc = "Buffer: Reload" })
-
 -- =============================================================================
 -- Search
 -- =============================================================================
@@ -70,6 +68,7 @@ map("n", "<C-h>", "<C-w>h", { desc = "Window: Focus left" })
 map("n", "<C-l>", "<C-w>l", { desc = "Window: Focus right" })
 map("n", "<C-k>", "<C-w>k", { desc = "Window: Focus above" })
 map("n", "<C-j>", "<C-w>j", { desc = "Window: Focus below" })
+map({ "n", "i", "t" }, "<A-z>", hzsr.win.zoom.toggle, { desc = "Window: Toggle zoom" })
 
 map("n", "<A-h>", "10zh", { desc = "View: scroll left fast" })
 map("n", "<A-l>", "10zl", { desc = "View: scroll right fast" })

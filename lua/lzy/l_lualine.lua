@@ -73,8 +73,8 @@ local function encoding()
 end
 
 local function path_separator()
-  if hzsr and hzsr.sys and hzsr.sys.os_separator then
-    return hzsr.sys.os_separator
+  if hzsr and hzsr.sys and hzsr.sys.os_sep then
+    return hzsr.sys.os_sep
   end
 
   return package.config:sub(1, 1)

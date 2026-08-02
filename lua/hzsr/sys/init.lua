@@ -7,8 +7,10 @@ local M = {}
 M.sysname = vim.uv.os_uname().sysname:lower()
 M.iswin = not not (M.sysname:find "windows" or M.sysname:find "mingw")
 M.os_sep = M.iswin and "\\" or "/"
+M.path_list_sep = M.iswin and ";" or ":"
 
 M.path = require "hzsr.sys.path"
 M.fs = require "hzsr.sys.fs"
+M.executable = require "hzsr.sys.executable"
 
 return M

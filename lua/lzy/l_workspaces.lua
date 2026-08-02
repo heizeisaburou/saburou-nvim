@@ -21,7 +21,7 @@ local map = vim.keymap.set
 M.opts = {
   -- path to a file to store workspaces data in
   -- on a unix system this would be ~/.local/share/nvim/workspaces
-  path = vim.fn.stdpath "data" .. "/workspaces",
+  path = vim.fs.joinpath(vim.fn.stdpath "data", "workspaces"),
 
   -- to change directory for nvim (:cd), or only for window (:lcd)
   -- deprecated, use cd_type instead

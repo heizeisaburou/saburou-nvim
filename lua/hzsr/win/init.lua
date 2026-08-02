@@ -50,5 +50,6 @@ function M.close(winid, force)
 end
 
 M.hl = require "hzsr.win.hl"
+M.zoom = require "hzsr.win.zoom"
 
 return M

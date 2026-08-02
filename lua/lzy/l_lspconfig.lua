@@ -181,14 +181,9 @@ M.config = {
   },
 
   qmlls = {
-    -- cmd = {
-    --   "/usr/lib/qt6/bin/qmlls",
-    --   "--no-cmake-calls",
-    --   "-I",
-    --   "/usr/lib/qt6/qml",
-    --   "-I",
-    --   "/usr/bin",
-    -- },
+    -- Mason ofrece qmlls también en Windows. Si se usa el Qt del sistema,
+    -- algunas distribuciones publican el ejecutable como qmlls6.
+    cmd = { hzsr.sys.executable.resolve { "qmlls", "qmlls6" } },
     filetypes = { "qml", "qmljs" },
     root_markers = { ".qmlls.ini", "shell.qml", ".git" },
   },

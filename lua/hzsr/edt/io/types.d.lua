@@ -29,3 +29,8 @@
 ---@field save_status? hzsr.edt.io.status
 ---@field write_status? hzsr.buf.write.status
 ---@field existing_buf? integer
+
+---@class hzsr.edt.io.reload.out : hzsr.edt.io.out
+---@field save_status? hzsr.edt.io.status
+---@field write_status? hzsr.buf.write.status
+---@field existing_buf? integer

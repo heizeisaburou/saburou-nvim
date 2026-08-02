@@ -46,13 +46,15 @@ function M.inspect(group)
 end
 
 vim.api.nvim_create_user_command("CopyHighlights", function()
-  vim.cmd [[
-    redir! > /tmp/nvim-highlights.txt
-    silent highlight
-    redir END
-  ]]
+  local path = vim.fs.joinpath(vim.fn.stdpath "cache", "nvim-highlights.txt")
+  local output = vim.fn.execute "silent highlight"
+  local ok = vim.fn.writefile(vim.split(output, "\n", { plain = true }), path)
 
-  print "Highlights written to /tmp/nvim-highlights.txt"
+  if ok == 0 then
+    vim.notify("Highlights written to " .. path, vim.log.levels.INFO)
+  else
+    vim.notify("Could not write highlights to " .. path, vim.log.levels.ERROR)
+  end
 end, {})
 
 -- vim.api.nvim_create_user_command("CopyHighlights", function()

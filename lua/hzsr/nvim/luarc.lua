@@ -21,7 +21,6 @@ M.base_json = {
   workspace = {
     library = {
       "${workspaceFolder}/lua",
-      vim.env.VIMRUNTIME,
       "${3rd}/luv/library",
       "${3rd}/busted/library",
     },
@@ -74,10 +73,6 @@ function M.generate_lazy(appname)
     workspace = { library = {} },
   }
 
-  if not hzsr.lzy.available() then
-    return result
-  end
-
   local lazy_dir = M.lazy_dir(appname)
   local stat = vim.uv.fs_stat(lazy_dir)
 
@@ -91,31 +86,42 @@ function M.generate_lazy(appname)
     return result
   end
 
+  local plugin_names = {}
+
   while true do
-    local name, type = vim.uv.fs_scandir_next(handle)
+    local name = vim.uv.fs_scandir_next(handle)
 
     if not name then
       break
     end
 
-    if type == "directory" then
-      if name == "plenary.nvim" then
-        extend(result.diagnostics.globals, {
-          "describe",
-          "it",
-          "before_each",
-          "after_each",
-        })
-      elseif name == "snacks.nvim" then
-        table.insert(result.diagnostics.globals, "Snacks")
-      end
+    local plugin_dir = vim.fs.joinpath(lazy_dir, name)
+    local plugin_stat = vim.uv.fs_stat(plugin_dir)
 
-      local plugin_lua = vim.fs.joinpath(lazy_dir, name, "lua")
-      local lua_stat = vim.uv.fs_stat(plugin_lua)
+    if plugin_stat and plugin_stat.type == "directory" then
+      table.insert(plugin_names, name)
+    end
+  end
 
-      if lua_stat and lua_stat.type == "directory" then
-        table.insert(result.workspace.library, plugin_lua)
-      end
+  table.sort(plugin_names)
+
+  for _, name in ipairs(plugin_names) do
+    if name == "plenary.nvim" then
+      extend(result.diagnostics.globals, {
+        "describe",
+        "it",
+        "before_each",
+        "after_each",
+      })
+    elseif name == "snacks.nvim" then
+      table.insert(result.diagnostics.globals, "Snacks")
+    end
+
+    local plugin_lua = vim.fs.joinpath(lazy_dir, name, "lua")
+    local lua_stat = vim.uv.fs_stat(plugin_lua)
+
+    if lua_stat and lua_stat.type == "directory" then
+      table.insert(result.workspace.library, plugin_lua)
     end
   end
 
@@ -127,6 +133,11 @@ end
 function M.generate(appname)
   local res = vim.deepcopy(M.base_json)
   local lazy_part = M.generate_lazy(appname)
+  local runtime_dir = hzsr.nvim.runtimedir()
+
+  if runtime_dir ~= "" then
+    table.insert(res.workspace.library, 2, runtime_dir)
+  end
 
   extend(res.diagnostics.globals, lazy_part.diagnostics.globals)
   extend(res.workspace.library, lazy_part.workspace.library)

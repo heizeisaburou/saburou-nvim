@@ -54,7 +54,7 @@ end
 
 function M.save_all()
   return hzsr.edt.io.save.save_all {
-    confirm = true,
+    confirm = false,
     conflict_policy = hzsr.edt.io.conflict_policy.CONFIRM,
     explicit_cancel = true,
     reveal_mode = hzsr.edt.reveal.mode.RESTORE,
@@ -62,6 +62,19 @@ function M.save_all()
     reveal_hl = nil, -- DiffAdd
     async = nil,
   }
+end
+
+-- -----------------------------------------------------------------------------
+-- Reload wrappers
+
+function M.reload_current()
+  return hzsr.edt.io.reload.reload(nil, {
+    explicit_cancel = true,
+    reveal_mode = hzsr.edt.reveal.mode.RESTORE,
+    reveal_strategy = hzsr.edt.reveal.strategy.SIMPLE,
+    reveal_hl = nil, -- DiffChange
+    async = nil,
+  })
 end
 
 -- -----------------------------------------------------------------------------
@@ -184,6 +197,10 @@ function M.mappings.setup()
   map("n", "<C-A-s>", function()
     run_editor_action(M.save_all)
   end, { desc = "hzsr save all modified buffers" })
+
+  map("n", "<A-r>", function()
+    run_editor_action(M.reload_current)
+  end, { desc = "hzsr reload current buffer" })
 
   map("n", "<A-x>", function()
     run_editor_action(M.close_current_replace)

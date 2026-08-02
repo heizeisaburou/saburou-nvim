@@ -55,7 +55,7 @@ local function parse_save_all_opts(opts)
 
   ---@type hzsr.edt.io.save_all.opts.internal
   local iopts = vim.tbl_extend("force", {
-    confirm = true,
+    confirm = false,
     conflict_policy = hzsr.edt.io.conflict_policy.CONFIRM,
     explicit_cancel = false,
     reveal_mode = hzsr.edt.reveal.mode.RESTORE,

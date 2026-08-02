@@ -34,7 +34,7 @@ local DEFAULT_STATE = {
   },
 }
 
-M.session = vim.fn.stdpath "state" .. "/restart_session.vim"
+M.session = vim.fs.joinpath(vim.fn.stdpath "state", "restart_session.vim")
 
 local function state_dir()
   return vim.fs.joinpath(hzsr.nvim.statedir(), "sabunv")

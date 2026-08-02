@@ -66,5 +66,6 @@ M.detail = require "hzsr.edt.io.detail"
 
 M.save = require "hzsr.edt.io.save"
 M.close = require "hzsr.edt.io.close"
+M.reload = require "hzsr.edt.io.reload"
 
 return M
