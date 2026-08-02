@@ -4,7 +4,7 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.4` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.6` — requiere Neovim 0.12+.**
 
 > 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
 > particularidades por sistema (Linux, macOS, Windows).
@@ -18,7 +18,7 @@ punto de partida.
 
 > [!IMPORTANT]
 >
-> **`alpha.4` continúa siendo una versión de transición previa a una limpieza completa del proyecto.**
+> **`alpha.6` continúa siendo una versión de transición previa a una limpieza completa del proyecto.**
 >
 > Esta actualización incorpora una política de indentación compartida por Neovim y Conform, con configuración por
 > lenguaje y overrides temporales persistentes durante los reinicios. El rumbo de la futura refactorización puede
