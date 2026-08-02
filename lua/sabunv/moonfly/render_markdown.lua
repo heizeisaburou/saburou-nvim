@@ -1,31 +1,7 @@
 -- sabunv.moonfly.render_markdown
 
 local M = {}
-
--- -----------------------------------------------------------------------------
--- Terminal detection
--- -----------------------------------------------------------------------------
-
-local function is_pure_tty()
-  local term = (vim.env.TERM or ""):lower()
-  local colorterm = (vim.env.COLORTERM or ""):lower()
-  local session_type = (vim.env.XDG_SESSION_TYPE or ""):lower()
-  local tty = vim.fn.system("tty 2>/dev/null"):gsub("%s+", "")
-
-  if term == "linux" or term == "vt100" or term == "vt220" or term == "dumb" then
-    return true
-  end
-
-  if session_type == "tty" and colorterm == "" then
-    return true
-  end
-
-  if tty:match "^/dev/tty%d+$" then
-    return true
-  end
-
-  return false
-end
+local tty = require "sabunv.moonfly.tty"
 
 -- -----------------------------------------------------------------------------
 -- Palettes
@@ -94,33 +70,45 @@ local function tty_heading_palette()
     h1 = {
       fg = "black",
       bg = "white",
+      ctermfg = 0,
+      ctermbg = 15,
     },
     h2 = {
-      fg = "black",
-      bg = "red",
+      fg = tty.colors.h2.fg,
+      bg = tty.colors.h2.bg,
+      ctermfg = tty.colors.h2.ctermfg,
+      ctermbg = tty.colors.h2.ctermbg,
     },
     h3 = {
       fg = "black",
       bg = "orange",
+      ctermfg = 0,
+      ctermbg = 11,
     },
     h4 = {
       fg = "black",
       bg = "cyan",
+      ctermfg = 0,
+      ctermbg = 14,
     },
     h5 = {
       fg = "black",
       bg = "blue",
+      ctermfg = 15,
+      ctermbg = 4,
     },
     h6 = {
       fg = "black",
       bg = "purple",
+      ctermfg = 15,
+      ctermbg = 5,
     },
   }
 end
 
 ---@param state sabunv.moonfly.state
 local function heading_palette(state)
-  if is_pure_tty() then
+  if tty.is_pure() then
     return tty_heading_palette()
   end
 
@@ -142,15 +130,19 @@ local function set_heading(level, colors)
 
   set("RenderMarkdownH" .. level, {
     fg = colors.fg,
+    ctermfg = colors.ctermfg,
   })
 
   set("RenderMarkdownH" .. level .. "Bg", {
     bg = colors.bg,
+    ctermbg = colors.ctermbg,
   })
 
   set("@markup.heading." .. level .. ".markdown", {
     fg = colors.fg,
     bg = colors.bg,
+    ctermfg = colors.ctermfg,
+    ctermbg = colors.ctermbg,
   })
 end
 
@@ -184,11 +176,15 @@ local function heading_highlights(state)
   set("@markup.heading.markdown", {
     fg = palette.h1.fg,
     bg = palette.h1.bg,
+    ctermfg = palette.h1.ctermfg,
+    ctermbg = palette.h1.ctermbg,
   })
 
   set("@markup.heading", {
     fg = palette.h1.fg,
     bg = palette.h1.bg,
+    ctermfg = palette.h1.ctermfg,
+    ctermbg = palette.h1.ctermbg,
   })
 
   -- Tables hotfix: quitar fondos de cabecera/texto de tabla
@@ -197,7 +193,7 @@ local function heading_highlights(state)
   set("RenderMarkdownTableFill", { fg = "NONE", bg = "NONE" })
   set("@markup.heading.markdown", { fg = "NONE", bg = "NONE" })
 
-  if is_pure_tty() then
+  if tty.is_pure() then
     tty_hotfixes()
   end
 end

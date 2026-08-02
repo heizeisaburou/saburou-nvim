@@ -17,6 +17,9 @@ local is_setup = false
 -- -----------------------------------------------------------------------------
 
 local inline_code_query = vim.treesitter.query.parse("markdown_inline", "(code_span) @code")
+local h1_cursor_namespace = vim.api.nvim_create_namespace "sabunv-markdown-h1-cursor"
+local h1_cursor_windows = {}
+local has_h1_cursor_highlight = false
 
 ---@param bufnr integer
 ---@param row integer
@@ -35,6 +38,116 @@ local function heading_level(bufnr, row)
   elseif underline:match "^%s*%-+%s*$" then
     return 2
   end
+end
+
+---@param bufnr integer
+---@param row integer
+---@return boolean
+local function is_h1_row(bufnr, row)
+  if heading_level(bufnr, row) == 1 then
+    return true
+  end
+
+  if row == 0 then
+    return false
+  end
+
+  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+  return line:match "^%s*=+%s*$" ~= nil and heading_level(bufnr, row - 1) == 1
+end
+
+local function update_h1_cursor_highlight()
+  local heading = vim.api.nvim_get_hl(0, {
+    name = "@markup.heading.1.markdown",
+    link = false,
+  })
+  local cursor = {}
+
+  if heading.fg and heading.bg then
+    cursor.fg = heading.bg
+    cursor.bg = heading.fg
+  end
+
+  if heading.ctermfg and heading.ctermbg then
+    cursor.ctermfg = heading.ctermbg
+    cursor.ctermbg = heading.ctermfg
+  end
+
+  has_h1_cursor_highlight = not vim.tbl_isempty(cursor)
+  vim.api.nvim_set_hl(h1_cursor_namespace, "Cursor", cursor)
+  vim.api.nvim_set_hl(h1_cursor_namespace, "CursorIM", cursor)
+end
+
+---@param winid integer
+local function restore_cursor_highlight(winid)
+  local previous = h1_cursor_windows[winid]
+  if previous == nil then
+    return
+  end
+
+  h1_cursor_windows[winid] = nil
+  if vim.api.nvim_win_is_valid(winid) then
+    local active = vim.api.nvim_get_hl_ns { winid = winid }
+    if active == h1_cursor_namespace then
+      vim.api.nvim_win_set_hl_ns(winid, previous)
+    end
+  end
+end
+
+local function update_cursor_highlight()
+  local winid = vim.api.nvim_get_current_win()
+  local bufnr = vim.api.nvim_win_get_buf(winid)
+  local filetype = vim.bo[bufnr].filetype
+  local row = vim.api.nvim_win_get_cursor(winid)[1] - 1
+  local is_markdown = vim.tbl_contains(M.opts.file_types, filetype)
+
+  if not has_h1_cursor_highlight or not is_markdown or not is_h1_row(bufnr, row) then
+    restore_cursor_highlight(winid)
+    return
+  end
+
+  local active = vim.api.nvim_get_hl_ns { winid = winid }
+  if h1_cursor_windows[winid] ~= nil and active ~= h1_cursor_namespace then
+    h1_cursor_windows[winid] = nil
+  end
+
+  if h1_cursor_windows[winid] == nil then
+    local previous = active
+
+    -- No sustituir namespaces especiales de ventanas de plugins.
+    if previous ~= -1 and previous ~= 0 then
+      return
+    end
+
+    h1_cursor_windows[winid] = previous
+  end
+
+  vim.api.nvim_win_set_hl_ns(winid, h1_cursor_namespace)
+end
+
+local function setup_h1_cursor()
+  local group = vim.api.nvim_create_augroup("SabunvMarkdownH1Cursor", { clear = true })
+
+  vim.api.nvim_create_autocmd({ "BufEnter", "CursorMoved", "CursorMovedI", "ModeChanged", "WinEnter" }, {
+    group = group,
+    callback = update_cursor_highlight,
+  })
+
+  vim.api.nvim_create_autocmd({ "BufLeave", "WinLeave" }, {
+    group = group,
+    callback = function()
+      restore_cursor_highlight(vim.api.nvim_get_current_win())
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("WinClosed", {
+    group = group,
+    callback = function(args)
+      h1_cursor_windows[tonumber(args.match)] = nil
+    end,
+  })
+
+  update_cursor_highlight()
 end
 
 ---@param ctx render.md.handler.Context
@@ -157,16 +270,19 @@ end
 
 function M.resetup()
   setup_moonfly()
+  update_h1_cursor_highlight()
   setup_plugin()
 end
 
 function M.setup()
   setup_moonfly()
+  update_h1_cursor_highlight()
   setup_plugin()
 
   is_setup = true
 
   setup_keymaps()
+  setup_h1_cursor()
 end
 
 return M

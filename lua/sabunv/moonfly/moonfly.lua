@@ -1,6 +1,7 @@
 -- sabunv.moonfly.moonfly
 
 local M = {}
+local tty = require "sabunv.moonfly.tty"
 
 local function generate_mf_colors()
   local col = sabunv.moonfly.colors
@@ -215,6 +216,35 @@ local function window_highlights(state)
   })
 end
 
+local function selection_highlights()
+  local set = sabunv.moonfly.hl.set
+  local update = sabunv.moonfly.hl.update
+
+  if tty.is_pure() then
+    -- La inversión convierte el fondo claro de H1 en el negro de la consola,
+    -- haciendo que parezca que la selección no tiene fondo. Usamos un bloque
+    -- ANSI explícito que también contrasta con el resto de headings.
+    local visual = {
+      fg = "#000000",
+      bg = "#BFBFBF",
+      ctermfg = 0,
+      ctermbg = 7,
+    }
+    set("Visual", visual)
+    set("VisualNOS", visual)
+    set("VisualNC", visual)
+
+    tty.setup_cursor()
+  else
+    -- Conservar el fondo de selección de Moonfly, pero no heredar el texto
+    -- oscuro de los headings.
+    local visual = { fg = sabunv.moonfly.colors.white }
+    update("Visual", visual)
+    update("VisualNOS", visual)
+    update("VisualNC", visual)
+  end
+end
+
 ---@param state sabunv.moonfly.state
 local function volt_highlights(state)
   local col = sabunv.moonfly.colors
@@ -233,7 +263,6 @@ local function volt_highlights(state)
     update("ExBlack3Border", { fg = col.light_blue, bg = col.light_blue })
     update("ExBlack2Bg", { fg = col.blue, bg = "NONE" })
     update("ExBlack2Border", { fg = col.light_blue, bg = "" })
-
   else
     error("invalid moonfly style: " .. tostring(state.style))
   end
@@ -281,6 +310,8 @@ local function highlights(state)
   else
     error("invalid moonfly style: " .. tostring(state.style))
   end
+
+  selection_highlights()
 end
 
 ---@param state sabunv.moonfly.state
