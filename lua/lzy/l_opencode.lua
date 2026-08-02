@@ -1,6 +1,8 @@
 -- lzy/l_opencode.lua
 
 local M = {}
+local mode = require "sabunv.mode"
+local origin = nil
 
 local function notify(msg, level, opts)
   local ok, Snacks = pcall(require, "snacks")
@@ -24,10 +26,26 @@ function M.kill_opencode()
   end
 end
 
-local function toggle_opencode_from_insert()
-  vim.cmd "stopinsert"
+local function toggle_opencode()
+  local state = require "opencode.state"
+  local was_open = state.ui.get_window_state().status == "visible" and state.ui.are_windows_in_current_tab()
+
+  if not was_open then
+    origin = mode.capture()
+  end
+
+  if vim.api.nvim_get_mode().mode:sub(1, 1) == "i" then
+    vim.cmd "stopinsert"
+  end
+
   vim.schedule(function()
     require("opencode.api").toggle()
+
+    if was_open then
+      local context = origin
+      origin = nil
+      mode.restore(context)
+    end
   end)
 end
 
@@ -132,7 +150,11 @@ end
 
 -- Afecta a los 3 keymaps: editor, input, output
 local absolute_keymap = {
-  ["<C-/>"] = { "toggle" }, -- Open opencode. Close if opened (puede que necesites <C-_> según tu terminal)
+  ["<C-/>"] = {
+    toggle_opencode,
+    mode = { "n", "i" },
+    desc = "Toggle opencode",
+  }, -- Open opencode. Close if opened (puede que necesites <C-_> según tu terminal)
   ["<leader>ok"] = { M.kill_opencode, desc = "Kill opencode server" }, -- Kill opencode server
   ["<leader>og"] = { "toggle" }, -- Open opencode. Close if opened
   ["<leader>oi"] = { "open_input" }, -- Opens and focuses on input window on insert mode
@@ -177,7 +199,7 @@ local input_output_keymap = {
   -- ["<M-r>"] = { "cycle_variant", mode = { "n", "i" } }, -- Cycle through available model variants
   ["<M-.>"] = { variant_up, mode = { "n", "i" }, desc = "Increase variant" },
   ["<M-,>"] = { variant_down, mode = { "n", "i" }, desc = "Decrease variant" },
-  ["<C-/>"] = { toggle_opencode_from_insert, mode = { "i" }, desc = "Toggle opencode" },
+  ["<C-/>"] = { toggle_opencode, mode = { "n", "i" }, desc = "Toggle opencode" },
   ["<cr>"] = { "submit_input_prompt", mode = { "n", "i" } },
   ["<M-m>"] = { "configure_provider", mode = { "n", "i" }, desc = "Switch provider/model" },
   ["<M-r>"] = {

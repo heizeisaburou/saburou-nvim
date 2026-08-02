@@ -1,6 +1,7 @@
 -- sabunv.terminal
 
 local M = {}
+local mode = require "sabunv.mode"
 
 -- -----------------------------------------------------------------------------
 -- Terminal state
@@ -26,6 +27,7 @@ local terminals = {
     win = nil,
     job = nil,
     name = "sbnv_floating_terminal",
+    origin = nil,
   },
 }
 
@@ -149,10 +151,14 @@ function M.toggle_float()
   local term = terminals.float
 
   if is_window_open(term) then
+    local origin = term.origin
     hide_terminal_window(term)
+    term.origin = nil
+    mode.restore(origin)
     return
   end
 
+  term.origin = mode.capture()
   ensure_terminal_buffer(term)
   open_float_window(term)
   start_terminal_job(term)

@@ -1,6 +1,8 @@
 -- lzy.l_claude
 
 local M = {}
+local mode = require "sabunv.mode"
+local origin = nil
 
 local last_float = {
   width = nil,
@@ -61,9 +63,39 @@ local function setup_if_geometry_changed()
   end
 end
 
+local function is_open()
+  local claude = require "claude-code"
+  local git_config = claude.config.git
+  local instance = "global"
+
+  if git_config.multi_instance then
+    instance = vim.fn.getcwd()
+
+    if git_config.use_git_root then
+      instance = require("claude-code.git").get_git_root() or instance
+    end
+  end
+
+  local buf = claude.claude_code.instances[instance]
+
+  return buf and vim.api.nvim_buf_is_valid(buf) and #vim.fn.win_findbuf(buf) > 0
+end
+
 local function toggle()
+  local was_open = is_open()
+
+  if not was_open then
+    origin = mode.capture()
+  end
+
   setup_if_geometry_changed()
   require("claude-code").toggle()
+
+  if was_open then
+    local context = origin
+    origin = nil
+    mode.restore(context)
+  end
 end
 
 local function toggle_with_variant(variant)
@@ -76,7 +108,7 @@ M.keys = {
   {
     "<C-,>",
     toggle,
-    mode = { "n", "t" },
+    mode = { "n", "i", "t" },
     desc = "Claude Code: toggle",
   },
   {

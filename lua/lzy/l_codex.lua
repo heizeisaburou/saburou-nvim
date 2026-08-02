@@ -1,15 +1,32 @@
 -- lzy.l_codex
 
 local M = {}
+local mode = require "sabunv.mode"
+local origin = nil
+
+local function toggle()
+  local state = require "codex.state"
+  local was_open = state.win and vim.api.nvim_win_is_valid(state.win)
+
+  if not was_open then
+    origin = mode.capture()
+  end
+
+  require("codex").toggle()
+
+  if was_open then
+    local context = origin
+    origin = nil
+    mode.restore(context)
+  end
+end
 
 M.keys = {
   {
     "<C-.>",
-    function()
-      require("codex").toggle()
-    end,
+    toggle,
     desc = "Toggle Codex popup or side-panel",
-    mode = { "n", "t" },
+    mode = { "n", "i", "t" },
   },
 }
 
