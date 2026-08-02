@@ -26,6 +26,13 @@ map("n", "<leader>ff", "<cmd>Telescope find_files<CR>", { desc = "Telescope: Fin
 map("n", "<leader>fg", "<cmd>Telescope live_grep<CR>", { desc = "Telescope: Find text" })
 map("n", "<leader>fb", "<cmd>Telescope buffers<CR>", { desc = "Telescope: Find buffers" })
 map("n", "<leader>fo", "<cmd>Telescope oldfiles<CR>", { desc = "Telescope: Find old files" })
+map("n", "<leader>fc", function()
+  require("telescope.builtin").find_files {
+    cwd = vim.fn.stdpath "config",
+    hidden = true,
+    prompt_title = "Neovim config",
+  }
+end, { desc = "Telescope: Find config files" })
 
 -- =============================================================================
 -- Clipboard
