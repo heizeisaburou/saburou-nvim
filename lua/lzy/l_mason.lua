@@ -13,7 +13,9 @@ M.opts = {
     },
   },
 
-  max_concurrent_installers = 10,
+  -- Los gestores usados por Mason (npm, pip, cargo...) ya pueden descargar en
+  -- paralelo internamente; limitarlos evita saturar la red durante el bootstrap.
+  max_concurrent_installers = 3,
 }
 
 function M.init_setup()

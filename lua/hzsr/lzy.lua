@@ -6,6 +6,19 @@ M.opts = {
   defaults = { lazy = true },
   -- install = { colorscheme = { "???" } },
 
+  -- Lazy sync ejecuta instalación y actualización en runners separados. Tres
+  -- trabajos por runner mantienen una instalación razonablemente rápida
+  -- sin recuperar la concurrencia ilimitada de Linux o CPU × 2 de Windows.
+  concurrency = 3,
+
+  git = {
+    throttle = {
+      enabled = true,
+      rate = 3,
+      duration = 2000,
+    },
+  },
+
   ui = {
     icons = {
       ft = "",
