@@ -42,6 +42,7 @@ M.colors = {
 
   red = "#DF5B61",
   medium_red = "#591b1e",
+  pink = "#F094C5",
 
   light_green = "#36C692",
   green = "#24b37e",

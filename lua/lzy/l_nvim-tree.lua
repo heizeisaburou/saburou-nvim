@@ -336,6 +336,18 @@ M.opts = {
   renderer = {
     root_folder_label = false,
     highlight_git = true,
+    special_files = {
+      "Cargo.toml",
+      "Makefile",
+      "README",
+      "readme",
+      "README.md",
+      "readme.md",
+      "LICENSE",
+      "license",
+      "LICENSE.md",
+      "license.md",
+    },
     indent_markers = { enable = true },
     icons = {
       glyphs = {

@@ -17,6 +17,12 @@ local function common()
   update("NvimTreeGitFolderNewHL", { fg = col.yellow })
   update("NvimTreeGitFolderRenamedHL", { fg = col.yellow })
 
+  -- Documentación y metadatos importantes, separados del amarillo Git.
+  update("NvimTreeSpecialFile", { fg = col.light_blue })
+
+  -- Mismo rosa que los iconos de imagen, distinto del rojo Git dirty.
+  update("NvimTreeImageFile", { fg = col.pink })
+
   -- Folder names
   update("NvimTreeFolderName", { fg = col.blue })
   update("NvimTreeOpenedFolderName", { fg = col.blue })

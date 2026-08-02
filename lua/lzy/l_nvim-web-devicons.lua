@@ -1,6 +1,10 @@
 -- lzy.l_nvim-web-devicons
 
 local M = {}
+local documentation_color = sabunv.moonfly.colors.light_blue
+local documentation_cterm_color = "80"
+local image_color = sabunv.moonfly.colors.pink
+local image_cterm_color = "212"
 
 M.opts = {
   -- your personal icons can go here (to override)
@@ -41,20 +45,74 @@ M.opts = {
       color = "#f1502f",
       name = "Gitignore",
     },
+    ["readme"] = {
+      icon = "󰂺",
+      color = documentation_color,
+      cterm_color = documentation_cterm_color,
+      name = "Readme",
+    },
+    ["readme.md"] = {
+      icon = "󰂺",
+      color = documentation_color,
+      cterm_color = documentation_cterm_color,
+      name = "ReadmeMd",
+    },
+    ["license"] = {
+      icon = "",
+      color = documentation_color,
+      cterm_color = documentation_cterm_color,
+      name = "LicenseFile",
+    },
+    ["license.md"] = {
+      icon = "",
+      color = documentation_color,
+      cterm_color = documentation_cterm_color,
+      name = "LicenseMd",
+    },
   },
   -- same as `override` but specifically for overrides by extension
   -- takes effect when `strict` is true
   override_by_extension = {
+    ["gif"] = {
+      icon = "",
+      color = image_color,
+      cterm_color = image_cterm_color,
+      name = "Gif",
+    },
+    ["jpeg"] = {
+      icon = "",
+      color = image_color,
+      cterm_color = image_cterm_color,
+      name = "Jpeg",
+    },
+    ["jpg"] = {
+      icon = "",
+      color = image_color,
+      cterm_color = image_cterm_color,
+      name = "Jpg",
+    },
     ["log"] = {
       icon = "",
       color = "#81e043",
       name = "Log",
+    },
+    ["png"] = {
+      icon = "",
+      color = image_color,
+      cterm_color = image_cterm_color,
+      name = "Png",
     },
     ["rs"] = {
       icon = "",
       color = "#F74C00",
       cterm_color = "216",
       name = "Rust",
+    },
+    ["webp"] = {
+      icon = "",
+      color = image_color,
+      cterm_color = image_cterm_color,
+      name = "Webp",
     },
   },
   -- same as `override` but specifically for operating system
