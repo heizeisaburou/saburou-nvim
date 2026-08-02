@@ -40,7 +40,7 @@ M.dashboard = {
       },
       {
         icon = " ",
-        key = "t",
+        key = "g",
         desc = "Find Text",
         action = ":lua Snacks.dashboard.pick('live_grep')",
       },

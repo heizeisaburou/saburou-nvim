@@ -13,6 +13,63 @@ local M = {}
 local is_setup = false
 
 -- -----------------------------------------------------------------------------
+-- Contextual rendering
+-- -----------------------------------------------------------------------------
+
+local inline_code_query = vim.treesitter.query.parse("markdown_inline", "(code_span) @code")
+
+---@param bufnr integer
+---@param row integer
+---@return integer?
+local function heading_level(bufnr, row)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, row, row + 2, false)
+  local marker = (lines[1] or ""):match "^%s*(#+)%s"
+
+  if marker and #marker <= 6 then
+    return #marker
+  end
+
+  local underline = lines[2] or ""
+  if underline:match "^%s*=+%s*$" then
+    return 1
+  elseif underline:match "^%s*%-+%s*$" then
+    return 2
+  end
+end
+
+---@param ctx render.md.handler.Context
+---@return render.md.Mark[]
+local function render_heading_inline_code(ctx)
+  local marks = {}
+
+  for id, node in inline_code_query:iter_captures(ctx.root, ctx.buf) do
+    if inline_code_query.captures[id] == "code" then
+      local start_row, start_col, end_row, end_col = node:range()
+      local level = heading_level(ctx.buf, start_row)
+
+      if level then
+        marks[#marks + 1] = {
+          modes = { "i" },
+          conceal = "code_background",
+          start_row = start_row,
+          start_col = start_col,
+          opts = {
+            end_row = end_row,
+            end_col = end_col,
+            hl_group = "RenderMarkdownCodeInline",
+            -- Los fondos de heading usan la prioridad por defecto de Neovim
+            -- (4096), por encima del 140 del código inline del plugin.
+            priority = 4097,
+          },
+        }
+      end
+    end
+  end
+
+  return marks
+end
+
+-- -----------------------------------------------------------------------------
 -- Base opts
 -- -----------------------------------------------------------------------------
 
@@ -25,6 +82,17 @@ M.opts = {
   completions = {
     lsp = {
       enabled = false,
+    },
+  },
+
+  code = {
+    render_modes = { "i" },
+  },
+
+  custom_handlers = {
+    markdown_inline = {
+      extends = true,
+      parse = render_heading_inline_code,
     },
   },
 }
