@@ -4,7 +4,7 @@
 
 > [!NOTE]
 >
-> **Versión actual: `v0.1.0-alpha.8` — requiere Neovim 0.12+.**
+> **Versión actual: `v0.1.0-alpha.9` — requiere Neovim 0.12+.**
 
 > 📖 Consulta la **[guía rápida](docs/basic-guide.md)** para la instalación detallada, alias recomendados y
 > particularidades por sistema (Linux, macOS, Windows).

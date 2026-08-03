@@ -32,6 +32,9 @@ vim.lsp.buf.hover()
 ---| hzsr.buf.filter_fn[]
 ---| (hzsr.buf.filter_str|hzsr.buf.filter_fn)[]
 
+---@class hzsr.buf.merge_into_existing.opts
+---@field replace_windows? boolean
+
 -- -----------------------------------------------------------------------------
 
 ---@class hzsr.buf.close.opts_x

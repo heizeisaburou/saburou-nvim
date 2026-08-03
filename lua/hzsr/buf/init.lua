@@ -54,7 +54,7 @@ function M.delete(bufnr, force, unload)
   vim.validate("force", force, "boolean", true)
   vim.validate("unload", unload, "boolean", true)
 
-  opts = { force = force or false, unload = unload or false }
+  local opts = { force = force or false, unload = unload or false }
 
   vim.api.nvim_buf_delete(bufnr, opts)
 end
@@ -304,6 +304,7 @@ end
 function M.get_replacement(current)
   current = M.resolve(current)
 
+  ---@type integer?
   local fallback = nil
 
   for _, bufnr in ipairs(M.get_all "normal") do
