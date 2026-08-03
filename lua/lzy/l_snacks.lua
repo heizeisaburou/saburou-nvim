@@ -52,7 +52,7 @@ M.dashboard = {
       },
       {
         icon = " ",
-        key = "g",
+        key = "h",
         desc = "GitHub",
         action = ":lua vim.ui.open('https://github.com/heizeisaburou/saburou-nvim')",
       },

@@ -357,18 +357,28 @@ M.opts = {
   notify_no_formatters = false,
 }
 
+local function notify(message, level)
+  local ok, snacks = pcall(require, "snacks")
+  local opts = { title = "Conform" }
+
+  if ok and snacks.notifier and snacks.notifier.notify then
+    snacks.notifier.notify(message, level, opts)
+    return
+  end
+
+  vim.notify(message, level, opts)
+end
+
 local function format_buffer()
   require("conform").format({ lsp_format = "fallback" }, function(err, did_edit)
     if err then
-      vim.notify("No se pudo formatear:\n" .. err, vim.log.levels.ERROR, { title = "Conform" })
+      notify("No se pudo formatear:\n" .. err, vim.log.levels.ERROR)
+
     elseif did_edit then
-      vim.notify("Formato aplicado", vim.log.levels.INFO, { title = "Conform" })
+      notify("Formato aplicado", vim.log.levels.INFO)
+
     else
-      vim.notify(
-        "Sin cambios: el buffer ya estaba formateado o `.prettierignore` lo excluye",
-        vim.log.levels.INFO,
-        { title = "Conform" }
-      )
+      notify("El buffer ya estaba formateado (o `.prettierignore` lo excluye)", vim.log.levels.INFO)
     end
   end)
 end
