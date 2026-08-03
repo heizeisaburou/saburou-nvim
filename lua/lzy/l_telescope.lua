@@ -21,6 +21,10 @@ M.config = {
       height = 0.80,
     },
     mappings = {
+      i = {
+        ["<C-p>"] = actions.cycle_history_prev,
+        ["<C-n>"] = actions.cycle_history_next,
+      },
       n = {
         ["q"] = actions.close,
       },
