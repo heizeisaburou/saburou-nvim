@@ -145,14 +145,6 @@ return {
       return require "lzy.gitsigns"
     end,
   },
-  -- --- [ git-conflict ] ------------------------------------------------------
-  -- {
-  --   "akinsho/git-conflict.nvim",
-  --   event = "BufReadPre",
-  --   config = function()
-  --     require("lzy.l_git-conflict").setup()
-  --   end,
-  -- },
   -- --- [ diffview ] ----------------------------------------------------------
   {
     "sindrets/diffview.nvim",

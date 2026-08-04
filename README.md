@@ -260,6 +260,6 @@ Este repositorio contiene código bajo varias licencias:
 
 - La mayor parte del código original se publica bajo los términos de la [Apache License 2.0](LICENSE)
   ([texto oficial](https://www.apache.org/licenses/LICENSE-2.0)).
-- El directorio [`lua/hzsr/mason/nvchad/`](lua/hzsr/mason/nvchad/) contiene código derivado de NvChad/ui y está
-  licenciado bajo [GPL-3.0-only](lua/hzsr/mason/nvchad/LICENSE). Consulta también
-  [`lua/hzsr/mason/nvchad/NOTICE.md`](lua/hzsr/mason/nvchad/NOTICE.md) para más detalles.
+- El directorio [`lua/hzsr/mason/nvchad/`](./lua/hzsr/mason/nvchad/) contiene código derivado de NvChad/ui y está
+  licenciado bajo [GPL-3.0-only](./lua/hzsr/mason/nvchad/LICENSE). Consulta también
+  [`lua/hzsr/mason/nvchad/NOTICE.md`](./lua/hzsr/mason/nvchad/NOTICE.md) para más detalles.
