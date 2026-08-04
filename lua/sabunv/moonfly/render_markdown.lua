@@ -211,9 +211,9 @@ end
 function M.resetup(state)
   heading_highlights(state)
 
-  local ok, render_markdown = pcall(require, "lzy.l_render-markdown")
+  local render_markdown = require "lzy.render-markdown"
 
-  if ok and render_markdown.is_setup and render_markdown.is_setup() then
+  if render_markdown.is_setup() then
     render_markdown.resetup()
   end
 end

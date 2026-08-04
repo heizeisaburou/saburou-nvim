@@ -174,9 +174,9 @@ end
 function M.resetup(state)
   M._config = generate_config(state)
 
-  local ok, lualine = pcall(require, "lzy.l_lualine")
+  local lualine = require "lzy.lualine"
 
-  if ok and lualine.is_setup and lualine.is_setup() then
+  if lualine.is_setup() then
     lualine.resetup()
   end
 end

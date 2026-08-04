@@ -150,12 +150,15 @@ end
 
 -- Afecta a los 3 keymaps: editor, input, output
 local absolute_keymap = {
-  ["<C-/>"] = {
-    toggle_opencode,
-    mode = { "n", "i" },
-    desc = "Toggle opencode",
-  }, -- Open opencode. Close if opened (puede que necesites <C-_> según tu terminal)
-  ["<leader>ok"] = { M.kill_opencode, desc = "Kill opencode server" }, -- Kill opencode server
+  -- TODO(opencode): volver a declarar estos callbacks aquí cuando upstream
+  -- corrija preserve_existing; mientras tanto los instala
+  -- setup_custom_callback_keymaps() para evitar warnings falsos al restaurar.
+  -- ["<C-/>"] = {
+  --   toggle_opencode,
+  --   mode = { "n", "i" },
+  --   desc = "Toggle opencode",
+  -- }, -- Open opencode. Close if opened (puede que necesites <C-_> según tu terminal)
+  -- ["<leader>ok"] = { M.kill_opencode, desc = "Kill opencode server" }, -- Kill opencode server
   ["<leader>og"] = { "toggle" }, -- Open opencode. Close if opened
   ["<leader>oi"] = { "open_input" }, -- Opens and focuses on input window on insert mode
   ["<leader>oI"] = { "open_input_new_session" }, -- Opens and focuses on input window on insert mode. Creates a new session
@@ -197,18 +200,22 @@ local editor_keymap = {}
 local input_output_keymap = {
   ["<A-s>"] = { "select_session", mode = { "n", "i" }, desc = "Select session" }, -- Select and load a opencode session
   -- ["<M-r>"] = { "cycle_variant", mode = { "n", "i" } }, -- Cycle through available model variants
-  ["<M-.>"] = { variant_up, mode = { "n", "i" }, desc = "Increase variant" },
-  ["<M-,>"] = { variant_down, mode = { "n", "i" }, desc = "Decrease variant" },
-  ["<C-/>"] = { toggle_opencode, mode = { "n", "i" }, desc = "Toggle opencode" },
+  -- TODO(opencode): restaurar estos callbacks en esta tabla junto con los de
+  -- absolute_keymap cuando upstream deje de confundir mappings preservados con
+  -- acciones inexistentes.
+  -- ["<M-.>"] = { variant_up, mode = { "n", "i" }, desc = "Increase variant" },
+  -- ["<M-,>"] = { variant_down, mode = { "n", "i" }, desc = "Decrease variant" },
+  -- ["<C-/>"] = { toggle_opencode, mode = { "n", "i" }, desc = "Toggle opencode" },
   ["<cr>"] = { "submit_input_prompt", mode = { "n", "i" } },
   ["<M-m>"] = { "configure_provider", mode = { "n", "i" }, desc = "Switch provider/model" },
-  ["<M-r>"] = {
-    function()
-      sabunv.restart.restart()
-    end,
-    mode = { "i", "n" },
-    desc = "hzsr: Restart",
-  },
+  ["<M-r>"] = false, -- Evita que el default cycle_variant pise el workaround.
+  -- ["<M-r>"] = {
+  --   function()
+  --     sabunv.restart.restart()
+  --   end,
+  --   mode = { "i", "n" },
+  --   desc = "hzsr: Restart",
+  -- },
 }
 
 -- Keymap output
@@ -216,13 +223,15 @@ local output_keymap = {
   ["<esc>"] = { "close" }, -- Close UI windows
   ["<tab>"] = { "toggle_pane", mode = { "n", "i" } }, -- Toggle between input and output panes
 
-  ["<S-cr>"] = { -- salto de línea con shift+cr
-    function()
-      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "n", false)
-    end,
-    mode = { "i" },
-    desc = "Insert newline",
-  },
+  ["<S-cr>"] = false, -- Reserva el mapping para setup_custom_callback_keymaps().
+  -- TODO(opencode): restaurar este callback aquí cuando se retire el workaround.
+  -- ["<S-cr>"] = { -- salto de línea con shift+cr
+  --   function()
+  --     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "n", false)
+  --   end,
+  --   mode = { "i" },
+  --   desc = "Insert newline",
+  -- },
   ["<C-c>"] = { "cancel" }, -- Cancel opencode request while it is running
   -- ["<C-c>"] = {
   --   cancel_or_kill_opencode,
@@ -243,13 +252,15 @@ local input_keymap = {
   ["<up>"] = { "prev_prompt_history", mode = { "n", "i" }, defer_to_completion = true }, -- Navigate to previous prompt in history
   ["<down>"] = { "next_prompt_history", mode = { "n", "i" }, defer_to_completion = true }, -- Navigate to next prompt in history
 
-  ["<S-cr>"] = { -- salto de línea con shift+cr
-    function()
-      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "n", false)
-    end,
-    mode = { "i" },
-    desc = "Insert newline",
-  },
+  ["<S-cr>"] = false, -- Evita que el default submit_input_prompt pise el workaround.
+  -- TODO(opencode): restaurar este callback aquí cuando se retire el workaround.
+  -- ["<S-cr>"] = { -- salto de línea con shift+cr
+  --   function()
+  --     vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "n", false)
+  --   end,
+  --   mode = { "i" },
+  --   desc = "Insert newline",
+  -- },
   ["<C-c>"] = { "cancel", defer_to_completion = true }, -- Cancel opencode request while it is running
   -- ["<C-c>"] = {
   --   cancel_or_kill_opencode,
@@ -264,6 +275,36 @@ local input_keymap = {
   ["<M-v>"] = { "paste_image", mode = "i" }, -- Paste image from clipboard as attachment
   ["<M-b>"] = { "switch_mode" }, -- Switch between modes (build/plan)
 }
+
+-- Workaround para opencode.nvim: preserve_existing conserva correctamente los
+-- mappings al restaurar sus buffers, pero actualmente muestra "No action found"
+-- para callbacks Lua que ya estaban instalados. Mantener estos callbacks fuera
+-- de M.opts.keymap evita el falso warning sin parchear archivos gestionados por
+-- Lazy. Cuando upstream lo corrija, eliminar esta función y reactivar los bloques
+-- TODO(opencode) comentados arriba.
+local function setup_custom_callback_keymaps()
+  local map = vim.keymap.set
+
+  map({ "n", "i" }, "<C-/>", toggle_opencode, { desc = "Opencode: Toggle" })
+  map({ "n", "v" }, "<leader>ok", M.kill_opencode, { desc = "Opencode: Kill server" })
+
+  vim.api.nvim_create_autocmd("FileType", {
+    group = vim.api.nvim_create_augroup("lzy_opencode_custom_keymaps", { clear = true }),
+    pattern = { "opencode", "opencode_output" },
+    callback = function(args)
+      local opts = function(desc)
+        return { buffer = args.buf, desc = "Opencode: " .. desc, silent = true }
+      end
+
+      map({ "n", "i" }, "<M-.>", variant_up, opts "Increase variant")
+      map({ "n", "i" }, "<M-,>", variant_down, opts "Decrease variant")
+      map({ "n", "i" }, "<M-r>", sabunv.restart.restart, opts "Restart Neovim")
+      map("i", "<S-cr>", function()
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<CR>", true, false, true), "n", false)
+      end, opts "Insert newline")
+    end,
+  })
+end
 
 M.opts = {
   preferred_picker = "telescope", -- 'telescope'/'telescope.nvim', 'fzf'/'fzf-lua', 'mini.pick', 'snacks'/'snacks.nvim', 'select', if nil, it will use the best available picker. Note mini.pick does not support multiple selections
@@ -454,6 +495,7 @@ M.opts = {
 }
 
 function M.setup()
+  setup_custom_callback_keymaps()
   require("opencode").setup(M.opts)
 end
 

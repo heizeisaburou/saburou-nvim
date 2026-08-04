@@ -294,10 +294,7 @@ M.on_attach = function(client, bufnr)
   end
 
   -- require("hzsr.lsp_signature_help").on_attach(client, bufnr)
-  local ok, lzy_lsplines = pcall(require, "lzy.l_lsp-lines")
-  if ok and lzy_lsplines then
-    lzy_lsplines.on_attach(client, bufnr)
-  end
+  require("lzy.lsp-lines").on_attach(client, bufnr)
 
   setup_on_attach_mappings(client, bufnr)
 end
@@ -352,6 +349,24 @@ local function make_capabilities()
 end
 
 M.capabilities = make_capabilities()
+
+-- A document-highlight response can arrive after its buffer has been wiped,
+-- for example while nvim-tree is renaming files. Neovim's default handler
+-- accesses the buffer without checking that it still exists.
+local function setup_document_highlight_handler()
+  vim.lsp.handlers["textDocument/documentHighlight"] = function(_, result, ctx)
+    if not result or not vim.api.nvim_buf_is_valid(ctx.bufnr) then
+      return
+    end
+
+    local client = vim.lsp.get_client_by_id(ctx.client_id)
+    if not client then
+      return
+    end
+
+    vim.lsp.util.buf_highlight_references(ctx.bufnr, result, client.offset_encoding)
+  end
+end
 
 -- =============================================================================
 -- Server helpers
@@ -584,6 +599,8 @@ end
 
 ---@return nil
 M.setup = function()
+  setup_document_highlight_handler()
+
   vim.api.nvim_create_autocmd("LspAttach", {
     group = vim.api.nvim_create_augroup("lzy_lsp_attach", { clear = true }),
     callback = function(args)

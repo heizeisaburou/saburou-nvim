@@ -581,12 +581,10 @@ function M.restore_state()
 end
 
 function M.close_opencode()
-  local ok, opencode = pcall(require, "lzy.l_opencode")
-  if not ok or type(opencode.kill_opencode) ~= "function" then
-    return
-  end
+  local opencode = require "lzy.opencode"
+  assert(type(opencode.kill_opencode) == "function", "lzy.opencode.kill_opencode must be a function")
 
-  pcall(opencode.kill_opencode)
+  opencode.kill_opencode()
 end
 
 function M.close_nvim_tree()

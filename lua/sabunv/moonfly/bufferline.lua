@@ -363,9 +363,9 @@ function M.resetup(state)
   clear_highlights()
   M._config = generate_config(state)
 
-  local ok, bufferline = pcall(require, "lzy.l_bufferline")
+  local bufferline = require "lzy.bufferline"
 
-  if ok and bufferline.is_setup and bufferline.is_setup() then
+  if bufferline.is_setup() then
     bufferline.resetup()
   end
 end
