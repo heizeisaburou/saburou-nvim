@@ -61,7 +61,8 @@ local function start_terminal_job(term)
   end
 
   vim.api.nvim_buf_call(term.buf, function()
-    term.job = vim.fn.termopen(vim.o.shell, {
+    term.job = vim.fn.jobstart(vim.o.shell, {
+      term = true,
       on_exit = function()
         term.job = nil
       end,

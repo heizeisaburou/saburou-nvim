@@ -28,11 +28,14 @@ M.get_pkgs = function()
   local tools = {}
 
   -- lsp
-  local native_lsps = vim.tbl_keys(vim.lsp._enabled_configs or {})
+  local enabled_lsps = vim
+    .iter(vim.lsp.get_configs { enabled = true })
+    :map(function(config)
+      return config.name
+    end)
+    :totable()
 
-  local lspconfig_lsps = require("lspconfig.util").available_servers()
-  vim.list_extend(tools, lspconfig_lsps)
-  vim.list_extend(tools, native_lsps)
+  vim.list_extend(tools, enabled_lsps)
 
   -- conform
   local conform_exists, conform = pcall(require, "conform")
