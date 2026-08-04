@@ -2,7 +2,7 @@
 
 local M = {}
 
-local line_length = 120
+local line_length = 97
 local indent = require "sabunv.indent"
 
 local function indent_for(ctx)

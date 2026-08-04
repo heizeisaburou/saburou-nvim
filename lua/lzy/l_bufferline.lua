@@ -79,6 +79,7 @@ local opts = {
     delay = 200,
   },
 
+  ---@diagnostic disable-next-line: unused-local
   diagnostics_indicator = function(count, level, diagnostics_dict, context)
     local icon = level:match "error" and " " or " "
     return " " .. icon .. count
@@ -243,7 +244,10 @@ local function unassign_current_buffer_group()
   apply_manual_groups()
 
   if old_group then
-    vim.notify(("Buffer %d quitado del grupo '%s'"):format(bufnr, old_group), vim.log.levels.INFO)
+    vim.notify(
+      ("Buffer %d quitado del grupo '%s'"):format(bufnr, old_group),
+      vim.log.levels.INFO
+    )
   else
     vim.notify(("Buffer %d no tenía grupo manual"):format(bufnr), vim.log.levels.INFO)
   end

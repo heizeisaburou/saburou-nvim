@@ -15,7 +15,10 @@ function M.restore(context)
   end
 
   vim.schedule(function()
-    if not vim.api.nvim_win_is_valid(context.win) or vim.api.nvim_get_current_win() ~= context.win then
+    if
+      not vim.api.nvim_win_is_valid(context.win)
+      or vim.api.nvim_get_current_win() ~= context.win
+    then
       return
     end
 

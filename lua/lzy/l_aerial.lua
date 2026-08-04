@@ -59,6 +59,7 @@ local opts = {
   post_jump_cmd = "normal! zz",
 
   -- Función para filtrar símbolos no deseados
+  ---@diagnostic disable-next-line: unused-local
   post_parse_symbol = function(bufnr, item, ctx)
     -- FILTRO 1: Asegurarse de que el símbolo tiene un nombre
     if not item.name or item.name == "" then
