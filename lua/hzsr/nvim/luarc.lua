@@ -3,7 +3,7 @@
 local M = {}
 
 ---@type {
----  runtime: { version: string },
+---  runtime: { version: string, pathStrict: boolean },
 ---  diagnostics: { globals: string[] },
 ---  workspace: {
 ---    library: string[],
@@ -14,6 +14,7 @@ local M = {}
 M.base_json = {
   runtime = {
     version = "LuaJIT",
+    pathStrict = true,
   },
   diagnostics = {
     globals = { "vim" },

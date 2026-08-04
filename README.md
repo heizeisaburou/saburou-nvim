@@ -115,6 +115,22 @@ correctamente.
    :TSInstallAll
    ```
 
+### Configuración de LuaLS
+
+Esta configuración incluye el comando `:Luarc [NVIM_APPNAME]`, que genera en un buffer el `.luarc.json` correspondiente
+a la instalación actual (o al `NVIM_APPNAME` indicado). Guarda el buffer para escribir el archivo:
+
+```vim
+:Luarc
+:write!
+```
+
+El archivo generado activa `runtime.pathStrict`. Sin esta opción, LuaLS busca los módulos de `require` recursivamente
+por nombre de archivo: por ejemplo, `require "snacks"` también puede asociarse por error con cualquier
+`**/snacks.lua` del workspace, aunque pertenezca a otro namespace. La búsqueda estricta respeta las raíces Lua
+configuradas y evita estas colisiones, por lo que no es necesario prefijar archivos como `l_snacks.lua` únicamente para
+distinguirlos del plugin `snacks`.
+
 ## Limpieza de instalaciones previas
 
 Si vienes de una configuración diferente bajo el mismo `NVIM_APPNAME` (o si quieres empezar desde cero), conviene

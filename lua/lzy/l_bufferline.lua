@@ -333,7 +333,9 @@ end
 ---@param group_name? string
 local function run_bufferline_group_cmd(cmd, group_name)
   local full_cmd = group_name and group_name ~= "" and (cmd .. " " .. group_name) or cmd
-  local ok, err = pcall(vim.cmd, full_cmd)
+  local ok, err = pcall(function()
+    vim.cmd(full_cmd)
+  end)
 
   if not ok then
     vim.notify(tostring(err), vim.log.levels.ERROR)
