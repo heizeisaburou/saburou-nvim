@@ -15,7 +15,7 @@ return {
     priority = 1000,
     lazy = false,
     config = function()
-      require("lzy.l_snacks").setup()
+      require("lzy.snacks").setup()
     end,
   },
   -- --- [ mru-nav ] -----------------------------------------------------------
@@ -25,7 +25,7 @@ return {
     cmd = { "MruFile", "MruBuffer", "MruClearFiles" },
     lazy = false,
     config = function()
-      require("lzy.l_mru-nav").setup()
+      require("lzy.mru-nav").setup()
     end,
   },
   -- --- [ mason ] -------------------------------------------------------------
@@ -33,10 +33,10 @@ return {
     "mason-org/mason.nvim",
     cmd = { "Mason", "MasonInstall", "MasonUpdate" },
     init = function()
-      require("lzy.l_mason").init_setup()
+      require("lzy.mason").init_setup()
     end,
     config = function()
-      require("lzy.l_mason").setup()
+      require("lzy.mason").setup()
     end,
   },
   -- --- [ telescope ] ---------------------------------------------------------
@@ -45,7 +45,7 @@ return {
     dependencies = { "nvim-treesitter/nvim-treesitter" },
     cmd = "Telescope",
     config = function()
-      return require("lzy.l_telescope").setup(true)
+      return require("lzy.telescope").setup(true)
     end,
   },
   -- ---------------------------------------------------------------------------
@@ -55,9 +55,9 @@ return {
     "nvim-treesitter/nvim-treesitter",
     event = { "BufReadPre", "BufNewFile" },
     branch = "main",
-    opts = require("lzy.l_treesitter").opts,
+    opts = require("lzy.treesitter").opts,
     config = function()
-      require("lzy.l_treesitter").setup()
+      require("lzy.treesitter").setup()
     end,
   },
   --- [ lspconfig ] ------------------------------------------------------------
@@ -66,7 +66,7 @@ return {
     -- event = "VeryLazy",
     lazy = false,
     config = function()
-      require("lzy.l_lspconfig").setup()
+      require("lzy.lspconfig").setup()
     end,
   },
   -- --- [ conform ] -----------------------------------------------------------
@@ -77,7 +77,7 @@ return {
     "stevearc/conform.nvim",
     event = "VeryLazy",
     config = function()
-      require("lzy.l_conform").setup()
+      require("lzy.conform").setup()
     end,
   },
   -- --- [ lsp_lines ] ---------------------------------------------------------
@@ -87,7 +87,7 @@ return {
     dependencies = { "nvim-lspconfig" },
     event = { "BufReadPre", "BufNewFile" },
     config = function()
-      require("lzy.l_lsp-lines").setup()
+      require("lzy.lsp-lines").setup()
     end,
   },
   -- --- [ workspaces ] --------------------------------------------------------
@@ -97,16 +97,16 @@ return {
     dependencies = { "nvim-telescope/telescope.nvim" },
     event = "VeryLazy",
     config = function()
-      require("lzy.l_workspaces").setup()
+      require("lzy.workspaces").setup()
     end,
   },
   {
     -- Plugin que resalta los matches TODO, NOTE, etc.
     "folke/todo-comments.nvim",
     event = "VeryLazy",
-    keys = require("lzy.l_todo-comments").keys,
+    keys = require("lzy.todo-comments").keys,
     config = function()
-      require("lzy.l_todo-comments").setup()
+      require("lzy.todo-comments").setup()
     end,
   },
 
@@ -120,7 +120,7 @@ return {
     },
     event = "VeryLazy",
     config = function()
-      require("lzy.l_dap-ui").setup()
+      require("lzy.dap-ui").setup()
     end,
   },
   -- --- [ mason-dap ] ---------------------------------------------------------
@@ -134,7 +134,7 @@ return {
       "nvim-neotest/nvim-nio",
     },
     config = function()
-      require("lzy.l_mason-dap").setup()
+      require("lzy.mason-dap").setup()
     end,
   },
   -- --- [ gitsings ] -----------------------------------------------------------
@@ -142,7 +142,7 @@ return {
     "lewis6991/gitsigns.nvim",
     event = { "BufReadPre", "BufNewFile" },
     opts = function()
-      return require "lzy.l_gitsigns"
+      return require "lzy.gitsigns"
     end,
   },
   -- --- [ git-conflict ] ------------------------------------------------------
@@ -159,7 +159,7 @@ return {
     event = "BufReadPre",
     dependencies = { "nvim-lua/plenary.nvim" },
     config = function()
-      require("lzy.l_diffview").setup()
+      require("lzy.diffview").setup()
     end,
   },
   -- --- [ git-blame ] ---------------------------------------------------------
@@ -172,7 +172,7 @@ return {
     -- If you want to load the plugin at startup, add something like event = "VeryLazy",
     -- or lazy = false. One of both options will work.
     config = function()
-      require("lzy.l_git-blame").setup()
+      require("lzy.git-blame").setup()
     end,
   },
   -- --- [ nvim-web-devicons ] -------------------------------------------------
@@ -180,7 +180,7 @@ return {
     "nvim-tree/nvim-web-devicons",
     lazy = false,
     config = function()
-      require("lzy.l_nvim-web-devicons").setup()
+      require("lzy.nvim-web-devicons").setup()
     end,
   },
   -- --- [ render-markdown ] ---------------------------------------------------
@@ -189,7 +189,7 @@ return {
     lazy = false,
     dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" }, -- if you prefer nvim-web-devicons
     config = function()
-      require("lzy.l_render-markdown").setup()
+      require("lzy.render-markdown").setup()
     end,
     ft = { "markdown", "Avante", "copilot-chat", "opencode_output" },
   },
@@ -200,9 +200,9 @@ return {
   {
     "zbirenbaum/copilot.lua",
     cmd = "Copilot",
-    keys = require("lzy.l_copilot").keys,
+    keys = require("lzy.copilot").keys,
     config = function()
-      require("lzy.l_copilot").setup()
+      require("lzy.copilot").setup()
     end,
   },
   --- [ codex ] ----------------------------------------------------------------
@@ -211,20 +211,20 @@ return {
     commit = "4317788afc091d5e913109c55d5a04f32be4e14a",
     lazy = true,
     cmd = { "Codex", "CodexToggle" }, -- Optional: Load only on command execution
-    keys = require("lzy.l_codex").keys,
+    keys = require("lzy.codex").keys,
     config = function()
-      require("lzy.l_codex").setup()
+      require("lzy.codex").setup()
     end,
   },
   --- [ claude ] ---------------------------------------------------------------
   {
     "greggh/claude-code.nvim",
-    keys = require("lzy.l_claude").keys,
+    keys = require("lzy.claude").keys,
     dependencies = {
       "nvim-lua/plenary.nvim", -- Required for git operations
     },
     config = function()
-      require("lzy.l_claude").setup()
+      require("lzy.claude").setup()
     end,
   },
   --- [ opencode ] -------------------------------------------------------------
@@ -232,7 +232,7 @@ return {
     "sudo-tee/opencode.nvim",
     lazy = false,
     config = function()
-      require("lzy.l_opencode").setup()
+      require("lzy.opencode").setup()
     end,
     dependencies = {
       "nvim-lua/plenary.nvim",
@@ -274,7 +274,7 @@ return {
     "bkad/camelcasemotion",
     event = "VeryLazy",
     config = function()
-      require("lzy.l_camelcasemotion").setup()
+      require("lzy.camelcasemotion").setup()
     end,
   },
   -- --- [ cmp ] ---------------------------------------------------------------
@@ -289,7 +289,7 @@ return {
         "L3MON4D3/LuaSnip",
         dependencies = "rafamadriz/friendly-snippets",
         config = function()
-          require("lzy.l_luasnip").setup()
+          require("lzy.luasnip").setup()
         end,
       },
 
@@ -299,7 +299,7 @@ return {
       -- {
       --   "windwp/nvim-autopairs",
       --   config = function()
-      --     require("lzy.l_autopairs").setup()
+      --     require("lzy.autopairs").setup()
       --   end,
       -- },
 
@@ -313,7 +313,7 @@ return {
       },
     },
     config = function()
-      require("lzy.l_cmp").setup()
+      require("lzy.cmp").setup()
     end,
   },
   -- --- [ which-key ] ---------------------------------------------------------
@@ -331,7 +331,7 @@ return {
     cmd = { "NvimTreeToggle", "NvimTreeFocus" },
     event = "VeryLazy",
     config = function()
-      require("lzy.l_nvim-tree").setup()
+      require("lzy.nvim-tree").setup()
     end,
   },
   {
@@ -339,7 +339,7 @@ return {
     "stevearc/aerial.nvim",
     event = "VeryLazy",
     config = function()
-      require("lzy.l_aerial").setup()
+      require("lzy.aerial").setup()
     end,
     -- Optional dependencies
     dependencies = {
@@ -354,7 +354,7 @@ return {
     lazy = false,
     config = function()
       sabunv.moonfly.setup.lualine()
-      require("lzy.l_lualine").setup()
+      require("lzy.lualine").setup()
     end,
   },
   -- --- [ statuscol ] ---------------------------------------------------------
@@ -362,7 +362,7 @@ return {
     "luukvbaal/statuscol.nvim",
     lazy = false,
     config = function()
-      require("lzy.l_statuscol").setup()
+      require("lzy.statuscol").setup()
     end,
   },
   -- --- [ bufferline ] --------------------------------------------------------
@@ -373,7 +373,7 @@ return {
     event = "VeryLazy",
     config = function()
       sabunv.moonfly.setup.bufferline()
-      require("lzy.l_bufferline").setup(true)
+      require("lzy.bufferline").setup(true)
     end,
   },
   -- ---------------------------------------------------------------------------
@@ -399,7 +399,7 @@ return {
     lazy = false,
     commit = "ee2763a804ad69c2c1afe70b153c6058cd02bb51",
     config = function()
-      require("lzy.l_reg-edit").setup()
+      require("lzy.reg-edit").setup()
     end,
   },
 }

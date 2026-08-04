@@ -83,7 +83,7 @@ function M.setup()
   vim.opt.rtp:prepend(lazypath)
 
   require("lazy").setup({
-    { import = "lzy.plg" },
+    { import = "lzy._plg" },
   }, M.opts)
 end
 
