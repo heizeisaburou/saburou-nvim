@@ -43,7 +43,7 @@ local opts = {
   show_guides = true,
 
   layout = {
-    min_width = 40,
+    min_width = 60,
     -- Dirección por defecto para abrir la ventana
     default_direction = "prefer_right",
     -- Redimensionar para ajustar el contenido
