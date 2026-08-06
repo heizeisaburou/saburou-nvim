@@ -13,8 +13,13 @@ end
 -- Devuelve la tabla de configuración para aerial.nvim
 local opts = {
   view = { relativenumer = true },
-  -- Prioridad de los backends para obtener los símbolos
-  backends = { "treesitter", "lsp", "markdown", "man" },
+  -- Prioridad de los backends para obtener los símbolos.
+  -- LSP aporta la vista semántica y Tree-sitter funciona como respaldo local.
+  backends = {
+    ["_"] = { "lsp", "treesitter" },
+    markdown = { "markdown", "treesitter" },
+    man = { "man" },
+  },
 
   -- No abrir automáticamente al entrar en un buffer
   open_automatic = false,
