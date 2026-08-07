@@ -172,7 +172,7 @@ local formatters = {
       local plugin = vim.fn.glob(plugin_pattern, true, true)[1]
 
       if not plugin or plugin == "" then
-        error("prettier-plugin-svelte no está instalado; ejecuta :MasonInstallAll")
+        error "prettier-plugin-svelte no está instalado; ejecuta :MasonInstallAll"
       end
 
       return {
@@ -373,12 +373,10 @@ local function format_buffer()
   require("conform").format({ lsp_format = "fallback" }, function(err, did_edit)
     if err then
       notify("No se pudo formatear:\n" .. err, vim.log.levels.ERROR)
-
     elseif did_edit then
       notify("Formato aplicado", vim.log.levels.INFO)
-
     else
-      notify("El buffer ya estaba formateado (o `.prettierignore` lo excluye)", vim.log.levels.INFO)
+      -- notify("El buffer ya estaba formateado (o `.prettierignore` lo excluye)", vim.log.levels.INFO)
     end
   end)
 end
