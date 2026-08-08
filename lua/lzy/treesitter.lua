@@ -38,6 +38,21 @@ M.languages = {
   "qmljs",
   "php",
   "svelte",
+
+  -- NUEVOS (sin testear)
+  "c_sharp",
+  "clojure",
+  "dart", -- externo
+  "fsharp",
+  "haskell",
+  "java",
+  "kotlin",
+  "ocaml",
+  "ocaml_interface",
+  "ruby",
+  "scala",
+  "swift",
+  "zig",
 }
 
 M.enabled_highlights = {
@@ -75,6 +90,32 @@ M.enabled_highlights = {
   qml = true,
   php = true,
   svelte = true,
+
+  -- NUEVOS (sin testear)
+  -- clojure = true,
+  -- cs = true,
+  -- dart = true,
+  -- edn = true,
+  -- fsharp = true,
+  -- haskell = true,
+  -- java = true,
+  -- kotlin = true,
+  -- lhaskell = true,
+  -- ocaml = true,
+  -- ocamlinterface = true,
+  -- ruby = true,
+  -- scala = true,
+  -- swift = true,
+  -- zig = true,
+}
+
+-- Algunos filetypes no comparten nombre con su parser. nvim-treesitter ya
+-- registra `cs -> c_sharp` y `ocamlinterface -> ocaml_interface`; estos dos
+-- alias adicionales pertenecen a los filetypes secundarios que añadimos.
+M.language_aliases = {
+  -- NUEVOS (sin testear)
+  -- edn = "clojure",
+  -- lhaskell = "haskell",
 }
 
 local function install_all()
@@ -92,6 +133,10 @@ local function start_for_buffer(bufnr)
 end
 
 function M.setup()
+  for filetype, language in pairs(M.language_aliases) do
+    vim.treesitter.language.register(language, filetype)
+  end
+
   vim.api.nvim_create_user_command("TSInstallAll", function()
     install_all()
   end, {})

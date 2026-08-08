@@ -21,13 +21,29 @@ local function filetype_for(ctx)
   return vim.bo.filetype
 end
 
+--- Escribe configuraciones pequeñas y deterministas para CLIs que sólo
+--- permiten recibir las opciones de indentación mediante un archivo.
+---@param name string
+---@param contents string
+---@param extension string
+---@return string
+local function cached_config(name, contents, extension)
+  local directory = vim.fs.joinpath(vim.fn.stdpath "cache", "lzy", "conform")
+  local path = vim.fs.joinpath(directory, name .. "-" .. vim.fn.sha256(contents):sub(1, 12) .. extension)
+
+  if vim.fn.filereadable(path) == 0 then
+    vim.fn.mkdir(directory, "p")
+    vim.fn.writefile(vim.split(contents, "\n", { plain = true }), path)
+  end
+
+  return path
+end
+
 -- ----------------------------------------------------------------------------
 -- Formateadores por filetype
 -- ----------------------------------------------------------------------------
 -- Reglas especiales:
 --   - zsh: `shfmt` no funciona correctamente en este setup
---   - toml: `taplo` quedó desactivado por supuesto conflicto con lua_ls, pendiente
---           de revisar
 local formatters_by_ft = {
   bash = { "shfmt" },
   c = { "clang_format" },
@@ -49,7 +65,7 @@ local formatters_by_ft = {
   php = { "php_cs_fixer" },
   plaintex = { "latexindent" },
   python = { "ruff_format" },
-  qml = { "qmlformat" },
+  qml = { "qmlformat" }, -- externo
   rust = { "rustfmt" },
   scss = { "prettier" },
   surface = { "mix" },
@@ -60,6 +76,23 @@ local formatters_by_ft = {
   vue = { "prettier" },
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
+
+  -- NUEVOS (sin testear)
+  clojure = { "zprint" },
+  cs = { "csharpier" },
+  dart = { "dart_format" }, -- externo
+  -- edn = { "zprint" },
+  -- fsharp = { "fantomas" },
+  -- haskell = { "fourmolu" },
+  -- java = { "google-java-format" },
+  kotlin = { "ktlint" },
+  -- lhaskell = { "fourmolu" },
+  -- ocaml = { "ocamlformat" },
+  -- ocamlinterface = { "ocamlformat" },
+  -- ruby = { "rubocop" },
+  -- scala = { "scalafmt" },
+  -- swift = { "swiftformat" },
+  -- toml = { "taplo" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -93,6 +126,20 @@ local formatters = {
     append_args = { "--line-length=" .. line_length },
   },
 
+  csharpier = {
+    append_args = function(_, ctx)
+      local config = indent_for(ctx)
+      local contents = vim.json.encode {
+        printWidth = line_length,
+        useTabs = config.style == "tabs",
+        indentSize = config.width,
+        endOfLine = "lf",
+      }
+
+      return { "--config-path", cached_config("csharpier", contents, ".json") }
+    end,
+  },
+
   clang_format = {
     append_args = function(_, ctx)
       local config = indent_for(ctx)
@@ -114,6 +161,47 @@ local formatters = {
           .. tostring(line_length)
           .. "}",
       }
+    end,
+  },
+
+  dart_format = {
+    -- Dart fija la indentación en dos espacios; la CLI sólo permite compartir
+    -- el ancho de página con nuestra política general.
+    args = { "format", "--page-width=" .. tostring(line_length), "$FILENAME" },
+  },
+
+  fourmolu = {
+    append_args = function(_, ctx)
+      local config = indent_for(ctx)
+      return {
+        "--indentation=" .. tostring(config.width),
+        "--column-limit=" .. tostring(line_length),
+      }
+    end,
+  },
+
+  ["google-java-format"] = {
+    args = function(_, ctx)
+      -- google-java-format es deliberadamente no configurable: Google Style
+      -- usa dos espacios y AOSP es su única variante, con cuatro.
+      return indent_for(ctx).width == 4 and { "--aosp", "-" } or { "-" }
+    end,
+  },
+
+  ktlint = {
+    prepend_args = function(_, ctx)
+      local config = indent_for(ctx)
+      local contents = table.concat({
+        "[*.{kt,kts}]",
+        "indent_style = " .. (config.style == "tabs" and "tab" or "space"),
+        "indent_size = " .. tostring(config.width),
+        "tab_width = " .. tostring(config.width),
+        "max_line_length = " .. tostring(line_length),
+      }, "\n")
+
+      -- ktlint trata este archivo como valores por defecto: cualquier
+      -- .editorconfig del proyecto conserva prioridad sobre ellos.
+      return { "--editorconfig=" .. cached_config("ktlint", contents, ".editorconfig") }
     end,
   },
 
@@ -232,11 +320,78 @@ local formatters = {
     },
   },
 
+  ocamlformat = {
+    -- OCamlFormat decide estructuralmente la sangría y usa espacios. Sí expone
+    -- el margen, por lo que se mantiene el ancho compartido.
+    args = {
+      "--enable-outside-detected-project",
+      "--margin",
+      tostring(line_length),
+      "--name",
+      "$FILENAME",
+      "-",
+    },
+  },
+
   php_cs_fixer = {
     append_args = {
       "--rules",
       '{"@PSR12":true,"indentation_type":true,"line_ending":true}',
     },
+  },
+
+  rubocop = {
+    append_args = function(_, ctx)
+      local config = indent_for(ctx)
+      local project_config = vim.fs.find({ ".rubocop.yml", ".rubocop.yaml" }, {
+        path = ctx.dirname,
+        upward = true,
+        type = "file",
+      })[1]
+      local contents = vim.json.encode {
+        inherit_from = project_config,
+        ["Layout/IndentationStyle"] = {
+          EnforcedStyle = config.style,
+          IndentationWidth = config.width,
+        },
+        ["Layout/IndentationWidth"] = {
+          Width = config.width,
+        },
+        ["Layout/LineLength"] = {
+          Max = line_length,
+        },
+      }
+
+      return { "--config", cached_config("rubocop", contents, ".yml") }
+    end,
+  },
+
+  scalafmt = {
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+      local overrides = table.concat({
+        "maxColumn = " .. tostring(line_length),
+        "indent.main = " .. tostring(config.width),
+        "indent.significant = " .. tostring(config.width),
+        "indent.callSite = " .. tostring(config.width),
+        "indent.defnSite = " .. tostring(config.width),
+      }, "\n")
+      local project_config = vim.fs.find(".scalafmt.conf", {
+        path = ctx.dirname,
+        upward = true,
+        type = "file",
+      })[1]
+
+      -- Scala no admite tabs significativos. Si hay configuración de proyecto,
+      -- se incluye primero para conservar versión y dialecto y luego se
+      -- sobreescriben únicamente ancho e indentación.
+      if project_config then
+        local contents = "include " .. vim.json.encode(project_config) .. "\n" .. overrides
+        return { "--stdin", "--config", cached_config("scalafmt", contents, ".conf") }
+      end
+
+      return { "--stdin", "--config-str", overrides }
+    end,
   },
 
   ruff_format = {
@@ -283,6 +438,20 @@ local formatters = {
         "--indent-width=" .. tostring(config.width),
         "--quote-style=AutoPreferDouble",
         "--call-parentheses=None",
+      }
+    end,
+  },
+
+  swiftformat = {
+    append_args = function(_, ctx)
+      local config = indent_for(ctx)
+      return {
+        "--indent",
+        config.style == "tabs" and "tab" or tostring(config.width),
+        "--tabwidth",
+        tostring(config.width),
+        "--maxwidth",
+        tostring(line_length),
       }
     end,
   },
@@ -335,6 +504,12 @@ local formatters = {
         "indent=" .. tostring(config.width),
       }
     end,
+  },
+
+  zprint = {
+    -- zprint alinea formas según la estructura de Clojure y no ofrece un
+    -- estilo tabs/spaces global; se comparte el ancho máximo.
+    append_args = { "{:width " .. tostring(line_length) .. "}" },
   },
 }
 

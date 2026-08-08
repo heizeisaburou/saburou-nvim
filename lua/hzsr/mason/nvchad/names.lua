@@ -339,7 +339,7 @@ return {
   -- styler
   stylua = "stylua",
   -- swift_format
-  -- swiftformat
+  swiftformat = "swiftformat",
   -- terraform_fmt
   -- terragrunt_hclfmt
   tlint = "tlint",

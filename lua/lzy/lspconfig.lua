@@ -33,8 +33,8 @@ local M = {}
 ---
 --- Esta tabla no instala servidores.
 M.servers = {
-  -- "ansiblels",
-  -- "expert",
+  -- "ansiblels", -- Demasiado pesado como para instalarlo por defecto
+  -- "expert", -- alternativa a elixirls pero elixirls parece funcionar mejor 
   "basedpyright",
   "bashls",
   "clangd",
@@ -52,6 +52,23 @@ M.servers = {
   "svelte",
   "texlab",
   "vtsls",
+
+  -- NUEVOS (sin testear)
+  "clojure_lsp",
+  "csharp_ls",
+  "dartls",
+  -- "fsautocomplete",
+  -- "hls",
+  -- "jdtls",
+  -- "jsonls",
+  "kotlin_language_server",
+  -- "metals",
+  -- "ocamllsp",
+  -- "ruby_lsp",
+  -- "sourcekit",
+  -- "taplo",
+  -- "yamlls",
+  -- "zls",
 }
 
 --- Servidores deshabilitados para esta capa.
@@ -133,11 +150,34 @@ M.config = {
     },
   },
 
+  clojure_lsp = {},
+
+  csharp_ls = {},
+
   cssls = {},
+
+  dartls = {},
+
+  fsautocomplete = {},
 
   gopls = {},
 
+  hls = {
+    -- Mantiene alineado el proveedor LSP con el formateador de Conform.
+    settings = {
+      haskell = {
+        formattingProvider = "fourmolu",
+      },
+    },
+  },
+
   html = {},
+
+  jdtls = {},
+
+  jsonls = {},
+
+  kotlin_language_server = {},
 
   ---@type lspconfig.settings.lua_ls
   lua_ls = {
@@ -159,9 +199,21 @@ M.config = {
     filetypes = { "markdown", "markdown.mdx" },
   },
 
+  metals = {},
+
   neocmake = {},
 
+  ocamllsp = {},
+
   ruff = {},
+
+  ruby_lsp = {
+    -- Ruby LSP detecta RuboCop, Standard o Syntax Tree desde el bundle del
+    -- proyecto. Conform usa RuboCop directamente para el formateo manual.
+    init_options = {
+      formatter = "auto",
+    },
+  },
 
   rust_analyzer = {
     -- settings = {
@@ -179,6 +231,18 @@ M.config = {
       },
     },
   },
+
+  sourcekit = {
+    -- sourcekit-lsp también anuncia C/C++/Objective-C, pero clangd ya gestiona
+    -- esos filetypes en esta configuración. Evita dos clientes simultáneos.
+    filetypes = { "swift" },
+  },
+
+  taplo = {},
+
+  yamlls = {},
+
+  zls = {},
 
   qmlls = {
     -- Mason ofrece qmlls también en Windows. Si se usa el Qt del sistema,
