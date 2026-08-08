@@ -26,7 +26,8 @@ ejecutarse o analizar un proyecto.
 | Scala    | OpenJDK 17 + sbt          | Externo: `metals`         | Externo: `scalafmt`                        | Metals/sbt/JDK instalados; Scalafmt pendiente |
 | Swift    | `swift-bin` (swift.org)   | Externo: `sourcekit-lsp`  | `swiftformat`                              | Toolchain instalado; prueba pendiente         |
 | Django   | `python-django`           | `django-language-server`  | `djlint`                                   | Toolchain instalado; prueba pendiente         |
-| Liquid   | (sin toolchain; usa Node) | `shopify-cli`             | Externo: `@shopify/prettier-plugin-liquid` | Dependencias instaladas; prueba pendiente     |
+| Liquid   | (sin toolchain; usa Node) | `shopify-cli`           | Externo: `@shopify/prettier-plugin-liquid` | Dependencias instaladas; prueba pendiente |
+| Go       | `go` (repos oficiales)     | `gopls`                 | `gofmt` (del toolchain) | Verificado (lenguaje principal)           |
 
 ---
 
@@ -1102,6 +1103,58 @@ Referencia:
 - https://shopify.dev/docs/themes/tools/liquid
 - https://github.com/Shopify/prettier-plugin-liquid
 - https://shopify.dev/docs/themes/tools/theme-check
+
+---
+
+## Go
+
+Lenguaje principal del usuario; configurado antes de este documento. Se documenta aquí por el
+soporte añadido a plantillas.
+
+### Toolchain
+
+```bash
+sudo pacman -S --needed go
+```
+
+- `gopls` (Mason) como LSP.
+- `gofmt` como formatter: no es paquete de Mason, lo aporta el propio toolchain `go`.
+
+### Plantillas
+
+gopls atiende las plantillas únicamente con el languageId `gotmpl` (su clasificador
+`KindForLang` solo mapea `tmpl`/`gotmpl` a plantilla). Por eso los tres sufijos se mapean al
+mismo filetype en `lua/user/opts.lua`:
+
+| Archivo   | Filetype | LSP  | Resaltado |
+| --------- | -------- | ---- | --------- |
+| `.tmpl`   | `gotmpl` | gopls | `gotmpl` |
+| `.gotmpl` | `gotmpl` | gopls | `gotmpl` |
+| `.gohtml` | `gotmpl` | gopls | `gotmpl` |
+
+Esta unificación es la solución correcta, no un apaño: nvim-lspconfig solo arranca gopls en los
+filetypes `{ go, gomod, gowork, gotmpl }`, y gopls solo clasifica como plantilla los languageIds
+`tmpl`/`gotmpl`. Dejar `.gohtml` como `gohtmltmpl` (la convención) lo dejaba sin LSP — ni el
+cliente se adjuntaba ni gopls lo habría entendido —, así que los tres se unifican a `gotmpl`.
+Como `.gohtml` también es `html/template`, no se pierde nada por la etiqueta unificada.
+
+nvim por defecto solo reconoce `.tmpl` como `template` genérico y nada para `.gotmpl`/`.gohtml`,
+por eso se mapean explícitamente. El parser treesitter `gotmpl` cubre los tres filetypes. No hay
+formatter para plantillas (gofmt no las toca).
+
+### Estado
+
+Verificado. Proyecto de muestra:
+
+```text
+~/wip/nvim-language-smoke-tests/golang_templates/html-tmpl/page.tmpl
+~/wip/nvim-language-smoke-tests/golang_templates/text-tmpl/email.gotmpl
+~/wip/nvim-language-smoke-tests/golang_templates/gohtml/component.gohtml
+```
+
+Referencia:
+
+- https://github.com/golang/tools/tree/master/gopls
 
 ---
 

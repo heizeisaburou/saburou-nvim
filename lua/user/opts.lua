@@ -137,9 +137,15 @@ vim.filetype.add {
     mdx = "markdown.mdx",
   },
 }
+-- Plantillas Go: nvim solo reconoce `.tmpl` como `template` genérico y nada
+-- para `.gotmpl`/`.gohtml`. Los tres se mapean a `gotmpl` porque es el único
+-- filetype que gopls atiende como plantilla (LSP + tipos). El contenido de
+-- `.gohtml` también es html/template, así que no se pierde nada.
 vim.filetype.add {
   extension = {
-    gotmpl = "gotmpl",
+    tmpl = "gotmpl", -- html/template (gopls)
+    gotmpl = "gotmpl", -- text/template (gopls)
+    gohtml = "gotmpl", -- html/template (gopls)
   },
 }
 vim.filetype.add({

@@ -112,13 +112,12 @@ M.enabled_highlights = {
 }
 
 -- Algunos filetypes no comparten nombre con su parser. nvim-treesitter ya
--- registra `cs -> c_sharp` y `ocamlinterface -> ocaml_interface`; estos dos
--- alias adicionales pertenecen a los filetypes secundarios que añadimos.
+-- registra `cs -> c_sharp` y `ocamlinterface -> ocaml_interface`; estos alias
+-- adicionales pertenecen a los filetypes secundarios que añadimos.
+-- Filetypes que no comparten nombre con su parser. nvim-treesitter ya registra
+-- los casos conocidos (cs -> c_sharp, ocamlinterface -> ocaml_interface). Sin
+-- entradas por ahora; las plantillas Go usan directamente `gotmpl`.
 M.language_aliases = {
-  -- NUEVOS (sin testear)
-  -- edn = "clojure",
-  -- Literate Haskell no tiene parser independiente: `.lhs` usa el de Haskell.
-  -- lhaskell = "haskell",
 }
 
 local function install_all()
