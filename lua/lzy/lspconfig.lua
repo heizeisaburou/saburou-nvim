@@ -37,6 +37,11 @@ local M = {}
 --- Fuera por ahora:
 --- "expert", -- alternativa a elixirls; por investigar
 M.servers = {
+  "lua_ls",
+  "marksman", -- markdown
+  --
+  --
+  --
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
   -- "basedpyright", -- python
   -- "bashls",
@@ -55,8 +60,6 @@ M.servers = {
   -- "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
   -- "jsonls", -- .json
   -- "kotlin_language_server",
-  "lua_ls",
-  "marksman", -- markdown
   -- "metals", -- scala
   -- "neocmake", -- cmake
   -- "ocamllsp", -- camellito

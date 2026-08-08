@@ -28,6 +28,7 @@ Las rutas de esta sección son relativas al repositorio, no rutas locales de una
 Los nombres de la columna **LSP** son los identificadores usados por la configuración de Neovim;
 no siempre coinciden con el nombre del paquete de Mason.
 
+
 | Lenguaje / formato | Filetype                         | LSP                      | Formatter                    | Tree-sitter                    |
 | ------------------ | -------------------------------- | ------------------------ | ---------------------------- | ------------------------------ |
 | Ansible            | `yaml.ansible`                   | `ansiblels`              | `yamlfmt` (vía `yaml`)       | `yaml` (fallback)              |

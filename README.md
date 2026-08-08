@@ -20,6 +20,9 @@ punto de partida.
 > queda pendiente es comprobar la configuración completa en Windows 11; si funciona correctamente, esta versión se
 > mantendrá tal cual mientras se prepara la siguiente etapa.
 
+
+![Lenguajes soportados](./docs/supported-languages.png)
+
 ## Estado del proyecto
 
 Esta alpha cumple las funcionalidades que motivaron el proyecto y seguirá disponible como una configuración completa.

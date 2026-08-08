@@ -3,6 +3,13 @@
 local M = {}
 
 M.languages = {
+  "lua",
+  "luadoc",
+  "markdown_inline",
+  "markdown",
+  --
+  --
+  --
   -- "bash",
   -- "c_sharp",
   -- "c",
@@ -30,11 +37,7 @@ M.languages = {
   -- "json5",
   -- "kotlin",
   -- "liquid",
-  "lua",
-  "luadoc",
   -- "make",
-  -- "markdown_inline",
-  -- "markdown",
   -- "ocaml_interface",
   -- "ocaml",
   -- "php",

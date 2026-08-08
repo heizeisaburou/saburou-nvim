@@ -79,6 +79,11 @@ end
 -- Reglas especiales:
 --   - zsh: `shfmt` no funciona correctamente en este setup
 local formatters_by_ft = {
+  lua = { "stylua" },
+  markdown = { "prettier", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
+  --
+  --
+  --
   -- bash = { "shfmt" },
   -- c = { "clang_format" },
   -- clojure = { "zprint" }, -- activa edn también
@@ -106,10 +111,6 @@ local formatters_by_ft = {
   -- kotlin = { "ktlint" },
   -- lhaskell = { "fourmolu" }, -- .lhs
   -- liquid = { "prettier_liquid" },
-  lua = { "stylua" },
-  -- Prettier imprime espacios para parte de la estructura Markdown incluso con
-  -- useTabs. markdown_tabs normaliza esa sangría en una segunda pasada.
-  markdown = { "prettier", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
   -- ocaml = { "ocamlformat" }, -- camellito
   -- ocamlinterface = { "ocamlformat" }, -- camellitox2
   -- php = { "php_cs_fixer" },
