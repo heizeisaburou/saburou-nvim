@@ -23,6 +23,26 @@ local function filetype_for(ctx)
   return vim.bo.filetype
 end
 
+-- `@shopify/prettier-plugin-liquid` no está en Mason; se instala global con npm
+-- (`npm install -g @shopify/prettier-plugin-liquid`). Se resuelve su entrada
+-- desde el directorio global de node_modules en runtime, como hace
+-- `prettier_svelte` con el plugin que sí trae un paquete de Mason.
+local prettier_liquid_plugin = (function()
+  local root = vim.trim(vim.fn.system "npm root -g")
+
+  if root ~= "" then
+    local hit = vim.fn.glob(
+      vim.fs.joinpath(root, "@shopify", "prettier-plugin-liquid", "dist", "index.js"),
+      true,
+      true
+    )[1]
+
+    if hit and hit ~= "" then
+      return hit
+    end
+  end
+end)()
+
 --- Escribe configuraciones pequeñas y deterministas para CLIs que sólo
 --- permiten recibir las opciones de indentación mediante un archivo.
 ---@param name string
@@ -62,6 +82,7 @@ local formatters_by_ft = {
   javascriptreact = { "prettier" },
   json = { "biome" },
   lua = { "stylua" },
+  liquid = { "prettier_liquid" },
   -- Prettier imprime espacios para parte de la estructura Markdown incluso con
   -- useTabs. markdown_tabs normaliza esa sangría en una segunda pasada.
   markdown = { "prettier", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
@@ -292,6 +313,31 @@ local formatters = {
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--parser",
         "svelte",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  prettier_liquid = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_liquid_plugin then
+        error "prettier-plugin-liquid no está instalado; ejecuta: npm install -g @shopify/prettier-plugin-liquid"
+      end
+
+      return {
+        "--plugin",
+        prettier_liquid_plugin,
+        "--parser",
+        "liquid-html",
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
         "$FILENAME",
       }

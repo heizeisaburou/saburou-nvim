@@ -70,6 +70,7 @@ M.servers = {
   "ocamllsp",
   "ruby_lsp",
   "sourcekit", -- swift
+  "shopify_theme_ls", -- Liquid (Shopify)
   "taplo", -- .toml
   "yamlls", -- .yaml
   "zls", -- zig

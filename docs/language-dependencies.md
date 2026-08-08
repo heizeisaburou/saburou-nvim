@@ -12,20 +12,21 @@ ejecutarse o analizar un proyecto.
 
 ## Estado
 
-| Lenguaje | Toolchain del sistema | LSP de Mason             | Formatter de Mason | Estado                                 |
-| -------- | --------------------- | ------------------------ | ------------------ | -------------------------------------- |
-| C#       | .NET SDK/runtime 10   | `csharp-language-server` | `csharpier`        | Verificado                             |
-| Clojure  | Clojure CLI + Java    | `clojure-lsp`            | `zprint`           | CLI instalado; prueba manual pendiente |
-| Dart     | Dart SDK              | Incluido en el SDK       | Incluido en el SDK | Verificado por el usuario                |
-| Kotlin   | OpenJDK 21 LTS        | `kotlin-language-server` | `ktlint`           | Resolver configurado; prueba pendiente    |
-| F#       | .NET SDK              | `fsautocomplete`         | `fantomas`         | Proyecto restaurado; prueba pendiente     |
-| Haskell  | GHCup + GHC + Cabal   | `haskell-language-server`| `fourmolu`         | Toolchain instalado; prueba pendiente     |
-| Java     | JDK                   | `jdtls`                  | `google-java-format`| Verificado por el usuario                |
-| OCaml    | opam + OCaml 5.5      | `ocaml-lsp`              | `ocamlformat`      | opam inicializado; prueba pendiente        |
-| Ruby     | Ruby + Bundler + ERB  | `ruby-lsp`               | `rubocop`          | Bundler instalado; `ruby-erb` pendiente    |
-| Scala    | OpenJDK 17 + sbt       | Externo: `metals`        | Externo: `scalafmt`| Metals/sbt/JDK instalados; Scalafmt pendiente |
-| Swift    | `swift-bin` (swift.org) | Externo: `sourcekit-lsp` | `swiftformat`      | Toolchain instalado; prueba pendiente          |
-| Django   | `python-django`         | `django-language-server` | `djlint`           | Toolchain instalado; prueba pendiente          |
+| Lenguaje | Toolchain del sistema     | LSP de Mason              | Formatter de Mason                         | Estado                                        |
+| -------- | ------------------------- | ------------------------- | ------------------------------------------ | --------------------------------------------- |
+| C#       | .NET SDK/runtime 10       | `csharp-language-server`  | `csharpier`                                | Verificado                                    |
+| Clojure  | Clojure CLI + Java        | `clojure-lsp`             | `zprint`                                   | CLI instalado; prueba manual pendiente        |
+| Dart     | Dart SDK                  | Incluido en el SDK        | Incluido en el SDK                         | Verificado por el usuario                     |
+| Kotlin   | OpenJDK 21 LTS            | `kotlin-language-server`  | `ktlint`                                   | Resolver configurado; prueba pendiente        |
+| F#       | .NET SDK                  | `fsautocomplete`          | `fantomas`                                 | Proyecto restaurado; prueba pendiente         |
+| Haskell  | GHCup + GHC + Cabal       | `haskell-language-server` | `fourmolu`                                 | Toolchain instalado; prueba pendiente         |
+| Java     | JDK                       | `jdtls`                   | `google-java-format`                       | Verificado por el usuario                     |
+| OCaml    | opam + OCaml 5.5          | `ocaml-lsp`               | `ocamlformat`                              | opam inicializado; prueba pendiente           |
+| Ruby     | Ruby + Bundler + ERB      | `ruby-lsp`                | `rubocop`                                  | Bundler instalado; `ruby-erb` pendiente       |
+| Scala    | OpenJDK 17 + sbt          | Externo: `metals`         | Externo: `scalafmt`                        | Metals/sbt/JDK instalados; Scalafmt pendiente |
+| Swift    | `swift-bin` (swift.org)   | Externo: `sourcekit-lsp`  | `swiftformat`                              | Toolchain instalado; prueba pendiente         |
+| Django   | `python-django`           | `django-language-server`  | `djlint`                                   | Toolchain instalado; prueba pendiente         |
+| Liquid   | (sin toolchain; usa Node) | `shopify-cli`             | Externo: `@shopify/prettier-plugin-liquid` | Dependencias instaladas; prueba pendiente     |
 
 ---
 
@@ -262,8 +263,9 @@ Neovim resuelve `dart` mediante `PATH`; Windows resuelve además la extensión e
 correspondiente. `hzsr.sys.executable.resolve` sí es necesario para QML porque debe escoger entre
 dos nombres distintos (`qmlls` y `qmlls6`), pero Dart no tiene esa variante.
 
-En Windows basta con que el SDK de Dart —o el SDK incluido con Flutter— esté en `PATH`. No se debe
-añadir `dartls` ni `dart_format` a `names.lua`, porque no son paquetes independientes de Mason.
+En Windows basta con que el SDK de Dart —o el SDK incluido con Flutter— esté en `PATH`. No se
+debe añadir `dartls` ni `dart_format` a `names.lua`, porque no son paquetes independientes de
+Mason.
 
 ### Activación en Neovim
 
@@ -362,14 +364,14 @@ java-26-openjdk (default)
 ```
 
 Java 21 y Java 26 están instalados en paralelo. Pacman conservó Java 26 como predeterminado y la
-configuración de Neovim asigna Java 21 únicamente al proceso de `kotlin-language-server`; no cambia
-el runtime de otras aplicaciones.
+configuración de Neovim asigna Java 21 únicamente al proceso de `kotlin-language-server`; no
+cambia el runtime de otras aplicaciones.
 
 ### Resolución portable del JDK
 
 `lua/hzsr/sys/java.lua` descubre instalaciones de Java, ejecuta `java -version` para validar su
-versión real y, cuando se exige un JDK, comprueba también que exista `javac`. Kotlin acepta Java 21
-o 17 en ese orden de preferencia.
+versión real y, cuando se exige un JDK, comprueba también que exista `javac`. Kotlin acepta Java
+21 o 17 en ese orden de preferencia.
 
 La búsqueda respeta este orden:
 
@@ -384,19 +386,19 @@ Unix como en Windows:
 ```lua
 kotlin_language_server = function()
   local java_home = hzsr.sys.java.resolve_home {
-    env = { "KOTLIN_LSP_JAVA_HOME", "JAVA_HOME", "JDK_HOME" },
-    versions = { 21, 17 },
-    require_jdk = true,
+	env = { "KOTLIN_LSP_JAVA_HOME", "JAVA_HOME", "JDK_HOME" },
+	versions = { 21, 17 },
+	require_jdk = true,
   }
 
   local config = {
-    init_options = {
-      storagePath = vim.fs.joinpath(vim.fn.stdpath "cache", "kotlin-language-server"),
-    },
+	init_options = {
+	  storagePath = vim.fs.joinpath(vim.fn.stdpath "cache", "kotlin-language-server"),
+	},
   }
 
   if java_home then
-    config.cmd_env = { JAVA_HOME = java_home }
+	config.cmd_env = { JAVA_HOME = java_home }
   end
 
   return config
@@ -512,9 +514,8 @@ ghcup --url-source=... install hls 2.13.0.0 -i .../mason/packages/haskell-langua
 ghcup no está instalado
 ```
 
-GHCup no está en los repositorios oficiales configurados de Pacman. En AUR existe
-`ghcup-hs-bin`, pero en esta instalación se utilizó el bootstrap oficial autorizado por el
-usuario.
+GHCup no está en los repositorios oficiales configurados de Pacman. En AUR existe `ghcup-hs-bin`,
+pero en esta instalación se utilizó el bootstrap oficial autorizado por el usuario.
 
 ### Instalación oficial en Unix
 
@@ -524,16 +525,16 @@ Para Linux, macOS, FreeBSD y WSL2:
 curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 ```
 
-El instalador trabaja dentro del directorio del usuario (`~/.ghcup`), por lo que no se ejecuta con
-`sudo` ni como root. Añade esta carga del entorno al shell:
+El instalador trabaja dentro del directorio del usuario (`~/.ghcup`), por lo que no se ejecuta
+con `sudo` ni como root. Añade esta carga del entorno al shell:
 
 ```bash
 [ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env"
 ```
 
 Durante esta instalación se eligieron los canales estables, se omitieron prereleases, cross y
-third-party, y se dejó que Mason instalase HLS. El bootstrap sí instaló el toolchain necesario para
-trabajar con proyectos Haskell:
+third-party, y se dejó que Mason instalase HLS. El bootstrap sí instaló el toolchain necesario
+para trabajar con proyectos Haskell:
 
 ```text
 GHCup  0.2.6.2
@@ -575,15 +576,15 @@ carpeta para que HLS y Cabal resuelvan correctamente el componente ejecutable.
 
 El mismo `.cabal` declara un segundo ejecutable para `Literate.lhs`. Los `.lhs` usan el filetype
 `lhaskell`: HLS contempla ese filetype, Conform lo asigna a Fourmolu y Treesitter reutiliza el
-parser `haskell` mediante el alias `lhaskell = "haskell"`. Para probar el soporte completo hay que
-activar tanto la entrada `lhaskell` de highlights como ese alias.
+parser `haskell` mediante el alias `lhaskell = "haskell"`. Para probar el soporte completo hay
+que activar tanto la entrada `lhaskell` de highlights como ese alias.
 
 ---
 
 ## Java
 
-`jdtls`, `google-java-format` y el parser de Java funcionaron directamente con el JDK ya instalado,
-sin dependencias ni ajustes adicionales. Estado confirmado por el usuario.
+`jdtls`, `google-java-format` y el parser de Java funcionaron directamente con el JDK ya
+instalado, sin dependencias ni ajustes adicionales. Estado confirmado por el usuario.
 
 Proyecto de prueba:
 
@@ -656,10 +657,10 @@ El binario 0.29.0 sí estaba instalado tanto en el switch como dentro del paquet
 `mason-receipt.json` de `ocamlformat` sólo enlazaba `ocamlformat` en `mason/bin` y omitía
 `ocamlformat-rpc`.
 
-Ejecutar `eval $(opam env --switch=ocaml-system)` antes de abrir Neovim también lo expondría, pero
-haría depender la configuración del entorno del shell. La solución aplicada es local al servidor y
-portable: la factory de `ocamllsp` añade a su `cmd_env.PATH` este directorio calculado con
-`stdpath("data")`:
+Ejecutar `eval $(opam env --switch=ocaml-system)` antes de abrir Neovim también lo expondría,
+pero haría depender la configuración del entorno del shell. La solución aplicada es local al
+servidor y portable: la factory de `ocamllsp` añade a su `cmd_env.PATH` este directorio calculado
+con `stdpath("data")`:
 
 ```text
 mason/packages/ocamlformat/bin
@@ -700,8 +701,8 @@ No se inicia Dune automáticamente desde la configuración de Neovim: el watcher
 de vida del proyecto y el usuario debe decidir cuándo arrancarlo o detenerlo.
 
 El repositorio advirtió que opam 2.5.2 contiene correcciones de seguridad mientras Arch tenía
-2.5.1-2. No se mezcla la instalación oficial de Arch con un binario manual: se actualizará mediante
-una actualización completa del sistema cuando el paquete llegue al repositorio.
+2.5.1-2. No se mezcla la instalación oficial de Arch con un binario manual: se actualizará
+mediante una actualización completa del sistema cuando el paquete llegue al repositorio.
 
 Proyecto de prueba:
 
@@ -720,8 +721,9 @@ opción conservadora recomendada para Metals; puede convivir con otro Java prede
 
 ### Arch con Chaotic-AUR
 
-Si el repositorio de terceros Chaotic-AUR ya está configurado, Metals puede instalarse como binario
-precompilado con Pacman. `sbt` y `jdk17-openjdk` proceden del repositorio oficial `extra`:
+Si el repositorio de terceros Chaotic-AUR ya está configurado, Metals puede instalarse como
+binario precompilado con Pacman. `sbt` y `jdk17-openjdk` proceden del repositorio oficial
+`extra`:
 
 ```bash
 sudo pacman -S --needed metals sbt jdk17-openjdk
@@ -757,9 +759,9 @@ esta configuración, la opción más sencilla es:
 paru --sudoloop -S scalafmt
 ```
 
-También existe `scalafmt-native-bin`, pero en el momento de escribir esta nota estaba detrás de la
-versión del paquete `scalafmt`; por eso se prefiere el primero. Una vez instalado, Conform encuentra
-`scalafmt` en `/usr/bin` sin configuración adicional.
+También existe `scalafmt-native-bin`, pero en el momento de escribir esta nota estaba detrás de
+la versión del paquete `scalafmt`; por eso se prefiere el primero. Una vez instalado, Conform
+encuentra `scalafmt` en `/usr/bin` sin configuración adicional.
 
 Scalafmt exige que toda configuración declare una versión. Si el proyecto contiene
 `.scalafmt.conf`, Conform conserva la versión indicada allí. Para archivos o proyectos sin ese
@@ -770,8 +772,8 @@ preferencias globales de ancho e indentación. El dialecto fallback es `scala3`;
 `scalafmt_fallback_version` o `scalafmt_fallback_dialect` en `lua/lzy/conform.lua`.
 
 Como Scalafmt arranca sobre la JVM, puede tardar más que el segundo de espera predeterminado de
-Conform. La entrada de Scala en `formatters_by_ft` dispone de 10 segundos; este límite sólo afecta
-a Scalafmt y evita que su primer arranque termine con código 143 por timeout.
+Conform. La entrada de Scala en `formatters_by_ft` dispone de 10 segundos; este límite sólo
+afecta a Scalafmt y evita que su primer arranque termine con código 143 por timeout.
 
 La vía oficial recomendada por Scalafmt es Coursier. Puede usarse como alternativa si no se desea
 el paquete AUR de Scalafmt:
@@ -782,8 +784,8 @@ cs install scalafmt
 ```
 
 El directorio de instalación que muestre Coursier debe estar en `PATH`. No conviene instalar a la
-vez el mismo ejecutable con Pacman/AUR y con Coursier, porque el resultado dependería del orden del
-`PATH`.
+vez el mismo ejecutable con Pacman/AUR y con Coursier, porque el resultado dependería del orden
+del `PATH`.
 
 No hace falta instalar un paquete global `scala`: sbt resuelve la versión declarada por cada
 proyecto. Metals puede importar builds de sbt y proporcionar diagnósticos al compilar.
@@ -795,8 +797,8 @@ Proyecto de prueba:
 ~/wip/nvim-language-smoke-tests/scala/src/main/scala/Main.scala
 ```
 
-El proyecto declara Scala 3.7.1. Metals importará el build de sbt y Scalafmt se usará directamente
-desde Conform.
+El proyecto declara Scala 3.7.1. Metals importará el build de sbt y Scalafmt se usará
+directamente desde Conform.
 
 Referencias:
 
@@ -807,8 +809,8 @@ Referencias:
 
 ## Ruby
 
-Ruby LSP se instala mediante Mason, pero se ejecuta con el Ruby del sistema y necesita poder cargar
-Bundler. Sin el paquete correspondiente, el servidor termina al arrancar con este error:
+Ruby LSP se instala mediante Mason, pero se ejecuta con el Ruby del sistema y necesita poder
+cargar Bundler. Sin el paquete correspondiente, el servidor termina al arrancar con este error:
 
 ```text
 cannot load such file -- bundler (LoadError)
@@ -839,16 +841,16 @@ bundle --version
 ruby -rbundler -e 'puts Bundler::VERSION'
 ```
 
-Si un proyecto contiene `Gemfile`, Ruby LSP exige también un `Gemfile.lock`. Hay que generarlo desde
-la raíz del proyecto, incluso cuando todavía no se hayan añadido dependencias:
+Si un proyecto contiene `Gemfile`, Ruby LSP exige también un `Gemfile.lock`. Hay que generarlo
+desde la raíz del proyecto, incluso cuando todavía no se hayan añadido dependencias:
 
 ```bash
 bundle install
 ```
 
 Sin ese archivo, el servidor termina indicando `Project contains a Gemfile, but no Gemfile.lock`.
-En el proyecto de prueba el comando no instaló gemas porque el `Gemfile` está vacío; sólo resolvió
-el entorno y creó el lockfile.
+En el proyecto de prueba el comando no instaló gemas porque el `Gemfile` está vacío; sólo
+resolvió el entorno y creó el lockfile.
 
 Ruby LSP genera además un bundle compuesto en `.ruby-lsp` con el propio servidor, `debug` y las
 dependencias del proyecto. Con el Ruby del sistema, Bundler intentaría instalar esas gemas bajo
@@ -859,8 +861,8 @@ stdpath("data")/ruby-lsp/bundle
 ```
 
 Así cada usuario dispone de un almacén escribible y no es necesario ejecutar Bundler como root ni
-cambiar permisos dentro de `/usr/lib`. La ruta se calcula en runtime, por lo que no contiene rutas
-específicas de Linux o del usuario actual.
+cambiar permisos dentro de `/usr/lib`. La ruta se calcula en runtime, por lo que no contiene
+rutas específicas de Linux o del usuario actual.
 
 Proyecto de prueba:
 
@@ -875,8 +877,9 @@ Proyecto de prueba:
 ## Swift
 
 `sourcekit-lsp` (LSP) se distribuye dentro del toolchain de Swift: no existe un paquete
-independiente `sourcekit-lsp` en Mason ni en los repositorios oficiales de Arch. Es exactamente uno
-de esos servidores que se instalan a nivel de sistema. El formatter sí es de Mason (`swiftformat`).
+independiente `sourcekit-lsp` en Mason ni en los repositorios oficiales de Arch. Es exactamente
+uno de esos servidores que se instalan a nivel de sistema. El formatter sí es de Mason
+(`swiftformat`).
 
 ### Instalación del toolchain
 
@@ -906,8 +909,8 @@ sourcekit-lsp: /usr/bin/sourcekit-lsp
 
 ### Formatter
 
-Conform usa `swiftformat` desde Mason. No hay que confundirlo con `swift-format`, que no se incluye
-en el toolchain y no está empaquetado para Pacman/AUR en este sistema.
+Conform usa `swiftformat` desde Mason. No hay que confundirlo con `swift-format`, que no se
+incluye en el toolchain y no está empaquetado para Pacman/AUR en este sistema.
 
 ### Comprobación manual
 
@@ -930,9 +933,9 @@ swift = { "swiftformat" },
 swift = true,
 ```
 
-En `lua/lzy/lspconfig.lua`, `sourcekit` está restringido al filetype `swift` (`filetypes = { "swift" }`)
-porque el servidor también anuncia C/C++/Objective-C, que ya gestiona clangd. Así se evitan dos
-clientes simultáneos.
+En `lua/lzy/lspconfig.lua`, `sourcekit` está restringido al filetype `swift`
+(`filetypes = { "swift" }`) porque el servidor también anuncia C/C++/Objective-C, que ya gestiona
+clangd. Así se evitan dos clientes simultáneos.
 
 Desde Neovim sólo hace falta instalar el formatter y el parser:
 
@@ -963,10 +966,10 @@ Referencias:
 
 ### LSP y formatter
 
-`djls` (`django-language-server`) es el LSP actual para plantillas de Django (y Jinja). `djlint` es
-el formatter/linter estándar de plantillas HTML (Django, Jinja, Twig, Nunjucks, Handlebars, ...).
-Ambos se instalan con Mason; como son de Python, Mason los deja en su propio entorno y no hacen
-falta paquetes Python del sistema para ellos.
+`djls` (`django-language-server`) es el LSP actual para plantillas de Django (y Jinja). `djlint`
+es el formatter/linter estándar de plantillas HTML (Django, Jinja, Twig, Nunjucks, Handlebars,
+...). Ambos se instalan con Mason; como son de Python, Mason los deja en su propio entorno y no
+hacen falta paquetes Python del sistema para ellos.
 
 Lo que sí hace falta es el framework: sin un proyecto Django real (`manage.py` + `settings.py`),
 `djls` no puede resolver tags, filtros ni el contexto de las plantillas.
@@ -988,8 +991,8 @@ python-sqlparse 0.5.3-2
 
 ### Restricción de filetypes
 
-`djls` anuncia también `html` y `python`, que ya gestionan el LSP de HTML y `basedpyright`. Para no
-duplicar clientes se restringe a `htmldjango` en `lua/lzy/lspconfig.lua`:
+`djls` anuncia también `html` y `python`, que ya gestionan el LSP de HTML y `basedpyright`. Para
+no duplicar clientes se restringe a `htmldjango` en `lua/lzy/lspconfig.lua`:
 
 ```lua
 djls = {
@@ -1041,13 +1044,64 @@ Proyecto de prueba:
 ```
 
 El proyecto es un Django mínimo (manage.py, settings, urls con una TemplateView) cuyas plantillas
-ejercitan `extends`, `block`, `for`, `if/else`, variables, filtros y `url`. Están mal formateadas a
-propósito para probar `djlint`.
+ejercitan `extends`, `block`, `for`, `if/else`, variables, filtros y `url`. Están mal formateadas
+a propósito para probar `djlint`.
 
 Referencia:
 
 - https://djlint.com/
 - https://github.com/joshuadavidthomas/django-language-server
+
+---
+
+## Liquid
+
+### LSP: `shopify_theme_ls`
+
+El paquete de Mason `shopify-cli` proporciona el binario `shopify`, que incluye el servidor de
+lenguaje de temas de Shopify (`shopify theme language-server`) y el linter Theme Check. Se activa
+en archivos `.liquid` y detecta la raíz del tema mediante markers como `shopify.theme.toml`,
+`.theme-check.yml` o `.shopifyignore`.
+
+Se instala con `:MasonInstallAll` (mapeado como `shopify_theme_ls = "shopify-cli"`).
+
+### Formatter: prettier + `@shopify/prettier-plugin-liquid`
+
+El plugin oficial de Liquid para Prettier **no está en Mason**, así que se instala globalmente
+con npm:
+
+```bash
+sudo npm install -g @shopify/prettier-plugin-liquid
+```
+
+En conform.lua el formatter `prettier_liquid` resuelve en runtime la ruta del plugin dentro del
+directorio global de node_modules (`npm root -g`) y llama a prettier con `--parser liquid-html`.
+Si no se encuentra el plugin, falla con un error que recuerda el comando de instalación.
+
+`shopify_theme_ls` no puede ejecutarse hasta que Mason tenga el binario; `prettier_liquid` sí,
+siempre que exista prettier y el plugin global.
+
+### Estado
+
+Dependencias instaladas; prueba manual pendiente en el proyecto de muestra:
+
+```text
+~/wip/nvim-language-smoke-tests/liquid/layout/theme.liquid
+~/wip/nvim-language-smoke-tests/liquid/templates/index.liquid
+~/wip/nvim-language-smoke-tests/liquid/sections/featured-product.liquid
+~/wip/nvim-language-smoke-tests/liquid/snippets/product-card.liquid
+```
+
+El proyecto es un tema Shopify mínimo (layout, template, sección y snippet) que ejercita
+`assign`, `paginate`, `for/else`, `if`, `render`, `form`, `schema`, variables, filtros (`upcase`,
+`default`, `escape`, `money`, `date`) y el marcado de Theme Check. Está mal formateado a
+propósito para probar `prettier_liquid`.
+
+Referencia:
+
+- https://shopify.dev/docs/themes/tools/liquid
+- https://github.com/Shopify/prettier-plugin-liquid
+- https://shopify.dev/docs/themes/tools/theme-check
 
 ---
 
