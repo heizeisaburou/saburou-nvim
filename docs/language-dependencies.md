@@ -30,7 +30,7 @@ ejecutarse o analizar un proyecto.
 | Go       | `go` (repos oficiales)     | `gopls`                 | `gofmt` (toolchain); plantillas: externo `prettier-plugin-go-template` | Verificado (lenguaje principal)           |
 | Jinja    | (sin toolchain; usa Node) | `jinja-lsp`             | Externo: `prettier-plugin-jinja-template` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/jinja`) |
 | Handlebars | (sin toolchain; usa Node) | (sin LSP en Mason)      | Externo: `prettier-plugin-handlebars` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/handlebars`) |
-| Vue       | (sin toolchain; usa Node) | `vue-language-server` (volar) | `prettier` (builtin) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/vue`) |
+| Vue       | (sin toolchain; usa Node) | `vue-language-server` (vue_ls) | `prettier` (builtin) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/vue`) |
 | Twig      | PHP (para el setup completo de twiggy) | `twiggy-language-server` | Externo: `@zackad/prettier-plugin-twig` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/twig`) |
 | Pug (Jade) | (sin toolchain; usa Node) | (sin LSP en Mason)      | Externo: `@prettier/plugin-pug` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/pug`) |
 | Ansible  | `ansible-core` + `ansible-lint` (repos) | `ansible-language-server` | `yamlfmt` (via `yaml`) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/ansible`) |
@@ -1327,13 +1327,16 @@ Referencia:
 
 ## Vue
 
-### LSP: `volar`
+### LSP: `vue_ls`
 
 `vue-language-server` (Volar) es el paquete de Mason; se instala con
-`:MasonInstall vue-language-server` (el alias `volar` está en `names.lua` para
+`:MasonInstall vue-language-server` (`vue_ls` está en `names.lua` para
 `:MasonInstallAll`). nvim-lspconfig ya detecta la raíz (`package.json`), restringe a
 `filetypes = { "vue" }` y resuelve el `tsdk` de TypeScript del proyecto. Sin TypeScript en el
 proyecto, Volar arranca igual pero sin el type-checking de los `<script>`.
+
+> El alias `volar` está deprecado en nvim-lspconfig (se eliminará en 3.0.0); usar
+> `vue_ls` (mismo paquete de Mason).
 
 ### Formatter
 
@@ -1353,7 +1356,7 @@ Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/vue`:
 ```
 
 Es un SFC con `script setup` + TypeScript, `v-for`, `@click`, binding condicional y `style`
-scoped. LSP (volar), parser y formatter verificados vía headless; el `<template>` estaba
+scoped. LSP (vue_ls), parser y formatter verificados vía headless; el `<template>` estaba
 deliberadamente poco indentado y `prettier` lo reindentó con `<leader>fm` (equivalente a
 `conform.format`).
 

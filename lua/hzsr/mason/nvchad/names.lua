@@ -230,7 +230,6 @@ return {
   vimls = "vim-language-server",
   visualforce_ls = "visualforce-language-server",
   vls = "vls",
-  volar = "vue-language-server",
   vue_ls = "vue-language-server",
   vtsls = "vtsls",
   vuels = "vetur-vls",

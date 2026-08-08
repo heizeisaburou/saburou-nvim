@@ -72,7 +72,7 @@ M.servers = {
 
   "djls", -- Django templates
   "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
-  "volar", -- Vue (.vue)
+  "vue_ls", -- Vue (.vue)
   "twiggy_language_server", -- Twig (.twig)
 }
 
@@ -602,6 +602,24 @@ local function configure_server(name)
   end
 
   cfg = extend_server_config(cfg)
+
+  -- Algunos servidores traen un `on_init` propio en nvim-lspconfig que no debe
+  -- perderse (p. ej. `vue_ls`/`volar` registra el forwarding `tsserver/request`
+  -- imprescindible en hybrid mode). Se encadena en lugar de sobrescribirlo.
+  local existing = vim.lsp.config[name]
+  local existing_on_init = existing and existing.on_init
+  if existing_on_init and existing_on_init ~= cfg.on_init then
+    local prev_on_init, cur_on_init = existing_on_init, cfg.on_init
+    cfg.on_init = function(client, init_result)
+      if prev_on_init then
+        prev_on_init(client, init_result)
+      end
+      if cur_on_init then
+        cur_on_init(client, init_result)
+      end
+    end
+  end
+
   vim.lsp.config(name, cfg)
 end
 
