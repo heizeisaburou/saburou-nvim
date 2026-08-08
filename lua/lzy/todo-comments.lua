@@ -218,7 +218,9 @@ local function update_leading_padding(bufnr, first, last)
   local lines = vim.api.nvim_buf_get_lines(bufnr, first, last, false)
   for offset, line in ipairs(lines) do
     local ok, start, _, keyword = pcall(highlight.match, line)
-    local colon_col = start and start - 2 or -1
+    -- Cuando `match` lanza (config del plugin aún sin inicializar) el pcall
+    -- deja en `start` el mensaje de error; hay que comprobar `ok` primero.
+    local colon_col = ok and start and start - 2 or -1
 
     if ok and keyword and colon_col >= 0 and line:sub(colon_col + 1, colon_col + 1) == ":" then
       keyword = config.keywords[keyword] or keyword
