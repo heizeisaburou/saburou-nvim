@@ -1404,12 +1404,32 @@ Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/twig`:
 
 ```text
 ~/wip/nvim-language-smoke-tests/twig/composer.json
+~/wip/nvim-language-smoke-tests/twig/templates/base.html.twig
 ~/wip/nvim-language-smoke-tests/twig/templates/productos.html.twig
 ```
 
 Es un template con `extends`, `block`, `for`, `if/else` y el filtro `number_format`. LSP, parser
 y formatter verificados vía headless; estaba deliberadamente poco indentado y `prettier_twig` lo
 reindentó con `<leader>fm` (equivalente a `conform.format`).
+
+#### Capacidades reales probadas (v26.4.1)
+
+El servidor **anuncia** hover, rename, goto definition, símbolos, references e inlay hints, pero
+la implementación es parcial:
+
+- **Rename** ✅: sobre una variable `{% for producto in productos %}` renombra todas sus
+  ocurrencias (p. ej. `producto` → `p` en el `for` y en el cuerpo del `{{ producto }}`).
+- **References** ✅: sobre una variable encuentra su definición y usos.
+- **Goto definition** ✅: sobre el `extends 'base.html.twig'` abre el archivo base.
+- **Símbolos** ⚠️ parcial: los `{% block %}` aparecen como símbolos de documento; las variables
+  no son símbolos.
+- **Hover** ⚠️ parcial: funciona sobre variables definidas con `{% set productos = [...] %}` →
+  `**productos** = ['uno', 'dos', 'tres']`; devuelve **nada** sobre variables de loop (`producto`)
+  porque twiggy no infiere el tipo del elemento iterado, y tampoco sobre filtros como
+  `number_format`.
+
+Conclusión: utilizable para renombrar variables y navegar, con hover limitado a variables con
+definición explícita. Es un servidor en evolución; no es un fallo de esta configuración.
 
 Referencia:
 
