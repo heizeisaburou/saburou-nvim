@@ -46,6 +46,22 @@ local prettier_liquid_plugin = global_prettier_plugin(
 local prettier_gotmpl_plugin = global_prettier_plugin(
   vim.fs.joinpath("prettier-plugin-go-template", "lib", "index.js")
 )
+-- [PRUEBA MasonInstallAll] Resolvers comentados junto a sus formatters (abajo).
+-- El paquete npm es GLOBAL (no lo instala MasonInstallAll): para probar el
+-- formatter de cada lenguaje hay que reinstalarlo con
+-- `sudo npm install -g <paquete>` y descomentar el resolver + el formatter.
+local prettier_jinja_plugin = global_prettier_plugin(
+  vim.fs.joinpath("prettier-plugin-jinja-template", "lib", "index.js")
+)
+local prettier_handlebars_plugin = global_prettier_plugin(
+  vim.fs.joinpath("prettier-plugin-handlebars", "src", "index.js")
+)
+local prettier_twig_plugin = global_prettier_plugin(
+  vim.fs.joinpath("@zackad", "prettier-plugin-twig", "src", "index.js")
+)
+local prettier_pug_plugin = global_prettier_plugin(
+  vim.fs.joinpath("@prettier", "plugin-pug", "dist", "index.js")
+)
 
 --- Escribe configuraciones pequeñas y deterministas para CLIs que sólo
 --- permiten recibir las opciones de indentación mediante un archivo.
@@ -83,6 +99,10 @@ local formatters_by_ft = {
   heex = { "mix" },
   html = { "prettier" },
   htmldjango = { "djlint" },
+  -- [PRUEBA MasonInstallAll] Comentadas para probar MasonInstallAll uno a uno.
+  -- Descomenta junto con su formatter y resolver (más abajo).
+  -- handlebars = { "prettier_handlebars" },
+  -- jinja = { "prettier_jinja" },
   javascript = { "prettier" },
   javascriptreact = { "prettier" },
   json = { "biome" },
@@ -94,6 +114,7 @@ local formatters_by_ft = {
   php = { "php_cs_fixer" },
   plaintex = { "latexindent" },
   python = { "ruff_format" },
+  -- pug = { "prettier_pug" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
   qml = { "qmlformat" }, -- externo
   rust = { "rustfmt" },
   scss = { "prettier" },
@@ -102,7 +123,8 @@ local formatters_by_ft = {
   tex = { "latexindent" },
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
-  vue = { "prettier" }, -- .vue (framework de javascript)
+  -- twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  -- vue = { "prettier" }, -- .vue (framework de javascript); [PRUEBA MasonInstallAll] descomentar
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
 
@@ -365,6 +387,112 @@ local formatters = {
       return {
         "--plugin",
         prettier_gotmpl_plugin,
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  -- [PRUEBA MasonInstallAll] Formatters comentados; descomenta el del lenguaje
+  -- que quieras probar junto con su entrada en formatters_by_ft y su resolver.
+  --
+  prettier_jinja = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_jinja_plugin then
+        error "prettier-plugin-jinja-template no está instalado; ejecuta: sudo npm install -g prettier-plugin-jinja-template"
+      end
+
+      return {
+        "--plugin",
+        prettier_jinja_plugin,
+        "--parser",
+        "jinja-template",
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  -- El único plugin de prettier que funciona con prettier 3 para Handlebars es
+  -- `prettier-plugin-handlebars` (fork del plugin de Glimmer/Ember); su parser
+  -- se llama `glimmer`.
+  prettier_handlebars = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_handlebars_plugin then
+        error "prettier-plugin-handlebars no está instalado; ejecuta: sudo npm install -g prettier-plugin-handlebars"
+      end
+
+      return {
+        "--plugin",
+        prettier_handlebars_plugin,
+        "--parser",
+        "glimmer",
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  prettier_twig = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_twig_plugin then
+        error "@zackad/prettier-plugin-twig no está instalado; ejecuta: sudo npm install -g @zackad/prettier-plugin-twig"
+      end
+
+      return {
+        "--plugin",
+        prettier_twig_plugin,
+        "--parser",
+        "twig",
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  prettier_pug = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_pug_plugin then
+        error "@prettier/plugin-pug no está instalado; ejecuta: sudo npm install -g @prettier/plugin-pug"
+      end
+
+      return {
+        "--plugin",
+        prettier_pug_plugin,
+        "--parser",
+        "pug",
         "--print-width=" .. tostring(line_length),
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",

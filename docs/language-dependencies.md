@@ -28,6 +28,11 @@ ejecutarse o analizar un proyecto.
 | Django   | `python-django`           | `django-language-server`  | `djlint`                                   | Toolchain instalado; prueba pendiente         |
 | Liquid   | (sin toolchain; usa Node) | `shopify-cli`           | Externo: `@shopify/prettier-plugin-liquid` | Dependencias instaladas; prueba pendiente |
 | Go       | `go` (repos oficiales)     | `gopls`                 | `gofmt` (toolchain); plantillas: externo `prettier-plugin-go-template` | Verificado (lenguaje principal)           |
+| Jinja    | (sin toolchain; usa Node) | `jinja-lsp`             | Externo: `prettier-plugin-jinja-template` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/jinja`) |
+| Handlebars | (sin toolchain; usa Node) | (sin LSP en Mason)      | Externo: `prettier-plugin-handlebars` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/handlebars`) |
+| Vue       | (sin toolchain; usa Node) | `vue-language-server` (volar) | `prettier` (builtin) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/vue`) |
+| Twig      | PHP (para el setup completo de twiggy) | `twiggy-language-server` | Externo: `@zackad/prettier-plugin-twig` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/twig`) |
+| Pug (Jade) | (sin toolchain; usa Node) | (sin LSP en Mason)      | Externo: `@prettier/plugin-pug` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/pug`) |
 | Ansible  | `ansible-core` + `ansible-lint` (repos) | `ansible-language-server` | `yamlfmt` (via `yaml`) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/ansible`) |
 
 ---
@@ -1225,6 +1230,232 @@ Referencia:
 
 - https://docs.ansible.com/ansible/latest/
 - https://ansible.readthedocs.io/projects/lint/
+
+---
+
+## Jinja
+
+### LSP: `jinja_lsp`
+
+`jinja-lsp` (paquete de Mason, binario standalone) realza Jinja, con autocompletado, hover, goto
+definition, code actions y lint de variables. Se instala con `:MasonInstallAll` (mapeado como
+`jinja_lsp = "jinja-lsp"`). En `lua/lzy/lspconfig.lua` se restringe a `filetypes = { "jinja" }`
+para no duplicar a basedpyright.
+
+### Detección de filetype
+
+nvim solo detecta `.jinja`. En `lua/user/opts.lua` se añaden `.jinja2` y `.j2` → `jinja`, que es
+el filetype que atienden jinja-lsp y el parser de treesitter.
+
+### Formatter: prettier + `prettier-plugin-jinja-template`
+
+El plugin de Jinja para Prettier **no está en Mason**, así que se instala globalmente con npm:
+
+```bash
+sudo npm install -g prettier-plugin-jinja-template
+```
+
+En conform.lua el formatter `prettier_jinja` resuelve la ruta del plugin en el directorio global
+de node_modules (`npm root -g`) y llama a prettier con `--parser jinja-template` (el plugin
+también auto-detecta `.jinja`/`.jinja2`/`.j2`). Si no se encuentra el plugin, falla con un error
+que recuerda el comando de instalación.
+
+### Treesitter
+
+Parser `jinja` (nvim-treesitter), que arrastra `jinja_inline` como dependencia para el
+resaltado completo.
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/jinja`:
+
+```text
+~/wip/nvim-language-smoke-tests/jinja/templates/index.jinja2
+```
+
+El template ejercita `extends`, `block`, `for`, `if/else`, `set`, variables y filtros (`upper`,
+`length`). La verificación del formatter se hizo con el template deliberadamente poco indentado;
+`prettier_jinja` lo reindentó vía `<leader>fm` (equivalente a `conform.format`).
+
+Referencia:
+
+- https://github.com/uros-5/jinja-lsp
+- https://github.com/davidodenwald/prettier-plugin-jinja-template
+
+---
+
+## Handlebars
+
+### Formatter: prettier + `prettier-plugin-handlebars`
+
+No hay LSP de Handlebars en Mason ni parser de treesitter en nvim-treesitter: solo formateo.
+
+Los candidatos de prettier para Handlebars son `prettier-plugin-hbs` (2022, necesita
+`@glimmer/syntax` que no trae instalado) y `prettier-plugin-handlebars` (fork del plugin de
+Glimmer/Ember, el único que funciona con prettier 3). Se instala globalmente con npm:
+
+```bash
+sudo npm install -g prettier-plugin-handlebars
+```
+
+En conform.lua el formatter `prettier_handlebars` resuelve la ruta del plugin en el directorio
+global de node_modules y llama a prettier con `--parser glimmer` (el nombre del parser del
+fork). Si no se encuentra el plugin, falla con un error que recuerda el comando de instalación.
+
+### Detección de filetype
+
+nvim detecta `.hbs` pero no `.handlebars`; en `lua/user/opts.lua` se añade
+`.handlebars` → `handlebars`.
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/handlebars`:
+
+```text
+~/wip/nvim-language-smoke-tests/handlebars/templates/user-card.hbs
+```
+
+El template ejercita `each`, `if/else`, variables y un helper (`log`). Estaba mal formateado a
+propósito; `prettier_handlebars` lo reindentó vía `<leader>fm` (equivalente a
+`conform.format`).
+
+Referencia:
+
+- https://github.com/ggoodman/prettier-plugin-handlebars
+
+---
+
+## Vue
+
+### LSP: `volar`
+
+`vue-language-server` (Volar) es el paquete de Mason; se instala con
+`:MasonInstall vue-language-server` (el alias `volar` está en `names.lua` para
+`:MasonInstallAll`). nvim-lspconfig ya detecta la raíz (`package.json`), restringe a
+`filetypes = { "vue" }` y resuelve el `tsdk` de TypeScript del proyecto. Sin TypeScript en el
+proyecto, Volar arranca igual pero sin el type-checking de los `<script>`.
+
+### Formatter
+
+`vue = { "prettier" }` (ya existía en conform.lua): prettier 3 formatea el SFC completo
+(`<script>`, `<template>`, `<style>`) con el parser `vue`, que infiere de la extensión `.vue`.
+
+### Treesitter
+
+Parser `vue` (nvim-treesitter).
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/vue`:
+
+```text
+~/wip/nvim-language-smoke-tests/vue/components/Lista.vue
+```
+
+Es un SFC con `script setup` + TypeScript, `v-for`, `@click`, binding condicional y `style`
+scoped. LSP (volar), parser y formatter verificados vía headless; el `<template>` estaba
+deliberadamente poco indentado y `prettier` lo reindentó con `<leader>fm` (equivalente a
+`conform.format`).
+
+Referencia:
+
+- https://github.com/vuejs/language-tools
+
+---
+
+## Twig
+
+### LSP: `twiggy_language_server`
+
+`twiggy-language-server` (paquete de Mason, binario standalone) proporciona diagnóstico de
+sintaxis, autocompletado, hover, goto definition, renombrar, símbolos y formateo (vía
+`twig-cs-fixer`). Se instala con `:MasonInstallAll` (mapeado como
+`twiggy_language_server = "twiggy-language-server"`).
+
+Twiggy **necesita un workspace folder** (la raíz la marca `composer.json` o `.git`): sin ella, el
+`initialize` falla con `Cannot read properties of null (reading '0')` (`workspaceFolders[0]`).
+El framework (symfony/craft) se autodetecta desde `composer.json`; sin esas dependencias avisa
+`twiggy.framework is required` y sigue con las funciones de sintaxis y built-ins. Para el setup
+completo (rutas, tipos PHP, twig-cs-fixer) hace falta un proyecto con PHP/composer.
+
+### Formatter: prettier + `@zackad/prettier-plugin-twig`
+
+El plugin de Twig para Prettier **no está en Mason**, así que se instala globalmente con npm:
+
+```bash
+sudo npm install -g @zackad/prettier-plugin-twig
+```
+
+En conform.lua el formatter `prettier_twig` resuelve la ruta del plugin en el directorio global
+de node_modules y llama a prettier con `--parser twig` (el plugin también auto-detecta
+`.twig`/`.html.twig`). Si no se encuentra el plugin, falla con un error que recuerda el comando
+de instalación.
+
+### Treesitter
+
+Parser `twig` (nvim-treesitter).
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/twig`:
+
+```text
+~/wip/nvim-language-smoke-tests/twig/composer.json
+~/wip/nvim-language-smoke-tests/twig/templates/productos.html.twig
+```
+
+Es un template con `extends`, `block`, `for`, `if/else` y el filtro `number_format`. LSP, parser
+y formatter verificados vía headless; estaba deliberadamente poco indentado y `prettier_twig` lo
+reindentó con `<leader>fm` (equivalente a `conform.format`).
+
+Referencia:
+
+- https://github.com/moetelo/twiggy
+- https://github.com/zackad/prettier-plugin-twig
+
+---
+
+## Pug (Jade)
+
+### Formatter: prettier + `@prettier/plugin-pug`
+
+No hay LSP de Pug en Mason: solo formateo y parser de treesitter.
+
+El plugin oficial de Pug para Prettier (parses `.pug` y `.jade`) **no está en Mason**, así que
+se instala globalmente con npm:
+
+```bash
+sudo npm install -g @prettier/plugin-pug
+```
+
+En conform.lua el formatter `prettier_pug` resuelve la ruta del plugin en el directorio global
+de node_modules y llama a prettier con `--parser pug`. Si no se encuentra el plugin, falla con
+un error que recuerda el comando de instalación.
+
+### Detección de filetype
+
+nvim detecta `.pug` pero no `.jade` (el nombre histórico de Pug); en `lua/user/opts.lua` se
+añade `.jade` → `pug`.
+
+### Treesitter
+
+Parser `pug` (nvim-treesitter).
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/pug`:
+
+```text
+~/wip/nvim-language-smoke-tests/pug/views/tienda.jade
+```
+
+Es una plantilla `.jade` con `doctype`, `each`, `if/else` y clases. Parser y formatter
+verificados vía headless; estaba deliberadamente poco indentada y `prettier_pug` la reindentó
+con `<leader>fm` (equivalente a `conform.format`).
+
+Referencia:
+
+- https://github.com/prettier/plugin-pug
 
 ---
 

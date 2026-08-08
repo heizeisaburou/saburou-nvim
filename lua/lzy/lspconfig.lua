@@ -56,6 +56,11 @@ M.servers = {
 
   -- NUEVOS (testeados)
   "djls", -- Django templates
+  -- [PRUEBA MasonInstallAll] Comentado para probar la instalación uno a uno.
+  -- Descomenta y ejecuta `:MasonInstallAll` para reinstalar.
+  -- "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
+  -- "volar", -- Vue (.vue)
+  -- "twiggy_language_server", -- Twig (.twig)
 
   -- NUEVOS (sin testear)
   "clojure_lsp",
@@ -170,6 +175,14 @@ M.config = {
     -- templates para evitar clientes duplicados.
     filetypes = { "htmldjango" },
   },
+
+  -- [PRUEBA MasonInstallAll] Comentado junto a su servidor en M.servers.
+  -- Descomenta y ejecuta `:MasonInstallAll` para reinstalar jinja-lsp.
+  -- jinja_lsp = {
+  --   -- El server anuncia filetypes de Python además de `jinja`; restringido
+  --   -- para no duplicar a basedpyright.
+  --   filetypes = { "jinja" },
+  -- },
 
   fsautocomplete = {},
 

@@ -190,3 +190,24 @@ vim.filetype.add({
     qmljs = "qmljs",
   },
 })
+-- Jinja: nvim solo detecta `.jinja`; `.jinja2` y `.j2` (los otros sufijos
+-- habituales) quedan sin filetype. Los tres van a `jinja`, que es el que
+-- atienden jinja-lsp y el parser de treesitter.
+vim.filetype.add {
+  extension = {
+    jinja2 = "jinja",
+    j2 = "jinja",
+  },
+}
+-- Handlebars: nvim detecta `.hbs` pero no `.handlebars` (el otro sufijo común).
+vim.filetype.add {
+  extension = {
+    handlebars = "handlebars",
+  },
+}
+-- Pug: nvim detecta `.pug` pero no `.jade` (nombre histórico de Pug).
+vim.filetype.add {
+  extension = {
+    jade = "pug",
+  },
+}
