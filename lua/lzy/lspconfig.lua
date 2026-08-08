@@ -171,13 +171,19 @@ M.config = {
     filetypes = { "htmldjango" },
   },
 
-  -- [PRUEBA MasonInstallAll] Comentado junto a su servidor en M.servers.
-  -- Descomenta y ejecuta `:MasonInstallAll` para reinstalar jinja-lsp.
-  -- jinja_lsp = {
-  --   -- El server anuncia filetypes de Python además de `jinja`; restringido
-  --   -- para no duplicar a basedpyright.
-  --   filetypes = { "jinja" },
-  -- },
+  jinja_lsp = {
+    -- El server anuncia filetypes de Python además de `jinja`; restringido
+    -- para no duplicar a basedpyright.
+    filetypes = { "jinja" },
+    -- Sin `lang` el server no carga configuración y no ofrece completado
+    -- (11 snippets: for/if/set/with/include/import...). Se pasa por settings en
+    -- lugar de exigir un `jinja-lsp.toml` en el proyecto.
+    settings = {
+      ["jinja-lsp"] = {
+        lang = "python",
+      },
+    },
+  },
 
   fsautocomplete = {},
 
