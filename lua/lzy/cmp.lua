@@ -260,24 +260,8 @@ M.opts = {
     --
     -- Estas teclas quedan como forma principal de moverse por sugerencias
     -- cuando se usa el perfil tab_snippet_only().
-    --
-    -- Si cmp no está visible, abren el menú (en lugar de caer a la
-    -- completación nativa de Neovim, que muestra sugerencias ajenas a cmp).
-    -- Así, tras escribir `<` en un .vue puedes pulsar <C-n> para abrir cmp.
-    ["<C-p>"] = cmp.mapping(function()
-      if cmp.visible() then
-        cmp.select_prev_item()
-      else
-        cmp.complete()
-      end
-    end),
-    ["<C-n>"] = cmp.mapping(function()
-      if cmp.visible() then
-        cmp.select_next_item()
-      else
-        cmp.complete()
-      end
-    end),
+    ["<C-p>"] = cmp.mapping.select_prev_item(),
+    ["<C-n>"] = cmp.mapping.select_next_item(),
 
     -- Abrir completado manualmente.
     ["<C-Space>"] = cmp.mapping.complete(),
