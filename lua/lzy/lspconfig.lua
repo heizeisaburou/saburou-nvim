@@ -544,11 +544,15 @@ end
 
 ---@param name string
 local function configure_server(name)
-  local cfg = M.config[name]
+  local entry = M.config[name]
+  local cfg
+
   -- Las factories se evalúan al activar/reiniciar el servidor. Esto permite
   -- detectar toolchains instalados después de arrancar la configuración base.
-  if type(cfg) == "function" then
-    cfg = cfg(name)
+  if type(entry) == "function" then
+    cfg = entry(name)
+  else
+    cfg = entry
   end
 
   if cfg ~= nil and type(cfg) ~= "table" then
