@@ -33,48 +33,50 @@ local M = {}
 --- Servidores gestionados por esta capa.
 ---
 --- Esta tabla no instala servidores.
+---
+--- Fuera por ahora:
+--- "expert", -- alternativa a elixirls; por investigar
 M.servers = {
-  -- "expert", -- alternativa a elixirls; por investigar
-  "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
-  "basedpyright", -- python
-  "bashls",
-  "clangd", -- C, C++
-  "clojure_lsp",
-  "csharp_ls",
-  "cssls", -- .css
-  "dartls",
-  "djls", -- Django templates
-  "elixirls",
-  "fsautocomplete", -- F#
-  "gopls", -- golang
-  "hls", -- Haskell
-  "html", -- .html
-  "jdtls", -- Java
-  "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
-  "jsonls", -- .json
-  "kotlin_language_server",
+  -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
+  -- "basedpyright", -- python
+  -- "bashls",
+  -- "clangd", -- C, C++
+  -- "clojure_lsp",
+  -- "csharp_ls",
+  -- "cssls", -- .css
+  -- "dartls",
+  -- "djls", -- Django templates
+  -- "elixirls",
+  -- "fsautocomplete", -- F#
+  -- "gopls", -- golang
+  -- "hls", -- Haskell
+  -- "html", -- .html
+  -- "jdtls", -- Java
+  -- "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
+  -- "jsonls", -- .json
+  -- "kotlin_language_server",
   "lua_ls",
   "marksman", -- markdown
-  "metals", -- scala
-  "neocmake", -- cmake
-  "ocamllsp", -- camellito
-  "phpactor", -- php
-  "pug", -- Pug (.pug/.jade)
-  "qmlls", -- qml
-  "ruby_lsp",
-  "ruff", -- Linter y formateador adicional para python
-  "rust_analyzer",
-  "shopify_theme_ls", -- Liquid (Shopify)
-  "sourcekit", -- swift
-  "svelte",
-  "taplo", -- .toml
-  "texlab", -- latex
-  "tinymist", -- Typst
-  "twiggy_language_server", -- Twig (.twig)
-  "vtsls", -- TypeScript, JavaScript
-  "vue_ls", -- Vue (framework de javascript)
-  "yamlls", -- .yaml
-  "zls", -- zig
+  -- "metals", -- scala
+  -- "neocmake", -- cmake
+  -- "ocamllsp", -- camellito
+  -- "phpactor", -- php
+  -- "pug", -- Pug (.pug/.jade)
+  -- "qmlls", -- qml
+  -- "ruby_lsp",
+  -- "ruff", -- Linter y formateador adicional para python
+  -- "rust_analyzer",
+  -- "shopify_theme_ls", -- Liquid (Shopify)
+  -- "sourcekit", -- swift
+  -- "svelte",
+  -- "taplo", -- .toml
+  -- "texlab", -- latex
+  -- "tinymist", -- Typst
+  -- "twiggy_language_server", -- Twig (.twig)
+  -- "vtsls", -- TypeScript, JavaScript
+  -- "vue_ls", -- Vue (framework de javascript)
+  -- "yamlls", -- .yaml
+  -- "zls", -- zig
 }
 
 --- Servidores deshabilitados para esta capa.
