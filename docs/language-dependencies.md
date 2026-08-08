@@ -17,6 +17,11 @@ ejecutarse o analizar un proyecto.
 | C#       | .NET SDK/runtime 10   | `csharp-language-server` | `csharpier`        | Verificado                             |
 | Clojure  | Clojure CLI + Java    | `clojure-lsp`            | `zprint`           | CLI instalado; prueba manual pendiente |
 | Dart     | Dart SDK              | Incluido en el SDK       | Incluido en el SDK | Verificado por el usuario                |
+| Kotlin   | OpenJDK 21 LTS        | `kotlin-language-server` | `ktlint`           | Resolver configurado; prueba pendiente    |
+| F#       | .NET SDK              | `fsautocomplete`         | `fantomas`         | Proyecto restaurado; prueba pendiente     |
+| Haskell  | GHCup + GHC + Cabal   | `haskell-language-server`| `fourmolu`         | Toolchain instalado; prueba pendiente     |
+| Java     | JDK                   | `jdtls`                  | `google-java-format`| Verificado por el usuario                |
+| OCaml    | opam                  | `ocaml-lsp`              | `ocamlformat`      | opam instalado; inicialización pendiente  |
 
 ---
 
@@ -289,6 +294,336 @@ Referencia:
 
 ---
 
+## Kotlin
+
+### Síntoma inicial
+
+`kotlin-language-server` terminaba durante el arranque con:
+
+```text
+java.lang.IllegalArgumentException: 26.0.1
+at com.intellij.util.lang.JavaVersion.parse(...)
+```
+
+Las líneas sobre `sun.misc.Unsafe` son advertencias, no la causa del cierre. La entrada de
+Marksman que aparece cerca también es informativa: Neovim la registra como error porque Marksman
+escribe su mensaje de inicio en `stderr`.
+
+### Causa
+
+Mason instaló `kotlin-language-server` 1.3.13, que incluye Kotlin Compiler 2.1.0. El servidor se
+estaba ejecutando con OpenJDK 26.0.1 y su parser interno no reconoce todavía esa versión de Java.
+No falta Kotlin ni otro paquete de Mason: el LSP necesita arrancar con un JDK compatible.
+
+Después de resolver Java apareció un segundo error al abrir un `.kts` suelto:
+
+```text
+Expected BEGIN_OBJECT but was BEGIN_ARRAY at path $
+at org.javacs.kt.ConfigurationKt.getStoragePath(...)
+```
+
+La configuración base de `nvim-lspconfig` intenta usar como `storagePath` la raíz de un proyecto
+Gradle o Maven. Si el script no pertenece a uno, el valor es `nil`, `init_options` queda como una
+tabla Lua vacía y Neovim la serializa como el array JSON `[]`. El servidor espera un objeto JSON.
+
+La factory define siempre una ruta de caché portable y existente:
+
+```lua
+local storage_path = vim.fs.joinpath(vim.fn.stdpath "cache", "kotlin-language-server")
+vim.fn.mkdir(storage_path, "p")
+
+return {
+  init_options = { storagePath = storage_path },
+}
+```
+
+`stdpath("cache")` selecciona la ubicación correcta en Linux, macOS y Windows. Para guardar la
+caché en otro sitio basta con sustituir `storage_path`; debe apuntar a un directorio existente o
+crearse antes de iniciar el servidor.
+
+### Paquete instalado
+
+```bash
+pkexec pacman -S --needed --noconfirm jdk21-openjdk
+```
+
+Estado después de la instalación:
+
+```text
+jdk21-openjdk 21.0.11.u10-1
+jdk-openjdk   26.0.1.u8-1
+
+java-21-openjdk
+java-26-openjdk (default)
+```
+
+Java 21 y Java 26 están instalados en paralelo. Pacman conservó Java 26 como predeterminado y la
+configuración de Neovim asigna Java 21 únicamente al proceso de `kotlin-language-server`; no cambia
+el runtime de otras aplicaciones.
+
+### Resolución portable del JDK
+
+`lua/hzsr/sys/java.lua` descubre instalaciones de Java, ejecuta `java -version` para validar su
+versión real y, cuando se exige un JDK, comprueba también que exista `javac`. Kotlin acepta Java 21
+o 17 en ese orden de preferencia.
+
+La búsqueda respeta este orden:
+
+1. `KOTLIN_LSP_JAVA_HOME`, `JAVA_HOME` y `JDK_HOME`.
+2. Rutas exactas añadidas mediante `extra_homes`.
+3. El `java` disponible en `PATH`.
+4. Ubicaciones habituales de Linux, macOS y Windows, además de SDKMAN, asdf y mise.
+
+El resultado se aplica mediante `cmd_env` al launcher de Mason, que respeta `JAVA_HOME` tanto en
+Unix como en Windows:
+
+```lua
+kotlin_language_server = function()
+  local java_home = hzsr.sys.java.resolve_home {
+    env = { "KOTLIN_LSP_JAVA_HOME", "JAVA_HOME", "JDK_HOME" },
+    versions = { 21, 17 },
+    require_jdk = true,
+  }
+
+  local config = {
+    init_options = {
+      storagePath = vim.fs.joinpath(vim.fn.stdpath "cache", "kotlin-language-server"),
+    },
+  }
+
+  if java_home then
+    config.cmd_env = { JAVA_HOME = java_home }
+  end
+
+  return config
+end
+```
+
+Las entradas de `M.config` pueden ser tablas normales o factories. Las factories se evalúan cada
+vez que se activa o reinicia un servidor, por lo que instalar otro JDK y ejecutar
+`:LspRestart kotlin_language_server` vuelve a realizar la detección.
+
+### Personalizar una instalación no detectada
+
+La opción más sencilla y portable es definir una ruta explícita antes de iniciar Neovim:
+
+```bash
+# Linux/macOS
+export KOTLIN_LSP_JAVA_HOME="$HOME/ruta/al/jdk-21"
+```
+
+```powershell
+# Windows PowerShell
+$env:KOTLIN_LSP_JAVA_HOME = "C:\Program Files\Java\jdk-21"
+```
+
+También se pueden añadir rutas exactas o directorios que contengan varios JDK desde
+`lua/lzy/lspconfig.lua`:
+
+```lua
+local java_home = hzsr.sys.java.resolve_home {
+  versions = { 21, 17 },
+  require_jdk = true,
+  extra_homes = { "/ruta/exacta/jdk-21" },
+  extra_roots = { "/directorio/con/varios-jdk" },
+}
+```
+
+Si una versión futura de `kotlin-language-server` admite otros Java, se puede cambiar
+`versions = { 21, 17 }`. El orden establece la preferencia y las versiones que no aparezcan en la
+lista se rechazan. Si no se encuentra ninguna compatible, Neovim muestra un aviso y deja arrancar
+el servidor con su entorno normal para que el error siga siendo visible en `lsp.log`.
+
+Inspección manual desde Neovim:
+
+```vim
+:lua print(vim.inspect(hzsr.sys.java.find { require_jdk = true }))
+```
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/kotlin
+```
+
+---
+
+## F#
+
+### LSP adjunto sin diagnósticos
+
+FSAutocomplete 0.83.0 aparecía adjunto al buffer y Fantomas formateaba, pero el LSP no ofrecía
+diagnósticos, hover ni análisis. `lsp.log` mostraba la causa real:
+
+```text
+Typecheck failed for Program.fs with Check aborted
+Unable to find the file 'System.Runtime.dll'
+```
+
+No faltaba otro paquete global. El proyecto todavía no se había restaurado y no existía
+`obj/project.assets.json`, por lo que FSharp.Compiler.Service no podía construir las referencias
+del framework.
+
+### Preparar un proyecto F#
+
+Desde la carpeta que contiene el `.fsproj`:
+
+```bash
+dotnet restore
+```
+
+Después hay que reiniciar `fsautocomplete` o Neovim. El LSP necesita el `.fsproj` porque en F# el
+orden y la lista de archivos compilados forman parte del proyecto:
+
+```xml
+<ItemGroup>
+  <Compile Include="Program.fs" />
+</ItemGroup>
+```
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/fsharp/Smoke.fsproj
+~/wip/nvim-language-smoke-tests/fsharp/Program.fs
+```
+
+`Program.fs` contiene records, funciones y pipelines para probar hover, `gd` y completado. Al
+final incluye una asignación de tipo incorrecto comentada; al descomentarla debe aparecer un
+diagnóstico.
+
+El parser de Treesitter y su resaltado usan el filetype `fsharp`. Son independientes de
+FSAutocomplete y Fantomas.
+
+---
+
+## Haskell
+
+### Fallo inicial de Mason
+
+Mason intentaba instalar HLS mediante GHCup:
+
+```text
+ghcup --url-source=... install hls 2.13.0.0 -i .../mason/packages/haskell-language-server
+ghcup no está instalado
+```
+
+GHCup no está en los repositorios oficiales configurados de Pacman. En AUR existe
+`ghcup-hs-bin`, pero en esta instalación se utilizó el bootstrap oficial autorizado por el
+usuario.
+
+### Instalación oficial en Unix
+
+Para Linux, macOS, FreeBSD y WSL2:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
+```
+
+El instalador trabaja dentro del directorio del usuario (`~/.ghcup`), por lo que no se ejecuta con
+`pkexec` ni como root. Añade esta carga del entorno al shell:
+
+```bash
+[ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env"
+```
+
+Durante esta instalación se eligieron los canales estables, se omitieron prereleases, cross y
+third-party, y se dejó que Mason instalase HLS. El bootstrap sí instaló el toolchain necesario para
+trabajar con proyectos Haskell:
+
+```text
+GHCup  0.2.6.2
+GHC    9.10.3
+Cabal  3.16.1.0
+Stack  3.11.1
+```
+
+HLS no se instaló mediante el bootstrap para evitar duplicarlo fuera de Mason.
+
+### Después de instalar
+
+Hay que abrir una terminal nueva y reiniciar Neovim para que Mason encuentre
+`~/.ghcup/bin/ghcup`. En la terminal actual se puede cargar manualmente con:
+
+```bash
+source ~/.ghcup/env
+```
+
+Después se puede repetir desde Neovim:
+
+```vim
+:MasonInstallAll
+```
+
+Mason utilizará GHCup para colocar HLS dentro de su propio directorio. Fourmolu sigue siendo el
+formatter configurado mediante Conform.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/haskell/lsp-smoke.cabal
+~/wip/nvim-language-smoke-tests/haskell/app/Main.hs
+~/wip/nvim-language-smoke-tests/haskell/literate/Literate.lhs
+```
+
+El archivo `.cabal` es el marcador de proyecto y declara `Main.hs`; debe abrirse Neovim desde esa
+carpeta para que HLS y Cabal resuelvan correctamente el componente ejecutable.
+
+El mismo `.cabal` declara un segundo ejecutable para `Literate.lhs`. Los `.lhs` usan el filetype
+`lhaskell`: HLS contempla ese filetype, Conform lo asigna a Fourmolu y Treesitter reutiliza el
+parser `haskell` mediante el alias `lhaskell = "haskell"`. Para probar el soporte completo hay que
+activar tanto la entrada `lhaskell` de highlights como ese alias.
+
+---
+
+## Java
+
+`jdtls`, `google-java-format` y el parser de Java funcionaron directamente con el JDK ya instalado,
+sin dependencias ni ajustes adicionales. Estado confirmado por el usuario.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/java/pom.xml
+~/wip/nvim-language-smoke-tests/java/src/main/java/Main.java
+```
+
+---
+
+## OCaml
+
+Mason necesita `opam`, el gestor de paquetes de OCaml. Está disponible en el repositorio oficial
+`extra` de Arch:
+
+```bash
+pkexec pacman -S --needed --noconfirm opam
+```
+
+En este sistema ya estaba instalado, por lo que no se ejecutó de nuevo:
+
+```text
+opam 2.5.1-2
+```
+
+Actualmente opam todavía no está inicializado:
+
+```text
+[ERROR] Opam has not been initialised, please run `opam init`
+```
+
+`opam init` se ejecuta como usuario normal, nunca con `pkexec`. Crea el repositorio y los switches
+del usuario y puede modificar la integración del shell, por lo que se deja pendiente hasta que
+Mason o el proyecto lo necesiten y el usuario autorice esa inicialización.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/ocaml/dune-project
+~/wip/nvim-language-smoke-tests/ocaml/bin/main.ml
+```
+
+---
+
 ## Mantenimiento
 
 Arch es rolling release. Actualizar el sistema completo, evitando actualizaciones parciales:
@@ -300,5 +635,5 @@ sudo pacman -Syu
 Inventario útil:
 
 ```bash
-pacman -Q | grep -E '^(dotnet|aspnet|clojure|dart|jdk|jre)'
+pacman -Q | grep -E '^(dotnet|aspnet|clojure|dart|jdk|jre|kotlin)'
 ```

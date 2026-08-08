@@ -92,21 +92,21 @@ M.enabled_highlights = {
   svelte = true,
 
   -- NUEVOS (sin testear)
-  -- clojure = true,
-  -- cs = true,
-  -- dart = true,
-  -- edn = true,
-  -- fsharp = true,
-  -- haskell = true,
-  -- java = true,
-  -- kotlin = true,
-  -- lhaskell = true,
-  -- ocaml = true,
-  -- ocamlinterface = true,
-  -- ruby = true,
-  -- scala = true,
-  -- swift = true,
-  -- zig = true,
+  clojure = true,
+  cs = true,
+  dart = true,
+  edn = true,
+  fsharp = true,
+  haskell = true,
+  java = true,
+  kotlin = true,
+  lhaskell = true, -- `.lhs`; requiere también el alias de M.language_aliases
+  ocaml = true,
+  ocamlinterface = true,
+  ruby = true,
+  scala = true,
+  swift = true,
+  zig = true,
 }
 
 -- Algunos filetypes no comparten nombre con su parser. nvim-treesitter ya
@@ -115,6 +115,7 @@ M.enabled_highlights = {
 M.language_aliases = {
   -- NUEVOS (sin testear)
   -- edn = "clojure",
+  -- Literate Haskell no tiene parser independiente: `.lhs` usa el de Haskell.
   -- lhaskell = "haskell",
 }
 

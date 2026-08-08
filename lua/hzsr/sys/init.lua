@@ -12,5 +12,6 @@ M.path_list_sep = M.iswin and ";" or ":"
 M.path = require "hzsr.sys.path"
 M.fs = require "hzsr.sys.fs"
 M.executable = require "hzsr.sys.executable"
+M.java = require "hzsr.sys.java"
 
 return M

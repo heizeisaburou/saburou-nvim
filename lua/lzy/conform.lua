@@ -78,21 +78,23 @@ local formatters_by_ft = {
   zig = { "zigfmt" },
 
   -- NUEVOS (sin testear)
-  clojure = { "zprint" },
+  clojure = { "zprint" }, -- activa edn también
   cs = { "csharpier" },
   dart = { "dart_format" }, -- externo
-  -- edn = { "zprint" },
-  -- fsharp = { "fantomas" },
-  -- haskell = { "fourmolu" },
-  -- java = { "google-java-format" },
+  edn = { "zprint" }, -- .edn de clojure
+  fsharp = { "fantomas" },
+  haskell = { "fourmolu" },
+  java = { "google-java-format" },
   kotlin = { "ktlint" },
-  -- lhaskell = { "fourmolu" },
-  -- ocaml = { "ocamlformat" },
-  -- ocamlinterface = { "ocamlformat" },
+  -- `lhaskell` es el filetype de `.lhs` (Literate Haskell). Fourmolu se
+  -- activa por separado aunque comparta formatter con Haskell normal.
+  lhaskell = { "fourmolu" },
+  ocaml = { "ocamlformat" },
+  ocamlinterface = { "ocamlformat" },
   -- ruby = { "rubocop" },
   -- scala = { "scalafmt" },
   -- swift = { "swiftformat" },
-  -- toml = { "taplo" },
+  toml = { "taplo" },
 }
 
 -- ----------------------------------------------------------------------------

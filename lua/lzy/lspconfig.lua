@@ -5,6 +5,7 @@
 --- Centraliza:
 ---   - servidores gestionados y deshabilitados
 ---   - configuraciones específicas por servidor
+---   - factories para configuraciones que dependen del sistema en runtime
 ---   - capabilities compartidas
 ---   - callbacks `on_init` / `on_attach`
 ---   - keymaps LSP
@@ -57,17 +58,17 @@ M.servers = {
   "clojure_lsp",
   "csharp_ls",
   "dartls",
-  -- "fsautocomplete",
-  -- "hls",
-  -- "jdtls",
-  -- "jsonls",
+  "fsautocomplete",
+  "hls",
+  "jdtls",
+  "jsonls",
   "kotlin_language_server",
   -- "metals",
-  -- "ocamllsp",
+  "ocamllsp",
   -- "ruby_lsp",
   -- "sourcekit",
-  -- "taplo",
-  -- "yamlls",
+  "taplo",
+  "yamlls",
   -- "zls",
 }
 
@@ -82,7 +83,8 @@ M.disable = { "deno" }
 
 --- Configuración específica por servidor.
 ---
----@type table<string, vim.lsp.Config>
+---@alias lzy.lsp.ConfigFactory fun(name: string): vim.lsp.Config?
+---@type table<string, vim.lsp.Config|lzy.lsp.ConfigFactory>
 M.config = {
   ansiblels = {
     settings = {
@@ -177,7 +179,36 @@ M.config = {
 
   jsonls = {},
 
-  kotlin_language_server = {},
+  kotlin_language_server = function()
+    local java_home = hzsr.sys.java.resolve_home {
+      env = { "KOTLIN_LSP_JAVA_HOME", "JAVA_HOME", "JDK_HOME" },
+      versions = { 21, 17 },
+      require_jdk = true,
+    }
+    local storage_path = vim.fs.joinpath(vim.fn.stdpath "cache", "kotlin-language-server")
+
+    -- nvim-lspconfig usa la raíz Gradle/Maven como storagePath. En scripts
+    -- .kts sueltos esa raíz puede ser nil y `{}` termina serializado como `[]`,
+    -- pero kotlin-language-server exige que initializationOptions sea un objeto.
+    vim.fn.mkdir(storage_path, "p")
+
+    local config = {
+      init_options = { storagePath = storage_path },
+    }
+
+    if not java_home then
+      vim.notify_once(
+        "kotlin-language-server necesita Java 21 o 17. "
+          .. "Instala un JDK compatible o define KOTLIN_LSP_JAVA_HOME.",
+        vim.log.levels.WARN
+      )
+      return config
+    end
+
+    -- El launcher de Mason respeta JAVA_HOME tanto en Unix como en Windows.
+    config.cmd_env = { JAVA_HOME = java_home }
+    return config
+  end,
 
   ---@type lspconfig.settings.lua_ls
   lua_ls = {
@@ -467,7 +498,18 @@ end
 
 ---@param name string
 local function configure_server(name)
-  local cfg = extend_server_config(M.config[name])
+  local cfg = M.config[name]
+  -- Las factories se evalúan al activar/reiniciar el servidor. Esto permite
+  -- detectar toolchains instalados después de arrancar la configuración base.
+  if type(cfg) == "function" then
+    cfg = cfg(name)
+  end
+
+  if cfg ~= nil and type(cfg) ~= "table" then
+    error(("M.config[%q] debe ser una tabla o una factory que devuelva una tabla"):format(name))
+  end
+
+  cfg = extend_server_config(cfg)
   vim.lsp.config(name, cfg)
 end
 
