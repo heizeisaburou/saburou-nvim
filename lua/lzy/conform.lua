@@ -43,25 +43,16 @@ end
 local prettier_liquid_plugin = global_prettier_plugin(
   vim.fs.joinpath("@shopify", "prettier-plugin-liquid", "dist", "index.js")
 )
-local prettier_gotmpl_plugin = global_prettier_plugin(
-  vim.fs.joinpath("prettier-plugin-go-template", "lib", "index.js")
-)
--- [PRUEBA MasonInstallAll] Resolvers comentados junto a sus formatters (abajo).
--- El paquete npm es GLOBAL (no lo instala MasonInstallAll): para probar el
--- formatter de cada lenguaje hay que reinstalarlo con
--- `sudo npm install -g <paquete>` y descomentar el resolver + el formatter.
-local prettier_jinja_plugin = global_prettier_plugin(
-  vim.fs.joinpath("prettier-plugin-jinja-template", "lib", "index.js")
-)
-local prettier_handlebars_plugin = global_prettier_plugin(
-  vim.fs.joinpath("prettier-plugin-handlebars", "src", "index.js")
-)
-local prettier_twig_plugin = global_prettier_plugin(
-  vim.fs.joinpath("@zackad", "prettier-plugin-twig", "src", "index.js")
-)
-local prettier_pug_plugin = global_prettier_plugin(
-  vim.fs.joinpath("@prettier", "plugin-pug", "dist", "index.js")
-)
+local prettier_gotmpl_plugin =
+  global_prettier_plugin(vim.fs.joinpath("prettier-plugin-go-template", "lib", "index.js"))
+local prettier_jinja_plugin =
+  global_prettier_plugin(vim.fs.joinpath("prettier-plugin-jinja-template", "lib", "index.js"))
+local prettier_handlebars_plugin =
+  global_prettier_plugin(vim.fs.joinpath("prettier-plugin-handlebars", "src", "index.js"))
+local prettier_twig_plugin =
+  global_prettier_plugin(vim.fs.joinpath("@zackad", "prettier-plugin-twig", "src", "index.js"))
+local prettier_pug_plugin =
+  global_prettier_plugin(vim.fs.joinpath("@prettier", "plugin-pug", "dist", "index.js"))
 
 --- Escribe configuraciones pequeñas y deterministas para CLIs que sólo
 --- permiten recibir las opciones de indentación mediante un archivo.
@@ -71,7 +62,8 @@ local prettier_pug_plugin = global_prettier_plugin(
 ---@return string
 local function cached_config(name, contents, extension)
   local directory = vim.fs.joinpath(vim.fn.stdpath "cache", "lzy", "conform")
-  local path = vim.fs.joinpath(directory, name .. "-" .. vim.fn.sha256(contents):sub(1, 12) .. extension)
+  local path =
+    vim.fs.joinpath(directory, name .. "-" .. vim.fn.sha256(contents):sub(1, 12) .. extension)
 
   if vim.fn.filereadable(path) == 0 then
     vim.fn.mkdir(directory, "p")
@@ -103,7 +95,7 @@ local formatters_by_ft = {
   gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
   handlebars = { "prettier_handlebars" },
   haskell = { "fourmolu" },
-  heex = { "mix" },
+  heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
   html = { "prettier" },
   htmldjango = { "djlint" },
   java = { "google-java-format" },
@@ -118,27 +110,27 @@ local formatters_by_ft = {
   -- Prettier imprime espacios para parte de la estructura Markdown incluso con
   -- useTabs. markdown_tabs normaliza esa sangría en una segunda pasada.
   markdown = { "prettier", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
-  ocaml = { "ocamlformat" },
-  ocamlinterface = { "ocamlformat" },
+  ocaml = { "ocamlformat" }, -- camellito
+  ocamlinterface = { "ocamlformat" }, -- camellitox2
   php = { "php_cs_fixer" },
-  plaintex = { "latexindent" },
-  pug = { "prettier_pug" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  plaintex = { "latexindent" }, -- Latex
+  pug = { "prettier_pug" }, -- Pug (Jade)
   python = { "ruff_format" },
   qml = { "qmlformat" }, -- externo
   ruby = { "rubocop", timeout_ms = 10000 },
   rust = { "rustfmt" },
   scala = { "scalafmt", timeout_ms = 10000 },
   scss = { "prettier" },
-  surface = { "mix" },
+  surface = { "mix" }, -- Elixir/Phoenix
   svelte = { "prettier_svelte" },
   swift = { "swiftformat" },
-  tex = { "latexindent" },
-  toml = { "taplo" },
-  twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  tex = { "latexindent" }, -- latex
+  toml = { "taplo" }, -- toml
+  twig = { "prettier_twig" }, -- twig
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
-  typst = { "typstyle" },
-  vue = { "prettier" }, -- .vue (framework de javascript); [PRUEBA MasonInstallAll] descomentar
+  typst = { "typstyle" }, -- Typst
+  vue = { "prettier" }, -- Vue (framework de javascript)
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
 }

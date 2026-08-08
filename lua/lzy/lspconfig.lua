@@ -57,12 +57,12 @@ M.servers = {
   "marksman", -- markdown
   "metals", -- scala
   "neocmake", -- cmake
-  "ocamllsp",
+  "ocamllsp", -- camellito
   "phpactor", -- php
   "pug", -- Pug (.pug/.jade)
   "qmlls", -- qml
   "ruby_lsp",
-  "ruff", -- linter general
+  "ruff", -- Linter y formateador adicional para python
   "rust_analyzer",
   "shopify_theme_ls", -- Liquid (Shopify)
   "sourcekit", -- swift
@@ -71,8 +71,8 @@ M.servers = {
   "texlab", -- latex
   "tinymist", -- Typst
   "twiggy_language_server", -- Twig (.twig)
-  "vtsls", -- typescript, javascript
-  "vue_ls", -- Vue (.vue)
+  "vtsls", -- TypeScript, JavaScript
+  "vue_ls", -- Vue (framework de javascript)
   "yamlls", -- .yaml
   "zls", -- zig
 }
@@ -269,21 +269,15 @@ M.config = {
   },
 
   ocamllsp = function()
-    local ocamlformat_bin = vim.fs.joinpath(
-      vim.fn.stdpath "data",
-      "mason",
-      "packages",
-      "ocamlformat",
-      "bin"
-    )
+    local ocamlformat_bin =
+      vim.fs.joinpath(vim.fn.stdpath "data", "mason", "packages", "ocamlformat", "bin")
 
     if not hzsr.sys.fs.is_dir(ocamlformat_bin) then
       return {}
     end
 
     local current_path = vim.env.PATH or ""
-    local path = current_path == ""
-        and ocamlformat_bin
+    local path = current_path == "" and ocamlformat_bin
       or (ocamlformat_bin .. hzsr.sys.path_list_sep .. current_path)
 
     -- El paquete de Mason contiene ocamlformat-rpc, pero su receipt sólo
@@ -376,7 +370,15 @@ M.config = {
           globalPlugins = {
             {
               name = "@vue/typescript-plugin",
-              location = vim.fs.joinpath(vim.fn.stdpath "data", "mason", "packages", "vue-language-server", "node_modules", "@vue", "language-server"),
+              location = vim.fs.joinpath(
+                vim.fn.stdpath "data",
+                "mason",
+                "packages",
+                "vue-language-server",
+                "node_modules",
+                "@vue",
+                "language-server"
+              ),
               languages = { "vue" },
               configNamespace = "typescript",
             },
@@ -649,7 +651,10 @@ end
 ---@param name string
 local function enable_server(name)
   if not is_managed_server(name) then
-    vim.notify(("LSP server is not managed by this config: %s"):format(name), vim.log.levels.WARN)
+    vim.notify(
+      ("LSP server is not managed by this config: %s"):format(name),
+      vim.log.levels.WARN
+    )
     return
   end
 
