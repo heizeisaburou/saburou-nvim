@@ -27,7 +27,7 @@ ejecutarse o analizar un proyecto.
 | Swift    | `swift-bin` (swift.org)   | Externo: `sourcekit-lsp`  | `swiftformat`                              | Toolchain instalado; prueba pendiente         |
 | Django   | `python-django`           | `django-language-server`  | `djlint`                                   | Toolchain instalado; prueba pendiente         |
 | Liquid   | (sin toolchain; usa Node) | `shopify-cli`           | Externo: `@shopify/prettier-plugin-liquid` | Dependencias instaladas; prueba pendiente |
-| Go       | `go` (repos oficiales)     | `gopls`                 | `gofmt` (del toolchain) | Verificado (lenguaje principal)           |
+| Go       | `go` (repos oficiales)     | `gopls`                 | `gofmt` (toolchain); plantillas: externo `prettier-plugin-go-template` | Verificado (lenguaje principal)           |
 
 ---
 
@@ -1139,8 +1139,21 @@ cliente se adjuntaba ni gopls lo habría entendido —, así que los tres se uni
 Como `.gohtml` también es `html/template`, no se pierde nada por la etiqueta unificada.
 
 nvim por defecto solo reconoce `.tmpl` como `template` genérico y nada para `.gotmpl`/`.gohtml`,
-por eso se mapean explícitamente. El parser treesitter `gotmpl` cubre los tres filetypes. No hay
-formatter para plantillas (gofmt no las toca).
+por eso se mapean explícitamente. El parser treesitter `gotmpl` cubre los tres filetypes.
+
+### Formatter de plantillas
+
+gofmt no toca plantillas; se usa prettier con `prettier-plugin-go-template`, instalado global con
+npm (no está en Mason):
+
+```bash
+sudo npm install -g prettier-plugin-go-template
+```
+
+En conform.lua el formatter `prettier_gotmpl` resuelve la ruta del plugin en el directorio global
+de node_modules y el plugin detecta el parser por la extensión del archivo
+(`.tmpl`, `.gotmpl`, `.gohtml`, ...). Si no se encuentra el plugin, falla con un error que recuerda
+el comando de instalación.
 
 ### Estado
 

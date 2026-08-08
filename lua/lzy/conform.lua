@@ -23,25 +23,29 @@ local function filetype_for(ctx)
   return vim.bo.filetype
 end
 
--- `@shopify/prettier-plugin-liquid` no está en Mason; se instala global con npm
--- (`npm install -g @shopify/prettier-plugin-liquid`). Se resuelve su entrada
--- desde el directorio global de node_modules en runtime, como hace
--- `prettier_svelte` con el plugin que sí trae un paquete de Mason.
-local prettier_liquid_plugin = (function()
+-- Plugins de Prettier que no están en Mason; se instalan global con npm
+-- (`npm install -g ...`). Se resuelve su entrada desde el directorio global de
+-- node_modules en runtime, como hace `prettier_svelte` con el plugin que sí
+-- trae un paquete de Mason.
+---@param relative string Ruta relativa dentro del node_modules global
+local function global_prettier_plugin(relative)
   local root = vim.trim(vim.fn.system "npm root -g")
 
   if root ~= "" then
-    local hit = vim.fn.glob(
-      vim.fs.joinpath(root, "@shopify", "prettier-plugin-liquid", "dist", "index.js"),
-      true,
-      true
-    )[1]
+    local hit = vim.fn.glob(vim.fs.joinpath(root, relative), true, true)[1]
 
     if hit and hit ~= "" then
       return hit
     end
   end
-end)()
+end
+
+local prettier_liquid_plugin = global_prettier_plugin(
+  vim.fs.joinpath("@shopify", "prettier-plugin-liquid", "dist", "index.js")
+)
+local prettier_gotmpl_plugin = global_prettier_plugin(
+  vim.fs.joinpath("prettier-plugin-go-template", "lib", "index.js")
+)
 
 --- Escribe configuraciones pequeñas y deterministas para CLIs que sólo
 --- permiten recibir las opciones de indentación mediante un archivo.
@@ -75,6 +79,7 @@ local formatters_by_ft = {
   elixir = { "mix" },
   gleam = { "gleam" },
   go = { "gofmt" },
+  gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
   heex = { "mix" },
   html = { "prettier" },
   htmldjango = { "djlint" },
@@ -335,6 +340,31 @@ local formatters = {
         prettier_liquid_plugin,
         "--parser",
         "liquid-html",
+        "--print-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  -- El plugin detecta el parser por la extensión del archivo, así que no se
+  -- pasa `--parser` explícito.
+  prettier_gotmpl = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_gotmpl_plugin then
+        error "prettier-plugin-go-template no está instalado; ejecuta: npm install -g prettier-plugin-go-template"
+      end
+
+      return {
+        "--plugin",
+        prettier_gotmpl_plugin,
         "--print-width=" .. tostring(line_length),
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
