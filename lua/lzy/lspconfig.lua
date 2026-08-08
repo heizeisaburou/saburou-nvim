@@ -53,16 +53,6 @@ M.servers = {
   "svelte",
   "texlab", -- latex
   "vtsls", -- typescript, javascript
-
-  -- NUEVOS (testeados)
-  "djls", -- Django templates
-  -- [PRUEBA MasonInstallAll] Comentado para probar la instalación uno a uno.
-  -- Descomenta y ejecuta `:MasonInstallAll` para reinstalar.
-  -- "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
-  -- "volar", -- Vue (.vue)
-  -- "twiggy_language_server", -- Twig (.twig)
-
-  -- NUEVOS (sin testear)
   "clojure_lsp",
   "csharp_ls",
   "dartls",
@@ -79,6 +69,11 @@ M.servers = {
   "taplo", -- .toml
   "yamlls", -- .yaml
   "zls", -- zig
+
+  "djls", -- Django templates
+  "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
+  "volar", -- Vue (.vue)
+  "twiggy_language_server", -- Twig (.twig)
 }
 
 --- Servidores deshabilitados para esta capa.

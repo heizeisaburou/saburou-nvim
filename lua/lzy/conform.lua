@@ -101,8 +101,8 @@ local formatters_by_ft = {
   htmldjango = { "djlint" },
   -- [PRUEBA MasonInstallAll] Comentadas para probar MasonInstallAll uno a uno.
   -- Descomenta junto con su formatter y resolver (más abajo).
-  -- handlebars = { "prettier_handlebars" },
-  -- jinja = { "prettier_jinja" },
+  handlebars = { "prettier_handlebars" },
+  jinja = { "prettier_jinja" },
   javascript = { "prettier" },
   javascriptreact = { "prettier" },
   json = { "biome" },
@@ -114,7 +114,7 @@ local formatters_by_ft = {
   php = { "php_cs_fixer" },
   plaintex = { "latexindent" },
   python = { "ruff_format" },
-  -- pug = { "prettier_pug" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  pug = { "prettier_pug" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
   qml = { "qmlformat" }, -- externo
   rust = { "rustfmt" },
   scss = { "prettier" },
@@ -123,8 +123,8 @@ local formatters_by_ft = {
   tex = { "latexindent" },
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
-  -- twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
-  -- vue = { "prettier" }, -- .vue (framework de javascript); [PRUEBA MasonInstallAll] descomentar
+  twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  vue = { "prettier" }, -- .vue (framework de javascript); [PRUEBA MasonInstallAll] descomentar
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
 
