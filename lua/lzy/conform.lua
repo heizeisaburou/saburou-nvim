@@ -75,22 +75,22 @@ local formatters_by_ft = {
   tex = { "latexindent" },
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
-  vue = { "prettier" },
+  vue = { "prettier" }, -- .vue (framework de javascript)
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
 
   -- NUEVOS (sin testear)
   clojure = { "zprint" }, -- activa edn también
-  cs = { "csharpier" },
+  cs = { "csharpier" }, -- C#
   dart = { "dart_format" }, -- externo
-  edn = { "zprint" }, -- .edn de clojure
-  fsharp = { "fantomas" },
+  edn = { "zprint" }, -- .edn de Clojure
+  fsharp = { "fantomas" }, -- F#
   haskell = { "fourmolu" },
   java = { "google-java-format" },
   kotlin = { "ktlint" },
   -- `lhaskell` es el filetype de `.lhs` (Literate Haskell). Fourmolu se
   -- activa por separado aunque comparta formatter con Haskell normal.
-  lhaskell = { "fourmolu" },
+  lhaskell = { "fourmolu" }, -- .lhs de haskell
   ocaml = { "ocamlformat" },
   ocamlinterface = { "ocamlformat" },
   ruby = { "rubocop", timeout_ms = 10000 },

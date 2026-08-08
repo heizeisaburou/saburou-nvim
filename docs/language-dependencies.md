@@ -24,6 +24,7 @@ ejecutarse o analizar un proyecto.
 | OCaml    | opam + OCaml 5.5      | `ocaml-lsp`              | `ocamlformat`      | opam inicializado; prueba pendiente        |
 | Ruby     | Ruby + Bundler + ERB  | `ruby-lsp`               | `rubocop`          | Bundler instalado; `ruby-erb` pendiente    |
 | Scala    | OpenJDK 17 + sbt       | Externo: `metals`        | Externo: `scalafmt`| Metals/sbt/JDK instalados; Scalafmt pendiente |
+| Swift    | `swift-bin` (swift.org) | Externo: `sourcekit-lsp` | `swiftformat`      | Toolchain instalado; prueba pendiente          |
 
 ---
 
@@ -346,7 +347,7 @@ crearse antes de iniciar el servidor.
 ### Paquete instalado
 
 ```bash
-pkexec pacman -S --needed --noconfirm jdk21-openjdk
+sudo pacman -S --needed jdk21-openjdk
 ```
 
 Estado después de la instalación:
@@ -523,7 +524,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://get-ghcup.haskell.org | sh
 ```
 
 El instalador trabaja dentro del directorio del usuario (`~/.ghcup`), por lo que no se ejecuta con
-`pkexec` ni como root. Añade esta carga del entorno al shell:
+`sudo` ni como root. Añade esta carga del entorno al shell:
 
 ```bash
 [ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env"
@@ -598,7 +599,7 @@ Mason necesita `opam`, el gestor de paquetes de OCaml. Está disponible en el re
 `extra` de Arch:
 
 ```bash
-pkexec pacman -S --needed --noconfirm opam
+sudo pacman -S --needed opam
 ```
 
 En este sistema ya estaba instalado, por lo que no se ejecutó de nuevo:
@@ -725,7 +726,7 @@ precompilado con Pacman. `sbt` y `jdk17-openjdk` proceden del repositorio oficia
 sudo pacman -S --needed metals sbt jdk17-openjdk
 ```
 
-Esto se hizo en esta máquina con `pkexec pacman`: quedaron instalados Metals 1.5.2, sbt 2.0.2 y
+Esto se hizo en esta máquina con `sudo pacman`: quedaron instalados Metals 1.5.2, sbt 2.0.2 y
 OpenJDK 17. El Java global continúa siendo OpenJDK 26. El lanzador de Metals empaquetado por
 Chaotic-AUR busca `/usr/lib/jvm/java-17-openjdk` y lo utiliza sin cambiar el valor global de
 `archlinux-java`.
@@ -819,7 +820,7 @@ sudo pacman -S --needed ruby ruby-bundler
 ```
 
 En esta máquina ya estaba instalado Ruby 3.4.8 y se añadió `ruby-bundler` 4.0.3 mediante
-`pkexec pacman`. No hace falta instalar Bundler otra vez con `gem install`, lo que mezclaría una
+`sudo pacman`. No hace falta instalar Bundler otra vez con `gem install`, lo que mezclaría una
 gema gestionada manualmente con los paquetes del sistema.
 
 Arch separa algunas gemas de la biblioteca estándar. RuboCop requiere ERB, por lo que también hay
@@ -867,6 +868,93 @@ Proyecto de prueba:
 ~/wip/nvim-language-smoke-tests/ruby/Gemfile.lock
 ~/wip/nvim-language-smoke-tests/ruby/main.rb
 ```
+
+---
+
+## Swift
+
+`sourcekit-lsp` (LSP) se distribuye dentro del toolchain de Swift: no existe un paquete
+independiente `sourcekit-lsp` en Mason ni en los repositorios oficiales de Arch. Es exactamente uno
+de esos servidores que se instalan a nivel de sistema. El formatter sí es de Mason (`swiftformat`).
+
+### Instalación del toolchain
+
+En Arch no hay un paquete oficial `swift`. Se usa el empaquetado del toolchain oficial de
+swift.org:
+
+```bash
+# Con Chaotic-AUR (como Metals y Scalafmt)
+sudo pacman -S --needed swift-bin
+
+# Sin Chaotic-AUR, desde AUR
+paru --needed --sudoloop swift-bin
+```
+
+En esta máquina se instaló con `sudo pacman`. `swift-bin` incluye el toolchain completo:
+`/usr/bin/sourcekit-lsp` y `/usr/bin/swift`. La dependencia opcional `python39` sólo hace falta
+para el REPL, no para el LSP.
+
+Estado instalado:
+
+```text
+swift-bin 6.3.3-1
+Swift 6.3.3 (swift-6.3.3-RELEASE)
+Target: x86_64-unknown-linux-gnu
+sourcekit-lsp: /usr/bin/sourcekit-lsp
+```
+
+### Formatter
+
+Conform usa `swiftformat` desde Mason. No hay que confundirlo con `swift-format`, que no se incluye
+en el toolchain y no está empaquetado para Pacman/AUR en este sistema.
+
+### Comprobación manual
+
+```bash
+swift --version
+sourcekit-lsp --version
+```
+
+### Activación en Neovim
+
+```lua
+-- lua/lzy/lspconfig.lua
+"sourcekit",
+
+-- lua/lzy/conform.lua
+swift = { "swiftformat" },
+
+-- lua/lzy/treesitter.lua
+"swift",
+swift = true,
+```
+
+En `lua/lzy/lspconfig.lua`, `sourcekit` está restringido al filetype `swift` (`filetypes = { "swift" }`)
+porque el servidor también anuncia C/C++/Objective-C, que ya gestiona clangd. Así se evitan dos
+clientes simultáneos.
+
+Desde Neovim sólo hace falta instalar el formatter y el parser:
+
+```vim
+:MasonInstall swiftformat
+:TSInstallAll
+```
+
+### Estado
+
+Toolchain instalado; prueba manual pendiente en el proyecto de muestra.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/swift/Package.swift
+~/wip/nvim-language-smoke-tests/swift/Sources/Smoke/main.swift
+```
+
+Referencias:
+
+- https://aur.archlinux.org/packages/swift-bin
+- https://www.swift.org/
 
 ---
 

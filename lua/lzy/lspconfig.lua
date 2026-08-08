@@ -36,40 +36,40 @@ local M = {}
 M.servers = {
   -- "ansiblels", -- Demasiado pesado como para instalarlo por defecto
   -- "expert", -- alternativa a elixirls pero elixirls parece funcionar mejor 
-  "basedpyright",
+  "basedpyright", -- python
   "bashls",
-  "clangd",
-  "cssls",
+  "clangd", -- C, C++
+  "cssls", -- .css
   "elixirls",
-  "gopls",
-  "html",
+  "gopls", -- golang
+  "html", -- .html
   "lua_ls",
-  "marksman",
-  "neocmake",
-  "phpactor",
-  "qmlls",
-  "ruff",
+  "marksman", -- markdown
+  "neocmake", -- cmake
+  "phpactor", -- php
+  "qmlls", -- qml
+  "ruff", -- linter general
   "rust_analyzer",
   "svelte",
-  "texlab",
-  "vtsls",
+  "texlab", -- latex
+  "vtsls", -- typescript, javascript
 
   -- NUEVOS (sin testear)
   "clojure_lsp",
   "csharp_ls",
   "dartls",
-  "fsautocomplete",
-  "hls",
-  "jdtls",
-  "jsonls",
+  "fsautocomplete", -- F#
+  "hls", -- Haskell
+  "jdtls", -- Java
+  "jsonls", -- .json
   "kotlin_language_server",
   "metals", -- scala
   "ocamllsp",
   "ruby_lsp",
   "sourcekit", -- swift
-  "taplo",
-  "yamlls",
-  -- "zls", -- zig
+  "taplo", -- .toml
+  "yamlls", -- .yaml
+  "zls", -- zig
 }
 
 --- Servidores deshabilitados para esta capa.
