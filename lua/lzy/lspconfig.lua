@@ -65,6 +65,7 @@ M.servers = {
   "ocamllsp",
   "ruby_lsp",
   "sourcekit", -- swift
+  "tinymist", -- Typst
   "shopify_theme_ls", -- Liquid (Shopify)
   "taplo", -- .toml
   "yamlls", -- .yaml
@@ -72,6 +73,7 @@ M.servers = {
 
   "djls", -- Django templates
   "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
+  "pug", -- Pug (.pug/.jade)
   "vue_ls", -- Vue (.vue)
   "twiggy_language_server", -- Twig (.twig)
 }
@@ -259,6 +261,14 @@ M.config = {
 
   neocmake = {},
 
+  pug = {
+    -- pug-lsp (opa-oz) v0.1.0: release "under heavy development". El binario de
+    -- Mason no responde al handshake LSP (imprime un TODO y sale), por lo que el
+    -- cliente se inicia pero nunca llega a attach. Se mantiene registrado para
+    -- poder verificar en el futuro cuando el proyecto publique releases nuevas.
+    filetypes = { "pug" },
+  },
+
   ocamllsp = function()
     local ocamlformat_bin = vim.fs.joinpath(
       vim.fn.stdpath "data",
@@ -330,6 +340,20 @@ M.config = {
   },
 
   taplo = {},
+
+  tinymist = {
+    -- El default de nvim-lspconfig usa root_markers `.git`, que deja sin
+    -- attach los .typ sueltos (p. ej. el smoke test no es un repo git).
+    root_dir = function(bufnr, on_dir)
+      on_dir(vim.fn.getcwd())
+    end,
+    single_file_support = true,
+    -- El formateo lo gestiona Conform vía `typstyle`; se desactiva el propio
+    -- de tinymist para no duplicar. `exportPdf`/preview no se activan.
+    settings = {
+      formatterMode = "disable",
+    },
+  },
 
   yamlls = {},
 

@@ -348,6 +348,7 @@ return {
   -- twig-cs-fixer
   typos = "typos",
   -- typstfmt
+  typstyle = "typstyle",
   -- uncrustify
   usort = "usort",
   xmlformat = "xmlformatter",

@@ -43,6 +43,7 @@ M.languages = {
   "qmljs",
   "php",
   "svelte",
+  "typst",
 
   -- NUEVOS (sin testear)
   "c_sharp",
@@ -100,6 +101,7 @@ M.enabled_highlights = {
   qml = true,
   php = true,
   svelte = true,
+  typst = true,
 
   -- NUEVOS (sin testear)
   clojure = true,

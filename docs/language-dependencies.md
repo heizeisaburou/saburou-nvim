@@ -32,8 +32,9 @@ ejecutarse o analizar un proyecto.
 | Handlebars | (sin toolchain; usa Node) | (sin LSP en Mason)      | Externo: `prettier-plugin-handlebars` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/handlebars`) |
 | Vue       | (sin toolchain; usa Node) | `vue-language-server` (vue_ls) | `prettier` (builtin) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/vue`) |
 | Twig      | PHP (para el setup completo de twiggy) | `twiggy-language-server` | Externo: `@zackad/prettier-plugin-twig` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/twig`) |
-| Pug (Jade) | (sin toolchain; usa Node) | (sin LSP en Mason)      | Externo: `@prettier/plugin-pug` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/pug`) |
+| Pug (Jade) | (sin toolchain; usa Node) | Mason: `pug-lsp` (inmaduro: solo snippets) | Externo: `@prettier/plugin-pug` | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/pug`) |
 | Ansible  | `ansible-core` + `ansible-lint` (repos) | `ansible-language-server` | `yamlfmt` (via `yaml`) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/ansible`) |
+| Typst    | (sin toolchain; binario standalone)    | `tinymist`                | `typstyle`              | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/typst`) |
 
 ---
 
@@ -1442,7 +1443,8 @@ Referencia:
 
 ### Formatter: prettier + `@prettier/plugin-pug`
 
-No hay LSP de Pug en Mason: solo formateo y parser de treesitter.
+El formateo y el parser de treesitter funcionan; el LSP es un servidor comunitario en estado
+muy temprano (ver "LSP" más abajo).
 
 El plugin oficial de Pug para Prettier (parses `.pug` y `.jade`) **no está en Mason**, así que
 se instala globalmente con npm:
@@ -1464,6 +1466,24 @@ añade `.jade` → `pug`.
 
 Parser `pug` (nvim-treesitter).
 
+### LSP: pug-lsp
+
+A diferencia de lo que se pensaba, **sí existe LSP de Pug en Mason**: `pug-lsp`
+(`opa-oz/pug-lsp`, v0.1.0, "under heavy development"). nvim-lspconfig lo soporta y está
+registrado en esta configuración (filetype `pug`).
+
+Capacidades reales observadas:
+
+```text
+- Completado: sí (snippets de tags/atributos/doctype)
+- Rename: no
+- Hover: no (no hace nada)
+```
+
+Ojo: el binario de la release v0.1.0 en Mason es poco fiable; si no responde al handshake LSP
+(imprime `[TODO]: "Is 5 enough?"` y sale), el cliente arranca pero nunca llega a attach.
+Si no aparece en `:LspInfo`, esa es la causa.
+
 ### Estado
 
 Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/pug`:
@@ -1479,6 +1499,59 @@ con `<leader>fm` (equivalente a `conform.format`).
 Referencia:
 
 - https://github.com/prettier/plugin-pug
+- https://github.com/opa-oz/pug-lsp (LSP, v0.1.0)
+
+---
+
+## Typst
+
+### LSP: tinymist
+
+`tinymist` (paquete de Mason, binario standalone) es el language service integrado de Typst:
+completado, hover, goto definition, renombrar, símbolos, diagnostics y comandos de exportación
+(`LspTinymistExportPdf`/`Png`/`Svg`...). Se instala con `:MasonInstallAll`.
+
+nvim-lspconfig usa `root_markers = { '.git' }`; en esta configuración se sobreescribe con el cwd
+de Neovim y `single_file_support = true` para que un `.typ` suelto (p. ej. el smoke test, que no
+es un repo git) tenga client. Ojo con la firma del `root_dir` en `M.config`: el enable de
+vim.lsp llama `root_dir(bufnr, on_dir)` y solo arranca el servidor si la función invoca `on_dir`
+(p. ej. `on_dir(vim.fn.getcwd())`).
+
+### Formatter: typstyle
+
+`typstyle` (paquete de Mason) es el formateador de referencia de Typst. En conform.lua comparte
+el ancho de línea de la política general (`line_length`) y la anchura de indentación
+(`indent_for`); el builtin de Conform no pasa esos argumentos, por lo que se define un formatter
+propio.
+
+El formateo del LSP de tinymist se desactiva (`formatterMode = "disable"` en `M.config`) para no
+duplicar: Conform lo gestiona vía `typstyle`.
+
+### Treesitter
+
+Parser `typst` (nvim-treesitter).
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/typst`:
+
+```text
+~/wip/nvim-language-smoke-tests/typst/main.typ
+```
+
+Es un documento con markup (`=`, `==`), `#let`/funciones, `#set`, `#for`, `#raw` y una
+ecuación. LSP, parser y formatter verificados vía headless; el archivo estaba deliberadamente
+mal formateado y `typstyle` lo reindentó con `<leader>fm` (equivalente a `conform.format`).
+
+#### Capacidades reales probadas (v0.15.2)
+
+El servidor se adjunta a `.typ` sueltos (cwd como raíz) y anuncia hover, goto definition y
+completado; **no** anuncia rename ni semantic tokens en este setup.
+
+Referencia:
+
+- https://github.com/Myriad-Dreamin/tinymist (LSP)
+- https://github.com/typstyle-rs/typstyle (formatter)
 
 ---
 

@@ -124,6 +124,7 @@ local formatters_by_ft = {
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
   twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  typst = { "typstyle" },
   vue = { "prettier" }, -- .vue (framework de javascript); [PRUEBA MasonInstallAll] descomentar
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
@@ -700,6 +701,18 @@ local formatters = {
         "column_width=" .. tostring(line_length),
         "--option",
         "indent_string=" .. indent_string,
+      }
+    end,
+  },
+
+  typstyle = {
+    -- typstyle sólo soporta indentación con espacios; comparte el ancho de
+    -- línea con la política general.
+    append_args = function(_, ctx)
+      local config = indent_for(ctx)
+      return {
+        "--line-width=" .. tostring(line_length),
+        "--tab-width=" .. tostring(config.width),
       }
     end,
   },
