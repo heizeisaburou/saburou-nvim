@@ -62,6 +62,7 @@ return {
   denols = "deno",
   dhall_lsp_server = "dhall-lsp",
   diagnosticls = "diagnostic-languageserver",
+  djls = "django-language-server",
   docker_compose_language_service = "docker-compose-language-service",
   dockerls = "dockerfile-language-server",
   dotls = "dot-language-server",

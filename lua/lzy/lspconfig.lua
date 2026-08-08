@@ -35,12 +35,12 @@ local M = {}
 --- Esta tabla no instala servidores.
 M.servers = {
   -- "ansiblels", -- Demasiado pesado como para instalarlo por defecto
-  -- "expert", -- alternativa a elixirls pero elixirls parece funcionar mejor 
   "basedpyright", -- python
   "bashls",
   "clangd", -- C, C++
   "cssls", -- .css
   "elixirls",
+  -- "expert", -- alternativa a elixirls; por investigar
   "gopls", -- golang
   "html", -- .html
   "lua_ls",
@@ -53,6 +53,9 @@ M.servers = {
   "svelte",
   "texlab", -- latex
   "vtsls", -- typescript, javascript
+
+  -- NUEVOS (testeados)
+  "djls", -- Django templates
 
   -- NUEVOS (sin testear)
   "clojure_lsp",
@@ -159,6 +162,13 @@ M.config = {
   cssls = {},
 
   dartls = {},
+
+  djls = {
+    -- django-language-server también anuncia `html` y `python`, pero el LSP de
+    -- HTML y `basedpyright` ya gestionan esos filetypes. Restringido a
+    -- templates para evitar clientes duplicados.
+    filetypes = { "htmldjango" },
+  },
 
   fsautocomplete = {},
 

@@ -25,6 +25,7 @@ ejecutarse o analizar un proyecto.
 | Ruby     | Ruby + Bundler + ERB  | `ruby-lsp`               | `rubocop`          | Bundler instalado; `ruby-erb` pendiente    |
 | Scala    | OpenJDK 17 + sbt       | Externo: `metals`        | Externo: `scalafmt`| Metals/sbt/JDK instalados; Scalafmt pendiente |
 | Swift    | `swift-bin` (swift.org) | Externo: `sourcekit-lsp` | `swiftformat`      | Toolchain instalado; prueba pendiente          |
+| Django   | `python-django`         | `django-language-server` | `djlint`           | Toolchain instalado; prueba pendiente          |
 
 ---
 
@@ -955,6 +956,98 @@ Referencias:
 
 - https://aur.archlinux.org/packages/swift-bin
 - https://www.swift.org/
+
+---
+
+## Django
+
+### LSP y formatter
+
+`djls` (`django-language-server`) es el LSP actual para plantillas de Django (y Jinja). `djlint` es
+el formatter/linter estándar de plantillas HTML (Django, Jinja, Twig, Nunjucks, Handlebars, ...).
+Ambos se instalan con Mason; como son de Python, Mason los deja en su propio entorno y no hacen
+falta paquetes Python del sistema para ellos.
+
+Lo que sí hace falta es el framework: sin un proyecto Django real (`manage.py` + `settings.py`),
+`djls` no puede resolver tags, filtros ni el contexto de las plantillas.
+
+### Paquete necesario
+
+```bash
+sudo pacman -S --needed python-django
+```
+
+Paquete instalado en esta máquina:
+
+```text
+python-django 5.2.13-1
+python-asgiref 3.12.1-1
+python-pytz 2026.1-1
+python-sqlparse 0.5.3-2
+```
+
+### Restricción de filetypes
+
+`djls` anuncia también `html` y `python`, que ya gestionan el LSP de HTML y `basedpyright`. Para no
+duplicar clientes se restringe a `htmldjango` en `lua/lzy/lspconfig.lua`:
+
+```lua
+djls = {
+  filetypes = { "htmldjango" },
+},
+```
+
+### Activación en Neovim
+
+```lua
+-- lua/lzy/lspconfig.lua
+"djls",
+
+-- lua/lzy/conform.lua
+htmldjango = { "djlint" },
+
+-- lua/lzy/treesitter.lua (ya estaba activo)
+"htmldjango",
+htmldjango = true,
+```
+
+En Conform, `djlint` recibe `--profile django`, `--indent` (ancho de la política) y
+`--max-line-length`; el builtin de Conform ya aporta `--reformat -`.
+
+Instalación desde Neovim:
+
+```vim
+:MasonInstall django-language-server djlint
+:TSInstallAll
+```
+
+### Comprobación manual
+
+```bash
+python -m django --version
+python manage.py check
+```
+
+### Estado
+
+Toolchain instalado; prueba manual pendiente en el proyecto de muestra.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/django/manage.py
+~/wip/nvim-language-smoke-tests/django/templates/base.html
+~/wip/nvim-language-smoke-tests/django/templates/index.html
+```
+
+El proyecto es un Django mínimo (manage.py, settings, urls con una TemplateView) cuyas plantillas
+ejercitan `extends`, `block`, `for`, `if/else`, variables, filtros y `url`. Están mal formateadas a
+propósito para probar `djlint`.
+
+Referencia:
+
+- https://djlint.com/
+- https://github.com/joshuadavidthomas/django-language-server
 
 ---
 

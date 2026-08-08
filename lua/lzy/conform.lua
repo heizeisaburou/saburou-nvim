@@ -57,6 +57,7 @@ local formatters_by_ft = {
   go = { "gofmt" },
   heex = { "mix" },
   html = { "prettier" },
+  htmldjango = { "djlint" },
   javascript = { "prettier" },
   javascriptreact = { "prettier" },
   json = { "biome" },
@@ -172,6 +173,22 @@ local formatters = {
     -- Dart fija la indentación en dos espacios; la CLI sólo permite compartir
     -- el ancho de página con nuestra política general.
     args = { "format", "--page-width=" .. tostring(line_length), "$FILENAME" },
+  },
+
+  djlint = {
+    -- djlint usa perfil `django` y comparte nuestra política de indentación y
+    -- ancho. El builtin de Conform ya aporta `--reformat -`.
+    prepend_args = function(_, ctx)
+      local config = indent_for(ctx)
+      return {
+        "--profile",
+        "django",
+        "--indent",
+        tostring(config.width),
+        "--max-line-length",
+        tostring(line_length),
+      }
+    end,
   },
 
   fourmolu = {

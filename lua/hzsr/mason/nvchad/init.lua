@@ -22,7 +22,6 @@ local M = {}
 
 local masonames = require "hzsr.mason.nvchad.names"
 local pkgs = {}
-local skipped = {}
 
 M.get_pkgs = function()
   local tools = {}
@@ -60,8 +59,11 @@ M.get_pkgs = function()
 
   -- rm duplicates
   for _, v in pairs(tools) do
-    if not vim.tbl_contains(pkgs, masonames[v]) and not vim.tbl_contains(skipped, masonames[v]) then
-      table.insert(pkgs, masonames[v])
+    local pkg_name = masonames[v]
+    -- Los servidores externos (SDK/gestionados fuera de Mason) no tienen
+    -- mapping: se saltan en lugar de insertar nil y abortar el batch.
+    if pkg_name and not vim.tbl_contains(pkgs, pkg_name) then
+      table.insert(pkgs, pkg_name)
     end
   end
 
