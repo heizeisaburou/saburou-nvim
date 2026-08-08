@@ -126,8 +126,11 @@ end
 
 local function start_for_buffer(bufnr)
   local ft = vim.bo[bufnr].filetype
+  -- Los filetypes compuestos (p.ej. `yaml.ansible`) caen al base (`yaml`);
+  -- `vim.treesitter.start` también resuelve el parser por el base.
+  local base = vim.split(ft, ".", { plain = true })[1]
 
-  if not M.enabled_highlights[ft] then
+  if not (M.enabled_highlights[ft] or M.enabled_highlights[base]) then
     return
   end
 

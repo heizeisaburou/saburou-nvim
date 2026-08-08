@@ -34,7 +34,7 @@ local M = {}
 ---
 --- Esta tabla no instala servidores.
 M.servers = {
-  -- "ansiblels", -- Demasiado pesado como para instalarlo por defecto
+  "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
   "basedpyright", -- python
   "bashls",
   "clangd", -- C, C++

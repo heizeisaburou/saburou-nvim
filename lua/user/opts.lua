@@ -137,6 +137,42 @@ vim.filetype.add {
     mdx = "markdown.mdx",
   },
 }
+-- Ansible: nvim no detecta `yaml.ansible`, que es el filetype que ansiblels
+-- necesita para adjuntarse. Se detecta por ruta estructural (roles/playbooks/
+-- group_vars/host_vars/inventory) o por contenido (playbooks con `hosts:`).
+-- El resto de YAML conserva `yaml` (yamlls).
+local function is_ansible_path(path)
+  return path:find "/roles/" or path:find "/playbooks/" or path:find "/group_vars/"
+    or path:find "/host_vars/" or path:find "/inventory/"
+end
+
+local function looks_like_playbook(bufnr)
+  local ok, lines = pcall(vim.api.nvim_buf_get_lines, bufnr, 0, 50, false)
+
+  if not ok or not lines then
+    return false
+  end
+
+  for _, line in ipairs(lines) do
+    if line:match "^%s*-?%s*hosts:%s*" then
+      return true
+    end
+  end
+
+  return false
+end
+
+vim.filetype.add {
+  pattern = {
+    [".*%.ya?ml"] = function(path, bufnr)
+      if is_ansible_path(path or "") or looks_like_playbook(bufnr) then
+        return "yaml.ansible"
+      end
+
+      return nil
+    end,
+  },
+}
 -- Plantillas Go: nvim solo reconoce `.tmpl` como `template` genérico y nada
 -- para `.gotmpl`/`.gohtml`. Los tres se mapean a `gotmpl` porque es el único
 -- filetype que gopls atiende como plantilla (LSP + tipos). El contenido de

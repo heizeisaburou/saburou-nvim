@@ -599,15 +599,22 @@ local formatters = {
     end,
   },
   yamlfmt = {
-    -- YAML no admite tabs en la indentación; sí comparte el ancho de la
-    -- política cuando el estilo es spaces.
-    append_args = function(_, ctx)
+    -- El builtin de Conform invoca `-in $FILENAME`, que no aplica los
+    -- formateadores (no-op), así que se usa stdin. `include_document_start`
+    -- conserva el `---` de los playbooks. YAML no admite tabs en la
+    -- indentación; sí comparte el ancho de la política cuando el estilo es
+    -- spaces.
+    stdin = true,
+    args = function(_, ctx)
       local config = indent_for(ctx)
       return {
         "-formatter",
         "retain_line_breaks_single=true",
         "-formatter",
         "indent=" .. tostring(config.width),
+        "-formatter",
+        "include_document_start=true",
+        "-",
       }
     end,
   },

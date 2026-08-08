@@ -28,6 +28,7 @@ ejecutarse o analizar un proyecto.
 | Django   | `python-django`           | `django-language-server`  | `djlint`                                   | Toolchain instalado; prueba pendiente         |
 | Liquid   | (sin toolchain; usa Node) | `shopify-cli`           | Externo: `@shopify/prettier-plugin-liquid` | Dependencias instaladas; prueba pendiente |
 | Go       | `go` (repos oficiales)     | `gopls`                 | `gofmt` (toolchain); plantillas: externo `prettier-plugin-go-template` | Verificado (lenguaje principal)           |
+| Ansible  | `ansible-core` + `ansible-lint` (repos) | `ansible-language-server` | `yamlfmt` (via `yaml`) | Verificado (smoke test en `~/wip/nvim-language-smoke-tests/ansible`) |
 
 ---
 
@@ -1168,6 +1169,62 @@ Verificado. Proyecto de muestra:
 Referencia:
 
 - https://github.com/golang/tools/tree/master/gopls
+
+---
+
+## Ansible
+
+### Toolchain
+
+```bash
+sudo pacman -S --needed ansible-core ansible-lint
+```
+
+- `ansible-core` aporta `ansible` / `ansible-playbook` (necesario para que el LSP parseé los playbooks).
+- `ansible-lint` lo usa el propio LSP para diagnósticos (`validation.lint`).
+- El LSP `ansible-language-server` se instala con `:MasonInstallAll` (paquete npm; no está en los repos).
+
+### Detección de filetype
+
+nvim no detecta `yaml.ansible`, que es el filetype que ansiblels necesita. `lua/user/opts.lua` añade
+detección en `.yml`/`.yaml` por ruta estructural (`roles/`, `playbooks/`, `group_vars/`,
+`host_vars/`, `inventory/`) o por contenido (playbooks con `hosts:`); el resto de YAML conserva
+`yaml` (yamlls). El resaltado de treesitter usa el parser `yaml` vía el fallback de filetypes
+compuestos en `lua/lzy/treesitter.lua`.
+
+### Formatter
+
+Los archivos Ansible son YAML: los formatea `yamlfmt` (Conform resuelve `yaml.ansible` → `yaml`).
+No hay formatter propio de Ansible.
+
+`yamlfmt` corre vía stdin en `lua/lzy/conform.lua`: el builtin de Conform invoca `-in $FILENAME`,
+que no aplica los formateadores (no-op) y nunca edita. Los args incluyen
+`include_document_start=true` para conservar el `---` de los playbooks.
+
+### Estado
+
+Verificado con el smoke test de `~/wip/nvim-language-smoke-tests/ansible`:
+
+```text
+~/wip/nvim-language-smoke-tests/ansible/ansible.cfg
+~/wip/nvim-language-smoke-tests/ansible/playbooks/site.yml
+~/wip/nvim-language-smoke-tests/ansible/roles/web/tasks/main.yml
+~/wip/nvim-language-smoke-tests/ansible/roles/web/handlers/main.yml
+~/wip/nvim-language-smoke-tests/ansible/group_vars/all.yml
+~/wip/nvim-language-smoke-tests/ansible/inventory/hosts.yml
+```
+
+El proyecto es un playbook + rol mínimo con `hosts`, `vars`, `tasks`, `handlers`, `notify`,
+`when`, `tags` y `block/rescue`. Los nombres de tarea van en minúscula y se usan módulos sin FQCN a
+propósito, para que ansible-lint (vía el LSP) muestre diagnósticos (`name[casing]`,
+`fqcn[action-core]`). La verificación del formatter se hizo con la indentación deliberadamente
+profunda (pero válida) en `playbooks/site.yml` y `roles/web/tasks/main.yml`; `yamlfmt` la redujo a
+2 espacios vía `<leader>fm` (equivalente a `conform.format`).
+
+Referencia:
+
+- https://docs.ansible.com/ansible/latest/
+- https://ansible.readthedocs.io/projects/lint/
 
 ---
 
