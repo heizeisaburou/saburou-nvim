@@ -63,13 +63,13 @@ M.servers = {
   "jdtls",
   "jsonls",
   "kotlin_language_server",
-  -- "metals",
+  "metals", -- scala
   "ocamllsp",
   -- "ruby_lsp",
-  -- "sourcekit",
+  -- "sourcekit", -- swift
   "taplo",
   "yamlls",
-  -- "zls",
+  -- "zls", -- zig
 }
 
 --- Servidores deshabilitados para esta capa.
@@ -234,7 +234,28 @@ M.config = {
 
   neocmake = {},
 
-  ocamllsp = {},
+  ocamllsp = function()
+    local ocamlformat_bin = vim.fs.joinpath(
+      vim.fn.stdpath "data",
+      "mason",
+      "packages",
+      "ocamlformat",
+      "bin"
+    )
+
+    if not hzsr.sys.fs.is_dir(ocamlformat_bin) then
+      return {}
+    end
+
+    local current_path = vim.env.PATH or ""
+    local path = current_path == ""
+        and ocamlformat_bin
+      or (ocamlformat_bin .. hzsr.sys.path_list_sep .. current_path)
+
+    -- El paquete de Mason contiene ocamlformat-rpc, pero su receipt sólo
+    -- enlaza `ocamlformat` en mason/bin. Ocamllsp busca el RPC mediante PATH.
+    return { cmd_env = { PATH = path } }
+  end,
 
   ruff = {},
 

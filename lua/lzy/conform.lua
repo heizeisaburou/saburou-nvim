@@ -92,7 +92,7 @@ local formatters_by_ft = {
   ocaml = { "ocamlformat" },
   ocamlinterface = { "ocamlformat" },
   -- ruby = { "rubocop" },
-  -- scala = { "scalafmt" },
+  scala = { "scalafmt" },
   -- swift = { "swiftformat" },
   toml = { "taplo" },
 }

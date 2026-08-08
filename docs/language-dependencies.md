@@ -21,7 +21,7 @@ ejecutarse o analizar un proyecto.
 | F#       | .NET SDK              | `fsautocomplete`         | `fantomas`         | Proyecto restaurado; prueba pendiente     |
 | Haskell  | GHCup + GHC + Cabal   | `haskell-language-server`| `fourmolu`         | Toolchain instalado; prueba pendiente     |
 | Java     | JDK                   | `jdtls`                  | `google-java-format`| Verificado por el usuario                |
-| OCaml    | opam                  | `ocaml-lsp`              | `ocamlformat`      | opam instalado; inicialización pendiente  |
+| OCaml    | opam + OCaml 5.5      | `ocaml-lsp`              | `ocamlformat`      | opam inicializado; prueba pendiente        |
 
 ---
 
@@ -605,15 +605,99 @@ En este sistema ya estaba instalado, por lo que no se ejecutó de nuevo:
 opam 2.5.1-2
 ```
 
-Actualmente opam todavía no está inicializado:
+Mason falló inicialmente porque instalar el ejecutable no crea automáticamente la raíz, el
+repositorio ni un switch de opam:
 
 ```text
 [ERROR] Opam has not been initialised, please run `opam init`
 ```
 
-`opam init` se ejecuta como usuario normal, nunca con `pkexec`. Crea el repositorio y los switches
-del usuario y puede modificar la integración del shell, por lo que se deja pendiente hasta que
-Mason o el proyecto lo necesiten y el usuario autorice esa inicialización.
+La inicialización se realizó como usuario normal, reutilizando OCaml 5.5.0 del sistema y evitando
+cambios en los archivos del shell:
+
+```bash
+opam init --yes --no-setup --compiler=ocaml-system
+```
+
+Estado resultante:
+
+```text
+opam root:     ~/.opam
+switch activo: ocaml-system
+compilador:    ocaml-system.5.5.0
+```
+
+`--no-setup` garantiza que opam no modifique `.zshrc`, `.zprofile` ni `.profile`. La orden que
+muestra al terminar:
+
+```bash
+eval $(opam env --switch=ocaml-system)
+```
+
+solo actualiza variables de la terminal actual; no persiste al cerrarla. Mason ejecuta `opam`
+directamente y puede utilizar el switch seleccionado, por lo que normalmente no necesita ese
+`eval`. Sí puede ser necesario para ejecutar desde la terminal herramientas instaladas dentro del
+switch.
+
+### `ocamlformat-rpc` no encontrado
+
+Después de instalar ambos paquetes, ocamllsp avisó:
+
+```text
+Unable to find 'ocamlformat-rpc' binary.
+Types on hover may not be well-formatted.
+```
+
+El binario 0.29.0 sí estaba instalado tanto en el switch como dentro del paquete de Mason. El
+`mason-receipt.json` de `ocamlformat` sólo enlazaba `ocamlformat` en `mason/bin` y omitía
+`ocamlformat-rpc`.
+
+Ejecutar `eval $(opam env --switch=ocaml-system)` antes de abrir Neovim también lo expondría, pero
+haría depender la configuración del entorno del shell. La solución aplicada es local al servidor y
+portable: la factory de `ocamllsp` añade a su `cmd_env.PATH` este directorio calculado con
+`stdpath("data")`:
+
+```text
+mason/packages/ocamlformat/bin
+```
+
+Así ocamllsp encuentra el RPC en Linux, macOS o Windows sin modificar el `PATH` global, crear
+symlinks manuales ni requerir integración persistente de opam con el shell.
+
+### Dune en modo watch
+
+Al abrir `dune-project`, ocamllsp puede mostrar:
+
+```text
+No dune instance found. Please run dune in watch mode for .../dune-project.
+```
+
+Esto es independiente de `ocamlformat-rpc`: ocamllsp ya está funcionando, pero su integración con
+Dune necesita una instancia RPC activa para recibir el estado, los diagnósticos y los cambios del
+proyecto.
+
+Dune quedó instalado dentro del switch `ocaml-system`, no en el `PATH` global. Desde la raíz del
+proyecto se puede iniciar sin ejecutar `eval`:
+
+```bash
+opam exec --switch=ocaml-system -- dune build --watch
+```
+
+Ese proceso debe permanecer abierto en otra terminal mientras se usa Neovim. `eval $(opam env)`
+sólo permitiría escribir `dune build --watch` directamente; no iniciaría el watcher por sí mismo.
+El comando equivalente con el entorno cargado es:
+
+```bash
+eval $(opam env --switch=ocaml-system)
+dune build --watch
+```
+
+No se inicia Dune automáticamente desde la configuración de Neovim: el watcher pertenece al ciclo
+de vida del proyecto y el usuario debe decidir cuándo arrancarlo o detenerlo.
+
+El repositorio advirtió que opam 2.5.2 contiene correcciones de seguridad mientras Arch tenía
+2.5.1-2. No se mezcla la instalación oficial de Arch con un binario manual: se actualizará mediante
+una actualización completa del sistema cuando el paquete llegue al repositorio.
 
 Proyecto de prueba:
 
