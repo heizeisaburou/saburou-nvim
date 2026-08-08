@@ -65,8 +65,8 @@ M.servers = {
   "kotlin_language_server",
   "metals", -- scala
   "ocamllsp",
-  -- "ruby_lsp",
-  -- "sourcekit", -- swift
+  "ruby_lsp",
+  "sourcekit", -- swift
   "taplo",
   "yamlls",
   -- "zls", -- zig
@@ -259,13 +259,27 @@ M.config = {
 
   ruff = {},
 
-  ruby_lsp = {
+  ruby_lsp = function()
+    local bundle_path = vim.fs.joinpath(vim.fn.stdpath "data", "ruby-lsp", "bundle")
+    vim.fn.mkdir(bundle_path, "p")
+
     -- Ruby LSP detecta RuboCop, Standard o Syntax Tree desde el bundle del
-    -- proyecto. Conform usa RuboCop directamente para el formateo manual.
-    init_options = {
-      formatter = "auto",
-    },
-  },
+    -- proyecto. Con el Ruby del sistema, Bundler intentaría escribir las gemas
+    -- del bundle compuesto en `/usr/lib`; BUNDLE_PATH las mantiene en el data
+    -- dir del usuario. La función `cmd` de nvim-lspconfig gestiona el cwd por
+    -- proyecto, pero no reenvía cmd_env, así que se replica aquí con `env`.
+    return {
+      cmd = function(dispatchers, config)
+        return vim.lsp.rpc.start({ "ruby-lsp" }, dispatchers, {
+          cwd = config and (config.cmd_cwd or config.root_dir),
+          env = { BUNDLE_PATH = bundle_path },
+        })
+      end,
+      init_options = {
+        formatter = "auto",
+      },
+    }
+  end,
 
   rust_analyzer = {
     -- settings = {

@@ -3,6 +3,8 @@
 local M = {}
 
 local line_length = 97
+local scalafmt_fallback_dialect = "scala3"
+local scalafmt_fallback_version = "3.10.6"
 local indent = require "sabunv.indent"
 
 local function indent_for(ctx)
@@ -91,9 +93,9 @@ local formatters_by_ft = {
   lhaskell = { "fourmolu" },
   ocaml = { "ocamlformat" },
   ocamlinterface = { "ocamlformat" },
-  -- ruby = { "rubocop" },
-  scala = { "scalafmt" },
-  -- swift = { "swiftformat" },
+  ruby = { "rubocop", timeout_ms = 10000 },
+  scala = { "scalafmt", timeout_ms = 10000 },
+  swift = { "swiftformat" },
   toml = { "taplo" },
 }
 
@@ -392,7 +394,16 @@ local formatters = {
         return { "--stdin", "--config", cached_config("scalafmt", contents, ".conf") }
       end
 
-      return { "--stdin", "--config-str", overrides }
+      -- Scalafmt exige una versión incluso con configuración inline. La versión
+      -- fija hace que el fallback sea reproducible; los proyectos con su propio
+      -- `.scalafmt.conf` conservan la versión que hayan declarado.
+      local dialect = vim.endswith(ctx.filename, ".sbt") and "sbt1" or scalafmt_fallback_dialect
+      local fallback = table.concat({
+        'version = "' .. scalafmt_fallback_version .. '"',
+        "runner.dialect = " .. dialect,
+        overrides,
+      }, "\n")
+      return { "--stdin", "--config-str", fallback }
     end,
   },
 

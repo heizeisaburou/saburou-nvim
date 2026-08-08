@@ -22,6 +22,8 @@ ejecutarse o analizar un proyecto.
 | Haskell  | GHCup + GHC + Cabal   | `haskell-language-server`| `fourmolu`         | Toolchain instalado; prueba pendiente     |
 | Java     | JDK                   | `jdtls`                  | `google-java-format`| Verificado por el usuario                |
 | OCaml    | opam + OCaml 5.5      | `ocaml-lsp`              | `ocamlformat`      | opam inicializado; prueba pendiente        |
+| Ruby     | Ruby + Bundler + ERB  | `ruby-lsp`               | `rubocop`          | Bundler instalado; `ruby-erb` pendiente    |
+| Scala    | OpenJDK 17 + sbt       | Externo: `metals`        | Externo: `scalafmt`| Metals/sbt/JDK instalados; Scalafmt pendiente |
 
 ---
 
@@ -704,6 +706,166 @@ Proyecto de prueba:
 ```text
 ~/wip/nvim-language-smoke-tests/ocaml/dune-project
 ~/wip/nvim-language-smoke-tests/ocaml/bin/main.ml
+```
+
+---
+
+## Scala
+
+Metals (LSP) y Scalafmt (formatter) son herramientas externas: esta configuración no intenta
+instalarlas mediante Mason. También hace falta un JDK compatible. Se usa Java 17 porque es la
+opción conservadora recomendada para Metals; puede convivir con otro Java predeterminado.
+
+### Arch con Chaotic-AUR
+
+Si el repositorio de terceros Chaotic-AUR ya está configurado, Metals puede instalarse como binario
+precompilado con Pacman. `sbt` y `jdk17-openjdk` proceden del repositorio oficial `extra`:
+
+```bash
+sudo pacman -S --needed metals sbt jdk17-openjdk
+```
+
+Esto se hizo en esta máquina con `pkexec pacman`: quedaron instalados Metals 1.5.2, sbt 2.0.2 y
+OpenJDK 17. El Java global continúa siendo OpenJDK 26. El lanzador de Metals empaquetado por
+Chaotic-AUR busca `/usr/lib/jvm/java-17-openjdk` y lo utiliza sin cambiar el valor global de
+`archlinux-java`.
+
+Chaotic-AUR es sólo una comodidad, no un requisito de la configuración.
+
+### Arch sin Chaotic-AUR
+
+Instalar las dependencias oficiales con Pacman:
+
+```bash
+sudo pacman -S --needed sbt jdk17-openjdk
+```
+
+Después, instalar Metals desde AUR. Este paso debe ejecutarlo el usuario con su ayudante de AUR:
+
+```bash
+paru --sudoloop -S metals
+```
+
+### Scalafmt
+
+En Arch, el paquete directo está en AUR, no en los repositorios oficiales ni en Chaotic-AUR. Para
+esta configuración, la opción más sencilla es:
+
+```bash
+paru --sudoloop -S scalafmt
+```
+
+También existe `scalafmt-native-bin`, pero en el momento de escribir esta nota estaba detrás de la
+versión del paquete `scalafmt`; por eso se prefiere el primero. Una vez instalado, Conform encuentra
+`scalafmt` en `/usr/bin` sin configuración adicional.
+
+Scalafmt exige que toda configuración declare una versión. Si el proyecto contiene
+`.scalafmt.conf`, Conform conserva la versión indicada allí. Para archivos o proyectos sin ese
+archivo, la configuración de Neovim usa `3.10.6` como fallback reproducible y añade encima las
+preferencias globales de ancho e indentación. El dialecto fallback es `scala3`; para archivos
+`.sbt` se usa `sbt1`. Los proyectos Scala 2 deben declarar su dialecto (`scala211`, `scala212` o
+`scala213`) en `.scalafmt.conf`. Al cambiar deliberadamente esos valores hay que actualizar
+`scalafmt_fallback_version` o `scalafmt_fallback_dialect` en `lua/lzy/conform.lua`.
+
+Como Scalafmt arranca sobre la JVM, puede tardar más que el segundo de espera predeterminado de
+Conform. La entrada de Scala en `formatters_by_ft` dispone de 10 segundos; este límite sólo afecta
+a Scalafmt y evita que su primer arranque termine con código 143 por timeout.
+
+La vía oficial recomendada por Scalafmt es Coursier. Puede usarse como alternativa si no se desea
+el paquete AUR de Scalafmt:
+
+```bash
+paru --sudoloop -S coursier-bin
+cs install scalafmt
+```
+
+El directorio de instalación que muestre Coursier debe estar en `PATH`. No conviene instalar a la
+vez el mismo ejecutable con Pacman/AUR y con Coursier, porque el resultado dependería del orden del
+`PATH`.
+
+No hace falta instalar un paquete global `scala`: sbt resuelve la versión declarada por cada
+proyecto. Metals puede importar builds de sbt y proporcionar diagnósticos al compilar.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/scala/build.sbt
+~/wip/nvim-language-smoke-tests/scala/src/main/scala/Main.scala
+```
+
+El proyecto declara Scala 3.7.1. Metals importará el build de sbt y Scalafmt se usará directamente
+desde Conform.
+
+Referencias:
+
+- [Instalación de Scalafmt](https://scalameta.org/scalafmt/docs/installation.html)
+- [Metals para Vim/Neovim](https://scalameta.org/metals/docs/editors/vim/)
+
+---
+
+## Ruby
+
+Ruby LSP se instala mediante Mason, pero se ejecuta con el Ruby del sistema y necesita poder cargar
+Bundler. Sin el paquete correspondiente, el servidor termina al arrancar con este error:
+
+```text
+cannot load such file -- bundler (LoadError)
+```
+
+En Arch, Ruby y Bundler están en el repositorio oficial `extra`:
+
+```bash
+sudo pacman -S --needed ruby ruby-bundler
+```
+
+En esta máquina ya estaba instalado Ruby 3.4.8 y se añadió `ruby-bundler` 4.0.3 mediante
+`pkexec pacman`. No hace falta instalar Bundler otra vez con `gem install`, lo que mezclaría una
+gema gestionada manualmente con los paquetes del sistema.
+
+Arch separa algunas gemas de la biblioteca estándar. RuboCop requiere ERB, por lo que también hay
+que instalar su paquete oficial:
+
+```bash
+sudo pacman -S --needed ruby-erb
+```
+
+Comprobación útil:
+
+```bash
+ruby --version
+bundle --version
+ruby -rbundler -e 'puts Bundler::VERSION'
+```
+
+Si un proyecto contiene `Gemfile`, Ruby LSP exige también un `Gemfile.lock`. Hay que generarlo desde
+la raíz del proyecto, incluso cuando todavía no se hayan añadido dependencias:
+
+```bash
+bundle install
+```
+
+Sin ese archivo, el servidor termina indicando `Project contains a Gemfile, but no Gemfile.lock`.
+En el proyecto de prueba el comando no instaló gemas porque el `Gemfile` está vacío; sólo resolvió
+el entorno y creó el lockfile.
+
+Ruby LSP genera además un bundle compuesto en `.ruby-lsp` con el propio servidor, `debug` y las
+dependencias del proyecto. Con el Ruby del sistema, Bundler intentaría instalar esas gemas bajo
+`/usr/lib/ruby/gems` y fallaría por permisos. La configuración LSP define `BUNDLE_PATH` como:
+
+```text
+stdpath("data")/ruby-lsp/bundle
+```
+
+Así cada usuario dispone de un almacén escribible y no es necesario ejecutar Bundler como root ni
+cambiar permisos dentro de `/usr/lib`. La ruta se calcula en runtime, por lo que no contiene rutas
+específicas de Linux o del usuario actual.
+
+Proyecto de prueba:
+
+```text
+~/wip/nvim-language-smoke-tests/ruby/Gemfile
+~/wip/nvim-language-smoke-tests/ruby/Gemfile.lock
+~/wip/nvim-language-smoke-tests/ruby/main.rb
 ```
 
 ---
