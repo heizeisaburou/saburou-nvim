@@ -34,48 +34,47 @@ local M = {}
 ---
 --- Esta tabla no instala servidores.
 M.servers = {
+  -- "expert", -- alternativa a elixirls; por investigar
   "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
   "basedpyright", -- python
   "bashls",
   "clangd", -- C, C++
-  "cssls", -- .css
-  "elixirls",
-  -- "expert", -- alternativa a elixirls; por investigar
-  "gopls", -- golang
-  "html", -- .html
-  "lua_ls",
-  "marksman", -- markdown
-  "neocmake", -- cmake
-  "phpactor", -- php
-  "qmlls", -- qml
-  "ruff", -- linter general
-  "rust_analyzer",
-  "svelte",
-  "texlab", -- latex
-  "vtsls", -- typescript, javascript
   "clojure_lsp",
   "csharp_ls",
+  "cssls", -- .css
   "dartls",
+  "djls", -- Django templates
+  "elixirls",
   "fsautocomplete", -- F#
+  "gopls", -- golang
   "hls", -- Haskell
+  "html", -- .html
   "jdtls", -- Java
+  "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
   "jsonls", -- .json
   "kotlin_language_server",
+  "lua_ls",
+  "marksman", -- markdown
   "metals", -- scala
+  "neocmake", -- cmake
   "ocamllsp",
+  "phpactor", -- php
+  "pug", -- Pug (.pug/.jade)
+  "qmlls", -- qml
   "ruby_lsp",
-  "sourcekit", -- swift
-  "tinymist", -- Typst
+  "ruff", -- linter general
+  "rust_analyzer",
   "shopify_theme_ls", -- Liquid (Shopify)
+  "sourcekit", -- swift
+  "svelte",
   "taplo", -- .toml
+  "texlab", -- latex
+  "tinymist", -- Typst
+  "twiggy_language_server", -- Twig (.twig)
+  "vtsls", -- typescript, javascript
+  "vue_ls", -- Vue (.vue)
   "yamlls", -- .yaml
   "zls", -- zig
-
-  "djls", -- Django templates
-  "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
-  "pug", -- Pug (.pug/.jade)
-  "vue_ls", -- Vue (.vue)
-  "twiggy_language_server", -- Twig (.twig)
 }
 
 --- Servidores deshabilitados para esta capa.

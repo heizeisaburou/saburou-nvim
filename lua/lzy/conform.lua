@@ -89,64 +89,58 @@ end
 local formatters_by_ft = {
   bash = { "shfmt" },
   c = { "clang_format" },
+  clojure = { "zprint" }, -- activa edn también
   cpp = { "clang_format" },
+  cs = { "csharpier" }, -- C#
   css = { "prettier" },
+  dart = { "dart_format" }, -- externo
+  edn = { "zprint" }, -- .edn de Clojure
   eelixir = { "mix" },
   elixir = { "mix" },
+  fsharp = { "fantomas" }, -- F#
   gleam = { "gleam" },
   go = { "gofmt" },
   gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
+  handlebars = { "prettier_handlebars" },
+  haskell = { "fourmolu" },
   heex = { "mix" },
   html = { "prettier" },
   htmldjango = { "djlint" },
-  -- [PRUEBA MasonInstallAll] Comentadas para probar MasonInstallAll uno a uno.
-  -- Descomenta junto con su formatter y resolver (más abajo).
-  handlebars = { "prettier_handlebars" },
-  jinja = { "prettier_jinja" },
+  java = { "google-java-format" },
   javascript = { "prettier" },
   javascriptreact = { "prettier" },
+  jinja = { "prettier_jinja" },
   json = { "biome" },
-  lua = { "stylua" },
+  kotlin = { "ktlint" },
+  lhaskell = { "fourmolu" }, -- .lhs
   liquid = { "prettier_liquid" },
+  lua = { "stylua" },
   -- Prettier imprime espacios para parte de la estructura Markdown incluso con
   -- useTabs. markdown_tabs normaliza esa sangría en una segunda pasada.
   markdown = { "prettier", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
+  ocaml = { "ocamlformat" },
+  ocamlinterface = { "ocamlformat" },
   php = { "php_cs_fixer" },
   plaintex = { "latexindent" },
-  python = { "ruff_format" },
   pug = { "prettier_pug" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
+  python = { "ruff_format" },
   qml = { "qmlformat" }, -- externo
+  ruby = { "rubocop", timeout_ms = 10000 },
   rust = { "rustfmt" },
+  scala = { "scalafmt", timeout_ms = 10000 },
   scss = { "prettier" },
   surface = { "mix" },
   svelte = { "prettier_svelte" },
+  swift = { "swiftformat" },
   tex = { "latexindent" },
+  toml = { "taplo" },
+  twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
-  twig = { "prettier_twig" }, -- [PRUEBA MasonInstallAll] descomentar con su formatter/resolver
   typst = { "typstyle" },
   vue = { "prettier" }, -- .vue (framework de javascript); [PRUEBA MasonInstallAll] descomentar
   yaml = { "yamlfmt" },
   zig = { "zigfmt" },
-
-  -- NUEVOS (sin testear)
-  clojure = { "zprint" }, -- activa edn también
-  cs = { "csharpier" }, -- C#
-  dart = { "dart_format" }, -- externo
-  edn = { "zprint" }, -- .edn de Clojure
-  fsharp = { "fantomas" }, -- F#
-  haskell = { "fourmolu" },
-  java = { "google-java-format" },
-  kotlin = { "ktlint" },
-  -- `lhaskell` es el filetype de `.lhs` (Literate Haskell). Fourmolu se
-  -- activa por separado aunque comparta formatter con Haskell normal.
-  lhaskell = { "fourmolu" }, -- .lhs de haskell
-  ocaml = { "ocamlformat" },
-  ocamlinterface = { "ocamlformat" },
-  ruby = { "rubocop", timeout_ms = 10000 },
-  scala = { "scalafmt", timeout_ms = 10000 },
-  swift = { "swiftformat" },
-  toml = { "taplo" },
 }
 
 -- ----------------------------------------------------------------------------
