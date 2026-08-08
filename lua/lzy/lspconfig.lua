@@ -342,7 +342,35 @@ M.config = {
     filetypes = { "qml", "qmljs" },
     root_markers = { ".qmlls.ini", "shell.qml", ".git" },
   },
-  vtsls = {},
+  vtsls = {
+    -- Volar (vue-language-server) v3 funciona en hybrid mode obligatorio: solo
+    -- gestiona HTML/template. El TypeScript de los <script> de .vue lo delega
+    -- a vtsls mediante el plugin `@vue/typescript-plugin`, que ya viene dentro
+    -- del paquete de Mason de vue-language-server.
+    settings = {
+      vtsls = {
+        tsserver = {
+          globalPlugins = {
+            {
+              name = "@vue/typescript-plugin",
+              location = vim.fs.joinpath(vim.fn.stdpath "data", "mason", "packages", "vue-language-server", "node_modules", "@vue", "language-server"),
+              languages = { "vue" },
+              configNamespace = "typescript",
+            },
+          },
+        },
+      },
+    },
+    -- Sin `vue` en filetypes, vtsls nunca se adjunta a un .vue y el script
+    -- SFC se queda sin TS (diagnósticos, goto definition, hover).
+    filetypes = {
+      "typescript",
+      "javascript",
+      "javascriptreact",
+      "typescriptreact",
+      "vue",
+    },
+  },
 }
 
 -- =============================================================================
