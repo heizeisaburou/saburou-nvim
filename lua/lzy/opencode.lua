@@ -268,8 +268,9 @@ local input_keymap = {
   --   desc = "Cancel or kill opencode",
   --   defer_to_completion = true,
   -- },
-  ["~"] = { "mention_file", mode = "i" }, -- Pick a file and add to context. See File Mentions section
   ["@"] = { "mention", mode = "i" }, -- Insert mention (file/agent)
+  ["~"] = false, -- Desactiva el default mention_file de upstream (el picker se abre con <C-o>)
+  ["<C-o>"] = { "mention_file", mode = "i" }, -- Pick a file and add to context. See File Mentions section
   ["/"] = { "slash_commands", mode = "i" }, -- Pick a command to run in the input window
   ["#"] = { "context_items", mode = "i" }, -- Manage context items (current file, selection, diagnostics, mentioned files)
   ["<C-v>"] = { "paste_image", mode = "i" }, -- Paste image from clipboard as attachment
