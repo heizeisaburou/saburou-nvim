@@ -18,6 +18,38 @@ local M = {}
 
 local map = vim.keymap.set
 
+-- Renombrado interactivo de workspaces.
+--
+-- El comando `WorkspacesRename` de workspaces.nvim está definido con
+-- `nargs = "*"` y llama a `rename(unpack(fargs))`. Sin argumentos (lo que hace
+-- nuestro keybind) el plugin acaba en `find(nil)` -> `basename(nil)` y revienta
+-- con `attempt to get length of local 'path_str' (a nil value)` en util.lua.
+-- `open`/`remove` sí tienen fallback interactivo (ui.select / cwd), pero
+-- `rename` no: exige nombre y nombre nuevo como argumentos.
+--
+-- Aquí se reconstruye ese flujo: se elige el workspace con `vim.ui.select` y se
+-- pide el nombre nuevo con `vim.ui.input` (asíncrono; `vim.fn.input` es
+-- bloqueante y no admite callback). Luego se llama a la API del plugin con
+-- ambos argumentos, sin depender de que upstream lo arregle.
+local function rename_workspace()
+  local workspaces = require("workspaces").get()
+  vim.ui.select(workspaces, {
+    prompt = "Selecciona workspace a renombrar:",
+    format_item = function(item)
+      return item.name
+    end,
+  }, function(item)
+    if not item then
+      return
+    end
+    vim.ui.input({ prompt = "Nuevo nombre: ", default = item.name }, function(new_name)
+      if new_name and new_name ~= "" and new_name ~= item.name then
+        require("workspaces").rename(item.name, new_name)
+      end
+    end)
+  end)
+end
+
 M.opts = {
   -- path to a file to store workspaces data in
   -- on a unix system this would be ~/.local/share/nvim/workspaces
@@ -67,6 +99,13 @@ M.opts = {
 
 function M.setup()
   require("workspaces").setup(M.opts)
+  -- Sobrescribe el comando del plugin para que `:WorkspacesRename` use nuestro
+  -- flujo interactivo en lugar del crash sin argumentos. `nvim_create_user_command`
+  -- reemplaza un comando ya registrado con el mismo nombre.
+  vim.api.nvim_create_user_command("WorkspacesRename", rename_workspace, {
+    desc = "Workspaces: rename workspace (interactivo)",
+  })
+
   require("telescope").load_extension "workspaces"
   require("telescope").setup {
     extensions = {
@@ -83,7 +122,12 @@ function M.setup()
     require("telescope").extensions.workspaces.workspaces {}
   end, { desc = "Telescope: Workspaces" })
 
-  map("n", "<leader>wa", "<cmd>WorkspacesAdd<CR>", { desc = "Workspaces: add current workspace" })
+  map(
+    "n",
+    "<leader>wa",
+    "<cmd>WorkspacesAdd<CR>",
+    { desc = "Workspaces: add current workspace" }
+  )
   map(
     "n",
     "<leader>wr",
@@ -92,12 +136,7 @@ function M.setup()
   )
 
   map("n", "<leader>wo", "<cmd>WorkspacesOpen<CR>", { desc = "Workspaces: open workspace" })
-  map(
-    "n",
-    "<leader>wn",
-    "<cmd>WorkspacesRename<CR>",
-    { desc = "Workspaces: rename current workspace" }
-  )
+  map("n", "<leader>wn", rename_workspace, { desc = "Workspaces: rename workspace" })
 
   map("n", "<leader>wds", "<cmd>WorkspacesSyncDirs<CR>", { desc = "Workspaces dirs: sync" })
   map(
