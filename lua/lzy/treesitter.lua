@@ -126,8 +126,7 @@ M.enabled_highlights = {
 -- Filetypes que no comparten nombre con su parser. nvim-treesitter ya registra
 -- los casos conocidos (cs -> c_sharp, ocamlinterface -> ocaml_interface). Sin
 -- entradas por ahora; las plantillas Go usan directamente `gotmpl`.
-M.language_aliases = {
-}
+M.language_aliases = {}
 
 local function install_all()
   require("nvim-treesitter").install(M.languages)

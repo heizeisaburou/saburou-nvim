@@ -272,8 +272,8 @@ local input_keymap = {
   ["@"] = { "mention", mode = "i" }, -- Insert mention (file/agent)
   ["/"] = { "slash_commands", mode = "i" }, -- Pick a command to run in the input window
   ["#"] = { "context_items", mode = "i" }, -- Manage context items (current file, selection, diagnostics, mentioned files)
-  ["<M-v>"] = { "paste_image", mode = "i" }, -- Paste image from clipboard as attachment
-  ["<M-b>"] = { "switch_mode" }, -- Switch between modes (build/plan)
+  ["<C-v>"] = { "paste_image", mode = "i" }, -- Paste image from clipboard as attachment
+  ["<C-b>"] = { "switch_mode", mode = { "n", "i" }, desc = "Switch between build/plan" }, -- Switch between modes (build/plan)
 }
 
 -- Workaround para opencode.nvim: preserve_existing conserva correctamente los

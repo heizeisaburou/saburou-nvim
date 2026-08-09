@@ -81,15 +81,10 @@ map("n", "<C-k>", "<C-w>k", { desc = "Window: Focus above" })
 map("n", "<C-j>", "<C-w>j", { desc = "Window: Focus below" })
 map({ "n", "i", "t" }, "<A-z>", hzsr.win.zoom.toggle, { desc = "Window: Toggle zoom" })
 
-map("n", "<A-h>", "10zh", { desc = "View: scroll left fast" })
-map("n", "<A-l>", "10zl", { desc = "View: scroll right fast" })
-map("n", "<A-H>", "zh", { desc = "View: scroll left" })
-map("n", "<A-L>", "zl", { desc = "View: scroll right" })
-
-map("i", "<A-h>", "<C-o>10zh", { desc = "View: scroll left fast" })
-map("i", "<A-l>", "<C-o>10zl", { desc = "View: scroll right fast" })
-map("i", "<A-H>", "<C-o>zh", { desc = "View: scroll left" })
-map("i", "<A-L>", "<C-o>zl", { desc = "View: scroll right" })
+map({ "n", "i" }, "<A-H>", "zh", { desc = "View: scroll left" })
+map({ "n", "i" }, "<A-L>", "zl", { desc = "View: scroll right" })
+map({ "n", "i" }, "<A-h>", "10zh", { desc = "View: scroll left fast" })
+map({ "n", "i" }, "<A-l>", "10zl", { desc = "View: scroll right fast" })
 
 -- =============================================================================
 -- LSP
@@ -104,7 +99,7 @@ map("n", "<C-A-r>", vim.lsp.buf.rename, { desc = "LSP: Rename" })
 
 map("t", "<C-x>", "<C-\\><C-N>", { desc = "Terminal: Leave terminal mode" })
 map("n", "<A-v>", sabunv.terminal.open_vertical_split, { desc = "Terminal: Vertical split" })
-map("n", "<A-h>", sabunv.terminal.open_horizontal_split, { desc = "Terminal: Horizontal split" })
+map("n", "<A-b>", sabunv.terminal.open_horizontal_split, { desc = "Terminal: Horizontal split" })
 
 map({ "n", "i", "t" }, "<A-i>", sabunv.terminal.toggle_float, {
   desc = "Terminal: Toggle floating terminal",
