@@ -248,8 +248,10 @@ M.config = {
     settings = {
       Lua = {
         hover = {
-          previewFields = 0, -- o más; default 50
-          enumsLimit = 0, -- default 5
+          -- Permite mostrar más elementos al hacer hover (Shift+k)
+          -- 0, -1 -> No desactivan el límite sino que muestran literalmente 0 elementos
+          previewFields = 1000, -- default 50
+          enumsLimit = 1000, -- default 5
         },
       },
     },

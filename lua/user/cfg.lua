@@ -3,6 +3,22 @@
 local map = vim.keymap.set
 
 -- =============================================================================
+-- Clipboard
+-- =============================================================================
+
+-- Recomiendo desactivar la sincronización del clipboard del sistema y aprender a sincronizar
+-- el cliboard manualmente, a menos que sean tus primeros meses utilizando Neovim.
+local sync_clipboard = true
+if sync_clipboard and vim.fn.has "clipboard" == 1 then
+  sabunv.util.clipboard.sync(true)
+end
+
+map("n", "<C-c>", "<cmd>%y+<CR>", { desc = "Clipboard: Copy file" })
+
+-- -> Los mappings legacy se quedaron a medio hacer y van a dar problemas.
+-- sabunv.util.clipboard.saburou.legacy_mappings.set(true)
+
+-- =============================================================================
 -- Core
 -- =============================================================================
 
@@ -33,18 +49,6 @@ map("n", "<leader>fc", function()
     prompt_title = "Neovim config",
   }
 end, { desc = "Telescope: Find config files" })
-
--- =============================================================================
--- Clipboard
--- =============================================================================
-
-map("n", "<C-c>", "<cmd>%y+<CR>", { desc = "Clipboard: Copy file" })
-
--- Opcional -> Puedes activarlo si quieres sincronizar el clipboard.
--- sabunv.util.clipboard.sync(true)
-
--- A medio hacer -> Tampoco es recomendable
--- sabunv.util.clipboard.saburou.legacy_mappings.set(true)
 
 -- =============================================================================
 -- Editor
@@ -100,7 +104,7 @@ map("n", "<C-A-r>", vim.lsp.buf.rename, { desc = "LSP: Rename" })
 
 map("t", "<C-x>", "<C-\\><C-N>", { desc = "Terminal: Leave terminal mode" })
 map("n", "<A-v>", sabunv.terminal.open_vertical_split, { desc = "Terminal: Vertical split" })
-map("n", "<A-b>", sabunv.terminal.open_horizontal_split, { desc = "Terminal: Horizontal split" })
+map("n", "<A-h>", sabunv.terminal.open_horizontal_split, { desc = "Terminal: Horizontal split" })
 
 map({ "n", "i", "t" }, "<A-i>", sabunv.terminal.toggle_float, {
   desc = "Terminal: Toggle floating terminal",
