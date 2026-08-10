@@ -326,6 +326,17 @@ return {
       require("lzy.nvim-tree").setup()
     end,
   },
+  -- --- [ obsidian ] ----------------------------------------------------------
+  -- Obsidian-style vault features: rename de notas actualizando [[enlaces]].
+  -- Sin workspaces configurados: el directorio actual se trata como vault.
+  {
+    "obsidian-nvim/obsidian.nvim",
+    version = "*",
+    ft = { "markdown" },
+    config = function()
+      require("lzy.obsidian").setup()
+    end,
+  },
   {
     -- Aerial Nvim (árbol de símbolos)
     "stevearc/aerial.nvim",
