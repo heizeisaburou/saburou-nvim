@@ -662,7 +662,8 @@ local formatters = {
         if line:match "^%s*%d+[%.)]%s" then
           return false -- lista ordenada
         end
-        if line:match "^%s*([-_*])%1+%s*$" then
+        local hrule = line:match "^%s*([-_*]+)%s*$"
+        if hrule and hrule:match("^" .. hrule:sub(1, 1) .. "+$") then
           return false -- regla horizontal
         end
         if line:match "^%s*|" then
