@@ -80,7 +80,7 @@ end
 --   - zsh: `shfmt` no funciona correctamente en este setup
 local formatters_by_ft = {
   lua = { "stylua" },
-  markdown = { "prettier", "markdown_wrap", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
+  markdown = { "markdown_callouts", "prettier", "markdown_wrap", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
   --
   --
   --
@@ -490,6 +490,101 @@ local formatters = {
     end,
   },
 
+  -- Preparser de callouts de Obsidian (`> [!TIPO] ...`).
+  --
+  -- Se ejecuta ANTES de prettier: sin él, prettier fusiona `> [!NOTE]` con la
+  -- línea de cuerpo en `> [!NOTE] CUERPO`, moviendo el cuerpo al título
+  -- custom del callout. Eso es markdown válido y ya no se puede distinguir
+  -- después de formatear, así que hay que separar el header del cuerpo antes.
+  --
+  -- La separación se hace insertando una línea `>` (blockquote vacío), que
+  -- prettier no fusiona. Un callout de una sola línea (`> [!NOTE] Título`)
+  -- no se toca: no tiene cuerpo que proteger.
+  --
+  -- Segundo caso: header seguido de una línea PLANO sin prefijo `>`.
+  -- CommonMark trata esa línea como lazy continuation del párrafo del
+  -- blockquote, y prettier la junta al header en una sola línea. Se corta la
+  -- continuación insertando una línea vacía.
+  markdown_callouts = {
+    format = function(_, ctx, lines, callback)
+      local out = {}
+
+      -- Devuelve el prefijo `>` (uno o más, para blockquotes anidados) si la
+      -- línea es un header de callout `> [!...]`.
+      local function callout_prefix(line)
+        local marker = ""
+        local i = 1
+        local n = #line
+
+        while i <= n do
+          local c = line:sub(i, i)
+
+          if c == " " or c == "\t" then
+            if marker ~= "" and line:sub(i + 1, i + 1) == ">" then
+              marker = marker .. c
+              i = i + 1
+            else
+              break
+            end
+          elseif c == ">" then
+            marker = marker .. c
+            i = i + 1
+          else
+            break
+          end
+        end
+
+        if marker == "" then
+          return nil
+        end
+
+        if line:sub(#marker + 1):match "^%s*%[!" then
+          return marker
+        end
+
+        return nil
+      end
+
+      -- `true` si la línea es un blockquote con contenido (no vacío).
+      local function has_body(line)
+        local marker = line:match "^(>+)"
+
+        if not marker then
+          return false
+        end
+
+        local rest = line:sub(#marker + 1)
+        return rest ~= "" and rest:match("^%s+$") == nil
+      end
+
+      -- `true` si la línea es texto plano que prettier fusionaría al header
+      -- por lazy continuation (ver comentario del formatter).
+      local function is_lazy_continuation(line)
+        return line:match("^%s*>") == nil and line:match("^%s*$") == nil
+          and line:match("^%s*[#%*%+%-%d%`%~]") == nil
+      end
+
+      for index, line in ipairs(lines) do
+        out[#out + 1] = line
+
+        local prefix = callout_prefix(line)
+        local next_line = lines[index + 1]
+
+        if prefix and next_line then
+          if callout_prefix(next_line) or has_body(next_line) or is_lazy_continuation(next_line) then
+            out[#out + 1] = prefix
+          end
+        elseif has_body(line) and next_line and callout_prefix(next_line) then
+          -- Un callout seguido de otro header sin línea vacía: prettier los
+          -- fusiona como un único párrafo del blockquote. Se separan.
+          out[#out + 1] = callout_prefix(next_line)
+        end
+      end
+
+      callback(nil, out)
+    end,
+  },
+
   -- Re-envuelve la prosa midiendo el ancho *visible* en lugar del bruto.
   --
   -- Prettier (--prose-wrap always) cuenta TODO el markup de un enlace
@@ -511,6 +606,7 @@ local formatters = {
       local n = #lines
       local i = 1
       local fence_char = nil
+      local math_block = false
 
       -- Línea de apertura/cierre de fence: ``` o ~~~, posiblemente con info
       -- string en la apertura (```lua).
@@ -535,6 +631,21 @@ local formatters = {
       local function fence_close(line, char)
         local m = line:match("^%s*" .. char .. "+%s*$")
         return m ~= nil and #m >= 3
+      end
+
+      -- Línea de bloque matemático `$$...$$` (Obsidian/LaTeX, no markdown
+      -- nativo): `$$` sola abre o cierra un bloque multi-línea; `$$ x $$`
+      -- abre y cierra en la misma línea. Devuelve "open", "single" o nil.
+      local function math_line(line)
+        if line:match "^%s*%$%$%s*$" then
+          return "open"
+        end
+
+        if line:match "^%s*%$%$.+%$%$%s*$" then
+          return "single"
+        end
+
+        return nil
       end
 
       -- `true` si la línea puede pertenecer a un párrafo de prosa plano.
@@ -609,41 +720,54 @@ local formatters = {
             fence_char = nil
           end
           i = i + 1
+        elseif math_block then
+          out[#out + 1] = line
+          if math_line(line) == "open" then
+            math_block = false
+          end
+          i = i + 1
         else
-          local char, single_line = fence_open(line)
-          if char then
-            if not single_line then
-              fence_char = char
-            end
+          local kind = math_line(line)
+          if kind then
+            math_block = kind == "open"
             out[#out + 1] = line
             i = i + 1
           else
-            local start = i
-            while i <= n and lines[i] ~= "" do
+            local char, single_line = fence_open(line)
+            if char then
+              if not single_line then
+                fence_char = char
+              end
+              out[#out + 1] = line
               i = i + 1
-            end
-
-            local block = {}
-            for k = start, i - 1 do
-              block[#block + 1] = lines[k]
-            end
-
-            local is_prose = true
-            for _, l in ipairs(block) do
-              if not is_plain_line(l) then
-                is_prose = false
-                break
-              end
-            end
-
-            if is_prose then
-              local wrapped = hzsr.md.wrap_paragraph(join_paragraph(block), width)
-              for _, l in ipairs(vim.split(wrapped, "\n", { plain = true })) do
-                out[#out + 1] = l
-              end
             else
+              local start = i
+              while i <= n and lines[i] ~= "" do
+                i = i + 1
+              end
+
+              local block = {}
+              for k = start, i - 1 do
+                block[#block + 1] = lines[k]
+              end
+
+              local is_prose = true
               for _, l in ipairs(block) do
-                out[#out + 1] = l
+                if not is_plain_line(l) then
+                  is_prose = false
+                  break
+                end
+              end
+
+              if is_prose then
+                local wrapped = hzsr.md.wrap_paragraph(join_paragraph(block), width)
+                for _, l in ipairs(vim.split(wrapped, "\n", { plain = true })) do
+                  out[#out + 1] = l
+                end
+              else
+                for _, l in ipairs(block) do
+                  out[#out + 1] = l
+                end
               end
             end
           end

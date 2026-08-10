@@ -182,6 +182,7 @@ return {
   salt_ls = "salt-lsp",
   serve_d = "serve-d",
   shopify_theme_ls = "shopify-cli",
+  shuck = "shuck",
   slint_lsp = "slint-lsp",
   smithy_ls = "smithy-language-server",
   snyk_ls = "snyk-ls",

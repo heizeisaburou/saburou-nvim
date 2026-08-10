@@ -37,7 +37,6 @@ local M = {}
 --- Fuera por ahora:
 --- "expert", -- alternativa a elixirls; por investigar
 
-
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
@@ -82,6 +81,8 @@ M.servers = {
   "vue_ls", -- Vue (framework de javascript)
   "yamlls", -- .yaml
   "zls", -- zig
+  -- WORKING [Poner abajo hasta terminar]
+  "shuck",
 }
 
 --- Servidores deshabilitados para esta capa.
