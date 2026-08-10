@@ -754,6 +754,7 @@ local function patch_lsp_start()
   end
 
   local start = lsp.start
+  ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
   lsp.start = function(bufnr)
     local name = vim.api.nvim_buf_get_name(bufnr)
     local ws = name ~= "" and require("obsidian").api.find_workspace(name) or nil
