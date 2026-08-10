@@ -116,6 +116,8 @@ function M.generate_lazy(appname)
       })
     elseif name == "snacks.nvim" then
       table.insert(result.diagnostics.globals, "Snacks")
+    elseif name == "obsidian.nvim" then
+      table.insert(result.diagnostics.globals, "Obsidian")
     end
 
     local plugin_lua = vim.fs.joinpath(lazy_dir, name, "lua")
