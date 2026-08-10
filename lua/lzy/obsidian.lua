@@ -93,7 +93,7 @@ local NOTE_EXTENSIONS = { "md", "markdown", "mdown", "mkdn", "mkd", "qmd", "rmd"
 ---@param name string
 ---@return boolean
 local function is_note(name)
-  local ext = name:match("%.([^./]+)$")
+  local ext = name:match "%.([^./]+)$"
   return ext ~= nil and vim.tbl_contains(NOTE_EXTENSIONS, ext)
 end
 
@@ -345,6 +345,8 @@ local function make_opts()
     workspaces = workspace_specs(state.roots),
 
     frontmatter = {
+      -- Por defecto desactivado: los metatags solo se generan en vaults
+      -- cuyo .nyabsidian lo activa, p.ej. { "frontmatter": { "enabled": true } }.
       enabled = function(_path)
         return false
       end,
@@ -378,6 +380,11 @@ end
 
 local function set_workspace(ws)
   if ws then
+    -- .nyabsidian es live: releerlo en cada BufEnter para que ediciones
+    -- (p.ej. activar frontmatter) apliquen sin reiniciar nvim.
+    if ws.name ~= DUMMY_NAME then
+      ws.overrides = workspace_overrides(ws.root)
+    end
     require("obsidian").Workspace.set(ws)
   end
 end
@@ -428,7 +435,7 @@ local function reset_obsidian_buffer(bufnr)
 
   for _, lhs in ipairs { "<CR>", "]o", "[o" } do
     for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
-      if map.lhs == lhs and (map.desc or ""):find("^Obsidian") then
+      if map.lhs == lhs and (map.desc or ""):find "^Obsidian" then
         pcall(vim.keymap.del, "n", lhs, { buffer = bufnr })
       end
     end
@@ -621,25 +628,23 @@ function M.debug_info(opts)
     )
   end
 
-  table.insert(out, "obsidian-ls on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "obsidian-ls" })
-  table.insert(out, "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "marksman" })
   table.insert(
     out,
-    "all LSP on buffer: "
-      .. vim.inspect(vim.tbl_map(function(c)
-        return c.name
-      end, vim.lsp.get_clients { bufnr = b }))
+    "obsidian-ls on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "obsidian-ls" }
   )
+  table.insert(
+    out,
+    "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "marksman" }
+  )
+  table.insert(out, "all LSP on buffer: " .. vim.inspect(vim.tbl_map(function(c)
+    return c.name
+  end, vim.lsp.get_clients { bufnr = b })))
 
   local Obsidian = rawget(_G, "Obsidian")
   if Obsidian then
-    table.insert(
-      out,
-      "workspaces: "
-        .. vim.inspect(vim.tbl_map(function(w)
-          return tostring(w.root)
-        end, Obsidian.workspaces or {}))
-    )
+    table.insert(out, "workspaces: " .. vim.inspect(vim.tbl_map(function(w)
+      return tostring(w.root)
+    end, Obsidian.workspaces or {})))
     table.insert(out, "current: " .. tostring(Obsidian.workspace and Obsidian.workspace.root))
   end
 
@@ -801,6 +806,8 @@ local function install_runtime()
 end
 
 function M.setup()
+  -- El filetype de .nyabsidian se registra en ftdetect/nyabsidian.lua para
+  -- que aplique desde el arranque, sin depender de que este módulo cargue.
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
   patch_lsp_server_shutdown()
   install_workspace_switch()
