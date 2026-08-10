@@ -80,60 +80,60 @@ end
 --   - zsh: `shfmt` no funciona correctamente en este setup
 local formatters_by_ft = {
   lua = { "stylua" },
-  markdown = { "prettier", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
+  markdown = { "prettier", "markdown_wrap", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
   --
   --
   --
-  -- bash = { "shfmt" },
-  -- c = { "clang_format" },
-  -- clojure = { "zprint" }, -- activa edn también
-  -- cpp = { "clang_format" },
-  -- cs = { "csharpier" }, -- C#
-  -- css = { "prettier" },
-  -- dart = { "dart_format" }, -- externo
-  -- edn = { "zprint" }, -- .edn de Clojure
-  -- eelixir = { "mix" },
-  -- elixir = { "mix" },
-  -- fsharp = { "fantomas" }, -- F#
-  -- gleam = { "gleam" },
-  -- go = { "gofmt" },
-  -- gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
-  -- handlebars = { "prettier_handlebars" },
-  -- haskell = { "fourmolu" },
-  -- heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
-  -- html = { "prettier" },
-  -- htmldjango = { "djlint" },
-  -- java = { "google-java-format" },
-  -- javascript = { "prettier" },
-  -- javascriptreact = { "prettier" },
-  -- jinja = { "prettier_jinja" },
-  -- json = { "biome" },
-  -- kotlin = { "ktlint" },
-  -- lhaskell = { "fourmolu" }, -- .lhs
-  -- liquid = { "prettier_liquid" },
-  -- ocaml = { "ocamlformat" }, -- camellito
-  -- ocamlinterface = { "ocamlformat" }, -- camellitox2
-  -- php = { "php_cs_fixer" },
-  -- plaintex = { "latexindent" }, -- Latex
-  -- pug = { "prettier_pug" }, -- Pug (Jade)
-  -- python = { "ruff_format" },
-  -- qml = { "qmlformat" }, -- externo
-  -- ruby = { "rubocop", timeout_ms = 10000 },
-  -- rust = { "rustfmt" },
-  -- scala = { "scalafmt", timeout_ms = 10000 },
-  -- scss = { "prettier" },
-  -- surface = { "mix" }, -- Elixir/Phoenix
-  -- svelte = { "prettier_svelte" },
-  -- swift = { "swiftformat" },
-  -- tex = { "latexindent" }, -- latex
-  -- toml = { "taplo" }, -- toml
-  -- twig = { "prettier_twig" }, -- twig
-  -- typescript = { "prettier" },
-  -- typescriptreact = { "prettier" },
-  -- typst = { "typstyle" }, -- Typst
-  -- vue = { "prettier" }, -- Vue (framework de javascript)
-  -- yaml = { "yamlfmt" },
-  -- zig = { "zigfmt" },
+  bash = { "shfmt" },
+  c = { "clang_format" },
+  clojure = { "zprint" }, -- activa edn también
+  cpp = { "clang_format" },
+  cs = { "csharpier" }, -- C#
+  css = { "prettier" },
+  dart = { "dart_format" }, -- externo
+  edn = { "zprint" }, -- .edn de Clojure
+  eelixir = { "mix" },
+  elixir = { "mix" },
+  fsharp = { "fantomas" }, -- F#
+  gleam = { "gleam" },
+  go = { "gofmt" },
+  gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
+  handlebars = { "prettier_handlebars" },
+  haskell = { "fourmolu" },
+  heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
+  html = { "prettier" },
+  htmldjango = { "djlint" },
+  java = { "google-java-format" },
+  javascript = { "prettier" },
+  javascriptreact = { "prettier" },
+  jinja = { "prettier_jinja" },
+  json = { "biome" },
+  kotlin = { "ktlint" },
+  lhaskell = { "fourmolu" }, -- .lhs
+  liquid = { "prettier_liquid" },
+  ocaml = { "ocamlformat" }, -- camellito
+  ocamlinterface = { "ocamlformat" }, -- camellitox2
+  php = { "php_cs_fixer" },
+  plaintex = { "latexindent" }, -- Latex
+  pug = { "prettier_pug" }, -- Pug (Jade)
+  python = { "ruff_format" },
+  qml = { "qmlformat" }, -- externo
+  ruby = { "rubocop", timeout_ms = 10000 },
+  rust = { "rustfmt" },
+  scala = { "scalafmt", timeout_ms = 10000 },
+  scss = { "prettier" },
+  surface = { "mix" }, -- Elixir/Phoenix
+  svelte = { "prettier_svelte" },
+  swift = { "swiftformat" },
+  tex = { "latexindent" }, -- latex
+  toml = { "taplo" }, -- toml
+  twig = { "prettier_twig" }, -- twig
+  typescript = { "prettier" },
+  typescriptreact = { "prettier" },
+  typst = { "typstyle" }, -- Typst
+  vue = { "prettier" }, -- Vue (framework de javascript)
+  yaml = { "yamlfmt" },
+  zig = { "zigfmt" },
 }
 
 -- ----------------------------------------------------------------------------
@@ -487,6 +487,170 @@ local formatters = {
         "--stdin-filepath",
         "$FILENAME",
       }
+    end,
+  },
+
+  -- Re-envuelve la prosa midiendo el ancho *visible* en lugar del bruto.
+  --
+  -- Prettier (--prose-wrap always) cuenta TODO el markup de un enlace
+  -- (`[label](url...)`) al calcular el ancho de línea, así que una URL larga
+  -- arrastra el enlace a su propia línea aunque el texto visible sea corto
+  -- (issue prettier/prettier#9232; mdformat#521 hacen lo mismo). Esta pasada
+  -- vuelve a envolver los párrafos descontando el markup inline:
+  -- los enlaces cuentan como su label y los code spans/autolinks como su
+  -- contenido. Los enlaces son atómicos: nunca se parten.
+  --
+  -- Sólo toca bloques de prosa de nivel superior; el resto (fences de código,
+  -- cabeceras, listas, blockquotes, tablas, reglas, definiciones de enlace,
+  -- HTML) se pasa intacto. Implementado en `hzsr.md` (Lua puro, sin
+  -- dependencias).
+  markdown_wrap = {
+    format = function(_, ctx, lines, callback)
+      local width = line_length
+      local out = {}
+      local n = #lines
+      local i = 1
+      local fence_char = nil
+
+      -- Línea de apertura/cierre de fence: ``` o ~~~, posiblemente con info
+      -- string en la apertura (```lua).
+      --
+      -- Devuelve el carácter del marcador y si la línea se abre y se cierra
+      -- en la misma línea (prettier emite así los bloques de código sin
+      -- saltos internos: ```lua x ```).
+      local function fence_open(line)
+        local marker = line:match "^%s*(`+)" or line:match "^%s*(~+)"
+
+        if not marker or #marker < 3 then
+          return nil
+        end
+
+        local rest = line:sub(#marker + 1)
+        local bt = rest:match "`+"
+        local til = rest:match "~+"
+        local single_line = (bt and #bt >= 3) or (til and #til >= 3)
+        return marker:sub(1, 1), single_line
+      end
+
+      local function fence_close(line, char)
+        local m = line:match("^%s*" .. char .. "+%s*$")
+        return m ~= nil and #m >= 3
+      end
+
+      -- `true` si la línea puede pertenecer a un párrafo de prosa plano.
+      local function is_plain_line(line)
+        if line:match "^%s*#" then
+          return false -- heading
+        end
+        if line:match "^%s*>" then
+          return false -- blockquote
+        end
+        if line:match "^%s*[-*+]%s" then
+          return false -- lista no ordenada
+        end
+        if line:match "^%s*%d+[%.)]%s" then
+          return false -- lista ordenada
+        end
+        if line:match "^%s*([-_*])%1+%s*$" then
+          return false -- regla horizontal
+        end
+        if line:match "^%s*|" then
+          return false -- fila de tabla
+        end
+        if line:match "^%s*<" then
+          return false -- bloque HTML
+        end
+        if line:match "^%s*%[[^%]]*%]:%s" then
+          return false -- definición de enlace de referencia
+        end
+        local indent = line:match "^ +"
+        if (indent and #indent >= 4) or line:match "^\t" then
+          return false -- código indentado
+        end
+        return true
+      end
+
+      -- Une las líneas del párrafo en una sola cadena lógica, conservando los
+      -- saltos duros como `\n` (prettier los escribe como `\` al final de
+      -- línea; dos espacios finales también cuentan).
+      local function join_paragraph(block)
+        local text = {}
+
+        for index, line in ipairs(block) do
+          local clean = line:gsub("%s+$", "")
+          local had_trailing_space = #clean < #line
+
+          if clean:match "\\$" then
+            text[#text + 1] = clean:sub(1, -2)
+            text[#text + 1] = "\n"
+          elseif had_trailing_space then
+            text[#text + 1] = clean
+            text[#text + 1] = "\n"
+          else
+            text[#text + 1] = clean
+            if index < #block then
+              text[#text + 1] = " "
+            end
+          end
+        end
+
+        return table.concat(text)
+      end
+
+      while i <= n do
+        local line = lines[i]
+
+        if line == "" then
+          out[#out + 1] = line
+          i = i + 1
+        elseif fence_char then
+          out[#out + 1] = line
+          if fence_close(line, fence_char) then
+            fence_char = nil
+          end
+          i = i + 1
+        else
+          local char, single_line = fence_open(line)
+          if char then
+            if not single_line then
+              fence_char = char
+            end
+            out[#out + 1] = line
+            i = i + 1
+          else
+            local start = i
+            while i <= n and lines[i] ~= "" do
+              i = i + 1
+            end
+
+            local block = {}
+            for k = start, i - 1 do
+              block[#block + 1] = lines[k]
+            end
+
+            local is_prose = true
+            for _, l in ipairs(block) do
+              if not is_plain_line(l) then
+                is_prose = false
+                break
+              end
+            end
+
+            if is_prose then
+              local wrapped = hzsr.md.wrap_paragraph(join_paragraph(block), width)
+              for _, l in ipairs(vim.split(wrapped, "\n", { plain = true })) do
+                out[#out + 1] = l
+              end
+            else
+              for _, l in ipairs(block) do
+                out[#out + 1] = l
+              end
+            end
+          end
+        end
+      end
+
+      callback(nil, out)
     end,
   },
 
