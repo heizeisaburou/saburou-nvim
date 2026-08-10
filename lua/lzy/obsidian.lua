@@ -287,7 +287,12 @@ local function workspace_overrides(root)
   end
 
   local ok, err = pcall(function()
-    require("obsidian.config").normalize(vim.deepcopy(overrides))
+    -- Validar contra los defaults del plugin dispara la deprecación de
+    -- legacy_commands (true por defecto); el merge real usa Obsidian._opts
+    -- (legacy_commands = false), así que aquí lo neutralizamos también.
+    local copy = vim.deepcopy(overrides)
+    copy.legacy_commands = false
+    require("obsidian.config").normalize(copy)
   end)
   if not ok then
     config_warning(vim.fs.joinpath(root, NYABSIDIAN_MARKER), err)
