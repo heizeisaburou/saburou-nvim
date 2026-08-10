@@ -403,6 +403,20 @@ local function reset_obsidian_buffer(bufnr)
   vim.b[bufnr].obsidian_buffer = false
   vim.b[bufnr].obsidian_help = nil
   vim.b[bufnr].note = nil
+  vim.b[bufnr].obsidian_status = nil
+
+  -- El footer de obsidian (backlinks/properties) son virt_lines en el
+  -- namespace "obsidian.footer": se limpian con su propio autocmd de
+  -- BufUnload (para el timer y autocmds) y borrando el namespace.
+  local footer_ns = vim.api.nvim_get_namespaces()["obsidian.footer"]
+  if footer_ns then
+    pcall(vim.api.nvim_buf_clear_namespace, bufnr, footer_ns, 0, -1)
+  end
+  pcall(vim.api.nvim_exec_autocmds, "BufUnload", {
+    group = "obsidian.footer-" .. bufnr,
+    buffer = bufnr,
+    modeline = false,
+  })
 
   vim.bo[bufnr].includeexpr = ""
   if vim.bo[bufnr].commentstring == "%%%s%%" then
