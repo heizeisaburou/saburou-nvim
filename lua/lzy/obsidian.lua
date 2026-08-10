@@ -15,6 +15,7 @@ local state = {
   initialized = false,
   refreshing = false,
   config_errors = {},
+  lsp_server_patched = false,
 }
 
 local function notify(msg, level)
@@ -86,8 +87,15 @@ local function discover(path)
   end
 end
 
---- Archivos que pueden pertenecer a un workspace.
-local NOTE_PATTERN = "^.*%.(md|markdown|mdown|mkdn|mkd|qmd|rmd|base)$"
+--- Extensiones de archivos que pueden pertenecer a un workspace.
+local NOTE_EXTENSIONS = { "md", "markdown", "mdown", "mkdn", "mkd", "qmd", "rmd", "base" }
+
+---@param name string
+---@return boolean
+local function is_note(name)
+  local ext = name:match("%.([^./]+)$")
+  return ext ~= nil and vim.tbl_contains(NOTE_EXTENSIONS, ext)
+end
 
 --- Detecta roots a partir de los buffers abiertos que no pertenezcan aún a
 --- ningún root conocido. Complementa a discover(cwd()).
@@ -104,7 +112,7 @@ local function scan_buffers(known)
     local name = vim.api.nvim_buf_get_name(bufnr)
     if name ~= "" then
       local tail = vim.fn.fnamemodify(name, ":t")
-      if name:match(NOTE_PATTERN) or tail == NYABSIDIAN_MARKER then
+      if is_note(name) or tail == NYABSIDIAN_MARKER then
         local found = discover(name)
         if found and not seen[found.root] then
           seen[found.root] = true
@@ -384,6 +392,37 @@ local function detach_obsidian_lsp(bufnr)
   end
 end
 
+--- Deja un buffer como si obsidian.nvim nunca lo hubiera tocado.
+local function reset_obsidian_buffer(bufnr)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local help = vim.b[bufnr].obsidian_help
+
+  vim.b[bufnr].obsidian_buffer = false
+  vim.b[bufnr].obsidian_help = nil
+  vim.b[bufnr].note = nil
+
+  vim.bo[bufnr].includeexpr = ""
+  if vim.bo[bufnr].commentstring == "%%%s%%" then
+    vim.bo[bufnr].commentstring = "%s"
+  end
+  if help then
+    vim.bo[bufnr].readonly = false
+  end
+
+  for _, lhs in ipairs { "<CR>", "]o", "[o" } do
+    for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
+      if map.lhs == lhs and (map.desc or ""):find("^Obsidian") then
+        pcall(vim.keymap.del, "n", lhs, { buffer = bufnr })
+      end
+    end
+  end
+
+  detach_obsidian_lsp(bufnr)
+end
+
 --- Sincroniza el estado global con el buffer actual. Si el buffer no pertenece
 --- a ningún workspace, usa el workspace del cwd; si tampoco existe, dummy.
 local function sync_current_context(reenter)
@@ -406,8 +445,7 @@ local function sync_current_context(reenter)
   end
 
   if vim.bo[bufnr].filetype == "markdown" or vim.bo[bufnr].filetype == "quarto" then
-    vim.b[bufnr].obsidian_buffer = false
-    detach_obsidian_lsp(bufnr)
+    reset_obsidian_buffer(bufnr)
   end
 
   set_workspace(workspace_for(cwd()) or dummy_workspace())
@@ -434,7 +472,9 @@ local function stop_removed_lsp(roots)
   end
 end
 
-local function rebuild_runtime(roots)
+---@param roots string[]
+---@param removed? string[] Roots que han dejado de existir.
+local function rebuild_runtime(roots, removed)
   local obsidian = require "obsidian"
   local workspaces = {}
 
@@ -455,6 +495,20 @@ local function rebuild_runtime(roots)
 
   Obsidian.workspaces = workspaces
   stop_removed_lsp(roots)
+
+  -- Des-obsidianiza los buffers abiertos de los roots que desaparecieron.
+  for _, root in ipairs(removed or {}) do
+    local prefix = normalize(root) .. "/"
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(bufnr) then
+        local name = normalize(vim.api.nvim_buf_get_name(bufnr))
+        if name and name:sub(1, #prefix) == prefix then
+          reset_obsidian_buffer(bufnr)
+        end
+      end
+    end
+  end
+
   sync_current_context(true)
 end
 
@@ -469,10 +523,18 @@ function M.refresh(opts)
   local ok, err = xpcall(function()
     local before = state.roots
     local roots, found = collect_roots()
+
+    local removed = {}
+    for _, root in ipairs(before) do
+      if not vim.tbl_contains(roots, root) then
+        removed[#removed + 1] = root
+      end
+    end
+
     state.roots = roots
 
     if state.initialized then
-      rebuild_runtime(roots)
+      rebuild_runtime(roots, removed)
     end
 
     if opts.notify then
@@ -519,6 +581,57 @@ function M.info()
   notify(table.concat(lines, "\n"))
 end
 
+--- Volcado de diagnóstico para depurar la descarga de obsidian.nvim.
+---@param opts? { notify?: boolean }
+function M.debug_info(opts)
+  opts = opts or {}
+  local out = {}
+  local b = vim.api.nvim_get_current_buf()
+
+  table.insert(out, "bufname: " .. vim.api.nvim_buf_get_name(b))
+  table.insert(out, "obsidian_buffer: " .. tostring(vim.b[b].obsidian_buffer))
+  table.insert(out, "includeexpr: '" .. vim.bo[b].includeexpr .. "'")
+  table.insert(out, "cr_desc: " .. tostring(vim.fn.maparg("<CR>", "n", false, true).desc))
+  table.insert(out, "state.roots: " .. vim.inspect(state.roots))
+  table.insert(out, "lsp_server_patched: " .. tostring(state.lsp_server_patched))
+
+  for _, c in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
+    table.insert(
+      out,
+      ("client %d closing=%s stopped=%s root=%s"):format(
+        c.id,
+        tostring(c.rpc and c.rpc.is_closing and c.rpc.is_closing() or "?"),
+        tostring(c:is_stopped()),
+        tostring(c.config.root_dir)
+      )
+    )
+  end
+
+  table.insert(out, "obsidian-ls on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "obsidian-ls" })
+  table.insert(out, "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "marksman" })
+  table.insert(
+    out,
+    "all LSP on buffer: "
+      .. vim.inspect(vim.tbl_map(function(c)
+        return c.name
+      end, vim.lsp.get_clients { bufnr = b }))
+  )
+
+  local Obsidian = rawget(_G, "Obsidian")
+  if Obsidian then
+    table.insert(
+      out,
+      "workspaces: "
+        .. vim.inspect(vim.tbl_map(function(w)
+          return tostring(w.root)
+        end, Obsidian.workspaces or {}))
+    )
+    table.insert(out, "current: " .. tostring(Obsidian.workspace and Obsidian.workspace.root))
+  end
+
+  notify(table.concat(out, "\n"))
+end
+
 --- Debe registrarse antes del setup de obsidian.nvim. Así el workspace global
 --- ya es correcto cuando sus BufEnter consultan Obsidian.opts / Obsidian.dir.
 local function install_workspace_switch()
@@ -536,12 +649,77 @@ local function install_workspace_switch()
       if ws then
         set_workspace(ws)
       else
-        vim.b[ev.buf].obsidian_buffer = false
-        detach_obsidian_lsp(ev.buf)
+        reset_obsidian_buffer(ev.buf)
         set_workspace(workspace_for(cwd()) or dummy_workspace())
       end
     end,
   })
+end
+
+--- obsidian-ls es un servidor LSP in-process (función pasada a `vim.lsp.start`).
+--- Neovim requiere que un servidor así invoque `dispatchers.on_exit()` para
+--- señalizar su fin; obsidian.nvim no lo hace en `terminate()` ni al recibir
+--- `exit`, así que `client:stop()` deja el cliente registrado para siempre.
+--- Envolvemos la factory y garantizamos exactamente un on_exit. Si upstream lo
+--- corrige, el wrapper no duplica la notificación.
+local function patch_lsp_server_shutdown()
+  if state.lsp_server_patched then
+    return
+  end
+
+  local module_name = "obsidian.lsp.server"
+  local factory = require(module_name)
+
+  package.loaded[module_name] = function(dispatchers)
+    local exited = false
+    local on_exit = dispatchers.on_exit
+
+    local wrapped_dispatchers = vim.tbl_extend("force", dispatchers, {
+      on_exit = function(code, signal)
+        if exited then
+          return
+        end
+        exited = true
+        return on_exit(code, signal)
+      end,
+    })
+
+    local server = factory(wrapped_dispatchers)
+    local notify_rpc = server.notify
+    local terminate_rpc = server.terminate
+
+    server.notify = function(method, ...)
+      local result
+      if notify_rpc then
+        result = notify_rpc(method, ...)
+      end
+
+      -- Cierre limpio: shutdown + exit. El servidor debe señalizar su salida.
+      if method == "exit" and not exited then
+        wrapped_dispatchers.on_exit(0, 0)
+      end
+
+      return result
+    end
+
+    server.terminate = function(...)
+      local result
+      if terminate_rpc then
+        result = terminate_rpc(...)
+      end
+
+      -- Cierre forzado (client:stop(true)): terminar sin esperar al proceso.
+      if not exited then
+        wrapped_dispatchers.on_exit(0, 15)
+      end
+
+      return result
+    end
+
+    return server
+  end
+
+  state.lsp_server_patched = true
 end
 
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
@@ -593,6 +771,7 @@ local function install_runtime()
 
   pcall(vim.api.nvim_del_user_command, "NyabsidianRefresh")
   pcall(vim.api.nvim_del_user_command, "NyabsidianInfo")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianDebug")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -601,9 +780,15 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianInfo", function()
     M.info()
   end, { desc = "Show Nyabsidian workspace info" })
+
+  vim.api.nvim_create_user_command("NyabsidianDebug", function()
+    M.debug_info()
+  end, { desc = "Dump Nyabsidian LSP debug info" })
 end
 
 function M.setup()
+  -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
+  patch_lsp_server_shutdown()
   install_workspace_switch()
   require("obsidian").setup(M.opts())
 
