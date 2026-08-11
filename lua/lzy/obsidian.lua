@@ -120,9 +120,9 @@ local function scan_buffers(known)
       if is_note(name) or tail == NYABSIDIAN_MARKER then
         local dir = normalize(vim.fs.dirname(name))
         local root = false
-        if dir_cache[dir] ~= nil then
+        if dir and dir_cache[dir] ~= nil then
           root = dir_cache[dir]
-        else
+        elseif dir then
           local found = discover(dir)
           root = found and found.root or false
           dir_cache[dir] = root
@@ -247,27 +247,36 @@ local function config_warning(path, err)
 end
 
 local function read_nyabsidian(root)
+  -- ws.root puede ser un Path (tabla): joinpath lo descartaría y acabaríamos
+  -- leyendo el .nyabsidian del cwd. Normalizamos a string siempre.
+  root = vim.fs.normalize(tostring(root))
   local path = vim.fs.joinpath(root, NYABSIDIAN_MARKER)
   if not stat(path, "file") then
     return {}
   end
 
-  local f = io.open(path, "r")
-  if not f then
+  -- El archivo es Lua: loadfile no depende del nombre. El chunk debe devolver
+  -- una tabla (el fragmento de overrides); sin return = defaults.
+  local chunk, load_err = loadfile(path)
+  if not chunk then
+    config_warning(path, load_err)
     return {}
   end
-  local raw = f:read "*a"
-  f:close()
 
-  -- Archivo vacío = defaults.
-  if not raw or vim.trim(raw) == "" then
+  local ok, data = pcall(chunk)
+  if not ok then
+    config_warning(path, data)
+    return {}
+  end
+
+  -- Archivo vacío o solo comentarios = defaults.
+  if data == nil then
     state.config_errors[path] = nil
     return {}
   end
 
-  local ok, data = pcall(vim.json.decode, raw)
-  if not ok or type(data) ~= "table" or (not vim.tbl_isempty(data) and vim.islist(data)) then
-    config_warning(path, ok and "la raíz JSON debe ser un objeto" or data)
+  if type(data) ~= "table" or (not vim.tbl_isempty(data) and vim.islist(data)) then
+    config_warning(path, "la raíz debe ser una tabla; p.ej. return { ... }")
     return {}
   end
 
@@ -276,24 +285,13 @@ local function read_nyabsidian(root)
 end
 
 --- Traduce .nyabsidian a overrides de obsidian.nvim.
---- Ampliar aquí cuando Nyabsidian gane más opciones.
+--- El archivo devuelve un fragmento de overrides (Lua); el deep-merge por clave
+--- con los defaults del plugin lo hace Workspace.set (config.normalize).
+--- Las funciones (frontmatter.func, enabled, ...) se reemplazan por clave,
+--- nunca se fusionan; si un vault no define frontmatter.func, aplica la
+--- función global de make_opts (fallback por merge).
 local function workspace_overrides(root)
-  local cfg = read_nyabsidian(root)
-  local overrides = {}
-
-  if cfg.frontmatter ~= nil then
-    if type(cfg.frontmatter) ~= "table" then
-      config_warning(
-        vim.fs.joinpath(root, NYABSIDIAN_MARKER),
-        "'frontmatter' debe ser un objeto"
-      )
-      return {}
-    end
-
-    overrides.frontmatter = vim.deepcopy(cfg.frontmatter)
-    -- .nyabsidian es JSON: frontmatter.func sigue siendo responsabilidad Lua.
-    overrides.frontmatter.func = nil
-  end
+  local overrides = read_nyabsidian(root)
 
   if vim.tbl_isempty(overrides) then
     return overrides
@@ -364,7 +362,7 @@ local function make_opts()
 
     frontmatter = {
       -- Por defecto desactivado: los metatags solo se generan en vaults
-      -- cuyo .nyabsidian lo activa, p.ej. { "frontmatter": { "enabled": true } }.
+      -- cuyo .nyabsidian lo activa, p.ej. frontmatter = { enabled = true }.
       enabled = function(_path)
         return false
       end,
@@ -726,6 +724,74 @@ function M.frontmatter()
   notify(updated and "Frontmatter actualizado" or "Frontmatter sin cambios")
 end
 
+--- Template de .nyabsidian para NyabsidianInit.
+local function nyabsidian_template()
+  return [[-- Config de Nyabsidian para este vault.
+-- Guarda este archivo como ".nyabsidian" en el directorio que quieras
+-- tratar como vault: ese archivo ES el marker que lo convierte en vault
+-- (junto a .obsidian si existe). Es live: se relee al entrar en cada nota.
+
+-- Claves disponibles (fragmento de la config de obsidian.nvim; el resto
+-- hereda de los defaults de la config global).
+---@class nyabsidian.VaultConfig
+---@field frontmatter? obsidian.config.FrontmatterOpts
+---@field link? obsidian.config.LinkOpts
+---@field templates? obsidian.config.TemplateOpts
+---@field daily_notes? obsidian.config.DailyNotesOpts
+---@field attachments? obsidian.config.AttachmentsOpts
+---@field note_id_func? (fun(title: string|?, path: obsidian.Path|?): string)|?
+---@field note_path_func? fun(spec: { id: string, dir: obsidian.Path, title: string|? }): string|obsidian.Path
+---@field callbacks? obsidian.config.CallbackConfig
+---@field search? obsidian.config.SearchOpts
+
+---@type nyabsidian.VaultConfig
+return {
+  --- frontmatter: activa la generación de metatags (id, aliases, tags).
+  --- false: desactivado (default global). true: en todas las notas.
+  --- También acepta una función por nota: enabled = function(fname) return true end.
+  
+  -- frontmatter = { enabled = true },
+
+  --- frontmatter.func: cómo se construye el frontmatter de cada nota.
+  --- Si no se define, aplica la función global de la config; esta es esa
+  --- función, como ejemplo para editar por vault.
+
+  -- frontmatter = {
+  --   enabled = true,
+  --   func = function(note)
+  --     if note.title then
+  --       note:add_alias(note.title)
+  --     end
+  --
+  --     local out = { id = note.id, aliases = note.aliases, tags = note.tags }
+  --     if note.metadata ~= nil and not vim.tbl_isempty(note.metadata) then
+  --       for k, v in pairs(note.metadata) do
+  --         out[k] = v
+  --       end
+  --     end
+  --     return out
+  --   end,
+  -- },
+
+  --- Otros ejemplos (claves por vault):
+
+  -- link = { style = "markdown" },
+  -- templates = { folder = "Templates" },
+  -- daily_notes = { folder = "Daily", default_tags = { "diario" } },
+  -- attachments = { folder = "Archivos" },
+}
+]]
+end
+
+--- :NyabsidianInit — buffer sin nombre con el template de .nyabsidian.
+function M.nyabsidian_init()
+  vim.cmd "enew"
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(nyabsidian_template(), "\n"))
+  -- El ftplugin de nyabsidian lo reclasifica a lua (sintaxis, stylua).
+  vim.bo.filetype = "nyabsidian"
+  notify "Guárdalo como .nyabsidian en el directorio que quieras tratar como vault"
+end
+
 --- Debe registrarse antes del setup de obsidian.nvim. Así el workspace global
 --- ya es correcto cuando sus BufEnter consultan Obsidian.opts / Obsidian.dir.
 local function install_workspace_switch()
@@ -868,6 +934,7 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianInfo")
   pcall(vim.api.nvim_del_user_command, "NyabsidianDebug")
   pcall(vim.api.nvim_del_user_command, "NyabsidianFrontmatter")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianInit")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -884,6 +951,10 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianFrontmatter", function()
     M.frontmatter()
   end, { desc = "Regenerate note frontmatter (forced)" })
+
+  vim.api.nvim_create_user_command("NyabsidianInit", function()
+    M.nyabsidian_init()
+  end, { desc = "New .nyabsidian template buffer" })
 end
 
 function M.setup()

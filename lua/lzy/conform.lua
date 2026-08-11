@@ -108,10 +108,6 @@ local formatters_by_ft = {
   javascriptreact = { "prettier" },
   jinja = { "prettier_jinja" },
   json = { "biome" },
-  -- .nyabsidian se reclasifica a json en after/ftplugin; biome infiere el
-  -- lenguaje por la extensión de --stdin-file-path, y ".nyabsidian" no se
-  -- conoce, así que se le presenta el archivo como .json.
-  nyabsidian = { "biome" },
   kotlin = { "ktlint" },
   lhaskell = { "fourmolu" }, -- .lhs
   liquid = { "prettier_liquid" },
@@ -157,16 +153,10 @@ local formatters = {
     args = function(_, ctx)
       local config = indent_for(ctx)
       -- biome infiere el lenguaje por la extensión de --stdin-file-path.
-      -- ".nyabsidian" no tiene extensión: biome devuelve la entrada sin tocar
-      -- con exit 0 (no hay error, solo no formatea), así que para los buffers
-      -- .nyabsidian se le presenta un nombre con extensión .json.
-      local file = ctx.filename:match("%.nyabsidian$")
-          and vim.fn.fnamemodify(ctx.filename, ":t"):gsub("^%.nyabsidian$", "nyabsidian.json")
-        or "$FILENAME"
       return {
         "format",
         "--stdin-file-path",
-        file,
+        "$FILENAME",
         "--indent-style=" .. (config.style == "tabs" and "tab" or "space"),
         "--indent-width=" .. tostring(config.width),
         "--line-width=" .. tostring(line_length),

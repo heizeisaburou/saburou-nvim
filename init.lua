@@ -12,3 +12,6 @@ hzsr.lzy.setup()
 
 -- Instala comando :Luarc [NVIM_APPNAME]
 sabunv.nvim.luarc.setup()
+
+-- Instala comandos :Synco y :Harness
+sabunv.nvim.sync.setup()

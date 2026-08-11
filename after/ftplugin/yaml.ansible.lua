@@ -1,0 +1,3 @@
+-- yaml.ansible no necesita reclasificación: es un filetype compuesto y el
+-- base (yaml) ya cubre sintaxis, treesitter y conform (yamlfmt). El LSP lo
+-- atiende ansiblels por patrón de filetype (ver lzy/lspconfig.lua).

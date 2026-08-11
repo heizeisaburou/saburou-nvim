@@ -1,5 +1,51 @@
-{
-  "frontmatter": {
-    "enabled": false
-  }
+-- Config de Nyabsidian para este vault.
+-- Guarda este archivo como ".nyabsidian" en el directorio que quieras
+-- tratar como vault: ese archivo ES el marker que lo convierte en vault
+-- (junto a .obsidian si existe). Es live: se relee al entrar en cada nota.
+
+-- Claves disponibles (fragmento de la config de obsidian.nvim; el resto
+-- hereda de los defaults de la config global).
+---@class nyabsidian.VaultConfig
+---@field frontmatter? obsidian.config.FrontmatterOpts
+---@field link? obsidian.config.LinkOpts
+---@field templates? obsidian.config.TemplateOpts
+---@field daily_notes? obsidian.config.DailyNotesOpts
+---@field attachments? obsidian.config.AttachmentsOpts
+---@field note_id_func? (fun(title: string|?, path: obsidian.Path|?): string)|?
+---@field note_path_func? fun(spec: { id: string, dir: obsidian.Path, title: string|? }): string|obsidian.Path
+---@field callbacks? obsidian.config.CallbackConfig
+---@field search? obsidian.config.SearchOpts
+
+---@type nyabsidian.VaultConfig
+return {
+  -- frontmatter: activa la generación de metatags (id, aliases, tags).
+  -- false: desactivado (default global). true: en todas las notas.
+  -- También acepta una función por nota: enabled = function(fname) return true end.
+  frontmatter = { enabled = false },
+
+  -- frontmatter.func: cómo se construye el frontmatter de cada nota.
+  -- Si no se define, aplica la función global de la config; esta es esa
+  -- función, como ejemplo para editar por vault.
+  -- frontmatter = {
+  --   enabled = true,
+  --   func = function(note)
+  --     if note.title then
+  --       note:add_alias(note.title)
+  --     end
+  --
+  --     local out = { id = note.id, aliases = note.aliases, tags = note.tags }
+  --     if note.metadata ~= nil and not vim.tbl_isempty(note.metadata) then
+  --       for k, v in pairs(note.metadata) do
+  --         out[k] = v
+  --       end
+  --     end
+  --     return out
+  --   end,
+  -- },
+
+  -- Otros ejemplos (claves por vault):
+  -- link = { style = "markdown" },
+  -- templates = { folder = "Templates" },
+  -- daily_notes = { folder = "Daily", default_tags = { "diario" } },
+  -- attachments = { folder = "Archivos" },
 }
