@@ -16,6 +16,7 @@ local state = {
   refreshing = false,
   config_errors = {},
   lsp_server_patched = false,
+  note_save_patched = false,
 }
 
 local function notify(msg, level)
@@ -733,23 +734,88 @@ local function nyabsidian_template()
 
 -- Claves disponibles (fragmento de la config de obsidian.nvim; el resto
 -- hereda de los defaults de la config global).
+--
+-- Los tipos de abajo son un espejo resumido de obsidian.config.* del plugin:
+-- sirven para validar y completar este archivo en cualquier carpeta, sin
+-- depender de los tipos del plugin. El plugin acepta más claves; consulta
+-- la wiki de obsidian.nvim para el detalle completo.
+
+---@class nyabsidian.Note
+---@field id string
+---@field title string|? Título legible de la nota.
+---@field aliases string[]
+---@field tags string[]
+---@field contents string[]
+---@field metadata table
+---@field path string|?
+---@field has_frontmatter boolean|?
+---@field frontmatter_end_line integer|?
+---@field add_alias fun(self: nyabsidian.Note, alias: string)
+
+---@class nyabsidian.FrontmatterOpts
+---@field enabled? boolean|fun(fname: string|?): boolean
+---@field func? fun(note: nyabsidian.Note): table<string, any>
+---@field sort? string[]|fun(a: any, b: any): boolean|false
+
+---@class nyabsidian.LinkOpts
+---@field style? "wiki"|"markdown"
+---@field format? "shortest"|"relative"|"absolute"
+---@field auto_update? boolean
+
+---@class nyabsidian.TemplateOpts
+---@field enabled? boolean
+---@field folder? string
+---@field date_format? string
+---@field time_format? string
+---@field substitutions? table<string, string|fun(ctx: table, suffix: string|?): string|?>
+---@field customizations? table<string, table>
+
+---@class nyabsidian.DailyNotesOpts
+---@field enabled? boolean
+---@field folder? string
+---@field date_format? string
+---@field alias_format? string
+---@field template? string
+---@field default_tags? string[]
+---@field workdays_only? boolean
+
+---@class nyabsidian.AttachmentsOpts
+---@field folder? string
+---@field img_name_func? fun(): string
+---@field img_text_func? fun(path: string): string
+---@field confirm_img_paste? boolean
+
+---@class nyabsidian.SearchOpts
+---@field sort_by? "path"|"modified"|"accessed"|"created"|false
+---@field sort_reversed? boolean
+---@field max_lines? integer
+
+---@class nyabsidian.CallbackConfig
+---@field post_setup? fun()
+---@field create_note? fun(note: nyabsidian.Note, opts: table)
+---@field enter_note? fun(note: nyabsidian.Note)
+---@field leave_note? fun(note: nyabsidian.Note)
+---@field pre_write_note? fun(note: nyabsidian.Note)
+---@field add_attachment? fun(path: string, ctx: table)
+---@field post_set_workspace? fun(workspace: table)
+
 ---@class nyabsidian.VaultConfig
----@field frontmatter? obsidian.config.FrontmatterOpts
----@field link? obsidian.config.LinkOpts
----@field templates? obsidian.config.TemplateOpts
----@field daily_notes? obsidian.config.DailyNotesOpts
----@field attachments? obsidian.config.AttachmentsOpts
----@field note_id_func? (fun(title: string|?, path: obsidian.Path|?): string)|?
----@field note_path_func? fun(spec: { id: string, dir: obsidian.Path, title: string|? }): string|obsidian.Path
----@field callbacks? obsidian.config.CallbackConfig
----@field search? obsidian.config.SearchOpts
+---@field frontmatter? nyabsidian.FrontmatterOpts
+---@field link? nyabsidian.LinkOpts
+---@field templates? nyabsidian.TemplateOpts
+---@field daily_notes? nyabsidian.DailyNotesOpts
+---@field attachments? nyabsidian.AttachmentsOpts
+---@field note_id_func? fun(title: string|?, path: string|?): string
+---@field note_path_func? fun(spec: { id: string, dir: string, title: string|? }): string
+---@field callbacks? nyabsidian.CallbackConfig
+---@field search? nyabsidian.SearchOpts
 
 ---@type nyabsidian.VaultConfig
 return {
   --- frontmatter: activa la generación de metatags (id, aliases, tags).
   --- false: desactivado (default global). true: en todas las notas.
   --- También acepta una función por nota: enabled = function(fname) return true end.
-  
+
   -- frontmatter = { enabled = true },
 
   --- frontmatter.func: cómo se construye el frontmatter de cada nota.
@@ -882,6 +948,37 @@ local function patch_lsp_server_shutdown()
   state.lsp_server_patched = true
 end
 
+--- El guardado automático (BufWritePre del plugin) reescribe el frontmatter
+--- con un round-trip del parser YAML, que es permisivo con los flow markers
+--- sin cerrar (`aliases: [` se convierte en scalar y se escribe basura
+--- normalizada). Vetamos el reescritura en ese caso, igual que M.frontmatter().
+local function patch_note_save()
+  if state.note_save_patched then
+    return
+  end
+
+  local Note = require "obsidian.note"
+  local update = Note.update_frontmatter
+
+  ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
+  Note.update_frontmatter = function(self, bufnr)
+    bufnr = bufnr or vim.api.nvim_get_current_buf()
+    if self.has_frontmatter and self.frontmatter_end_line and self.frontmatter_end_line > 1 then
+      local body = vim.api.nvim_buf_get_lines(bufnr, 1, self.frontmatter_end_line - 1, false)
+      if has_unclosed_flow(body) then
+        notify(
+          "Frontmatter malformado (flow [ { sin cerrar); no se tocó la nota",
+          vim.log.levels.WARN
+        )
+        return false
+      end
+    end
+    return update(self, bufnr)
+  end
+
+  state.note_save_patched = true
+end
+
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
   local lsp = require "obsidian.lsp"
@@ -912,7 +1009,8 @@ local function install_runtime()
     end,
   })
 
-  vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost" }, {
+  -- La detección solo al guardar un .nyabsidian (abrir el archivo no dispara).
+  vim.api.nvim_create_autocmd("BufWritePost", {
     group = group,
     pattern = NYABSIDIAN_MARKER,
     callback = function()
@@ -962,6 +1060,7 @@ function M.setup()
   -- que aplique desde el arranque, sin depender de que este módulo cargue.
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
   patch_lsp_server_shutdown()
+  patch_note_save()
   install_workspace_switch()
   require("obsidian").setup(M.opts())
 
@@ -971,6 +1070,27 @@ function M.setup()
 
   -- Valida state, aplica configs y cubre el cwd actual.
   M.refresh()
+end
+
+--- Inicializa el módulo a demanda (lo usan los comandos registrados al
+--- arranque por lzy.obsidian_cmd). Si lazy.nvim está presente, carga el plugin
+--- primero para que su `config` ejecute M.setup(); si no, lo intenta directo.
+function M.ensure_setup()
+  if state.initialized then
+    return
+  end
+
+  local ok_lazy, lazy = pcall(require, "lazy")
+  if ok_lazy then
+    pcall(lazy.load, { plugins = { "obsidian.nvim" } })
+  end
+
+  if not state.initialized then
+    local ok, err = pcall(M.setup)
+    if not ok then
+      notify("No se pudo inicializar: " .. tostring(err), vim.log.levels.ERROR)
+    end
+  end
 end
 
 return M

@@ -333,6 +333,11 @@ return {
     "obsidian-nvim/obsidian.nvim",
     version = "*",
     ft = { "markdown" },
+    init = function()
+      -- Comandos Nyabsidian* disponibles desde el arranque, sin esperar a
+      -- abrir un .md. El plugin sigue cargando lazy con ft=markdown.
+      require("lzy.obsidian_cmd").setup()
+    end,
     config = function()
       require("lzy.obsidian").setup()
     end,

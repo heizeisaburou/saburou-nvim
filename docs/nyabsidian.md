@@ -3,74 +3,98 @@ id: nyabsidian
 aliases: []
 tags: []
 ---
-# Nyabsidian — carpetas como vaults de Obsidian
+
+# Nyabsidian — tu carpeta como vault de Obsidian
 
 > [!NOTE]
 >
-> Nyabsidian convierte **cualquier carpeta** en un vault de Obsidian: por el simple hecho de
-> existir un archivo `.nyabsidian` en ella, esa carpeta gana capacidades de markdown adicionales
-> (enlaces wiki, frontmatter, plantillas, notas diarias, adjuntos…), las mismas que ofrece
-> obsidian.nvim pero por carpeta y con configuración propia de cada carpeta.
+> Nyabsidian convierte **cualquier carpeta** en un vault de Obsidian: crea un archivo
+> `.nyabsidian` en ella y esa carpeta gana todas las capacidades de obsidian.nvim —enlaces wiki,
+> renombrado de notas, notas diarias, plantillas, frontmatter…— con configuración propia de esa
+> carpeta.
+
+## Qué ganas
+
+En las carpetas con `.nyabsidian` (y con la config global en cualquier otra), sobre tus notas `.md`
+tienes:
+
+- **LSP de Obsidian (obsidian-ls)**: mucho más completo que un LSP de markdown genérico —
+  completado, referencias y renombrado inteligente de enlaces.
+- **Renombrar notas sin romper nada**: `:ObsidianRename` cambia el nombre de la nota y actualiza
+  todos los `[[enlaces]]` que apuntaban a ella.
+- **Enlaces wiki**: escribe `[[` y te completa con las notas del vault; `gf` (o `<CR>`) sobre un
+  enlace salta a la nota.
+- **Panel de propiedades y backlinks**: en la parte inferior de cada nota ves sus propiedades y
+  qué notas enlazan a ella.
+- **Frontmatter automático** (opcional, por carpeta): al guardar se generan `id`, `aliases` y
+  `tags` conservando el resto de metadatos de la nota.
+- **Notas diarias, plantillas y adjuntos** con carpeta y reglas propias por vault.
 
 ## Cómo funciona
 
-- **El marcador es el archivo**: donde guardes un `.nyabsidian` es la raíz del vault. No se
-  necesitan `.obsidian` ni ningún otro indicador.
-- **Config por carpeta**: el `.nyabsidian` es un archivo Lua que devuelve un fragmento de
-  opciones. Lo que no definas lo decide la config global (defaults).
-- **En vivo**: se relee al entrar en cada nota, sin reiniciar Neovim. Guardar cambios en un
-  `.nyabsidian` refresca los workspaces automáticamente.
+- **El archivo ES el marcador**: la carpeta donde guardes un `.nyabsidian` es la raíz del vault.
+  No hacen falta `.obsidian` ni otros indicadores.
+- **Config por carpeta**: el `.nyabsidian` es un archivo Lua que devuelve opciones. Lo que no
+  definas lo decide la config global.
+- **En vivo**: guarda cambios en un `.nyabsidian` y aplican sin reiniciar Neovim.
 - **Vaults anidados**: si hay un vault dentro de otro, gana el más específico (la carpeta más
   profunda).
 
 ## Empezar
 
-1. `:NyabsidianInit` — abre un buffer con la plantilla.
-2. Guárdalo como `.nyabsidian` (con `:w` pides ruta y gestionas conflictos).
-3. Listo: esa carpeta ya es un vault.
+1. `:NyabsidianInit` — abre un archivo nuevo con la plantilla.
+2. Guárdalo como `.nyabsidian` en la carpeta que quieras convertir en vault (`:w` te pide la ruta
+   y gestiona conflictos si ya existe).
+3. Listo: abre cualquier `.md` de esa carpeta y tendrás las capacidades de Obsidian.
 
-## Qué activa un `.nyabsidian`
+## Configurar una carpeta
 
-- **Frontmatter automático**: metatags `id`, `aliases`, `tags` (y el resto de metadatos que ya
-  tenga la nota) generados al guardar. Se puede activar por vault, por nota (función) o dejar
-  desactivado. Si el body del frontmatter está malformado (flow `[`/`{` sin cerrar), no se toca
-  la nota: aviso en lugar de reescribir basura.
-- **Enlaces wiki y navegación**: `[[enlace]]` con salto, completado y renombrado, incluido el
-  archivo de ayuda del plugin (wiki embebida).
-- **Plantillas**: carpeta de plantillas, fecha/hora y sustituciones por vault.
-- **Notas diarias**: carpeta y tags por defecto por vault.
-- **Adjuntos**: carpeta de archivos por vault.
-- **Funciones por vault**: `note_id_func`, `note_path_func`, `callbacks`, y el `func` del
-  frontmatter — todo lo que en otros sitios es "global" aquí puede ser por carpeta.
-- **Multi-vault**: carpetas distintas con reglas distintas, todo en una misma sesión.
+Edita su `.nyabsidian` y descomenta o añade lo que quieras:
+
+| Clave                      | Qué hace                                                     | Ejemplo                                         |
+| -------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
+| `frontmatter.enabled`      | Genera `id`/`aliases`/`tags` al guardar                      | `frontmatter = { enabled = true }`              |
+| `frontmatter.func`         | Construye el frontmatter a medida (función por nota)         | la función de ejemplo de la plantilla           |
+| `link.style`               | Enlaces `wiki` (`[[nota]]`) o `markdown` (`[nota](nota.md)`) | `link = { style = "markdown" }`                 |
+| `templates.folder`         | Carpeta de plantillas del vault                              | `templates = { folder = "Templates" }`          |
+| `daily_notes.folder`       | Carpeta de las notas diarias                                 | `daily_notes = { folder = "Diario" }`           |
+| `daily_notes.default_tags` | Tags que llevan las notas diarias                            | `daily_notes = { default_tags = { "diario" } }` |
+| `attachments.folder`       | Carpeta para adjuntos e imágenes                             | `attachments = { folder = "Adjuntos" }`         |
 
 ## Comandos
 
-| Comando                  | Qué hace                                                  |
-| ------------------------ | --------------------------------------------------------- |
-| `:NyabsidianInit`        | Buffer con la plantilla de `.nyabsidian`                  |
-| `:NyabsidianRefresh`     | Redescubre workspaces (marcadores, buffers abiertos, cwd) |
-| `:NyabsidianInfo`        | Workspaces activos, config de cada uno y estado           |
-| `:NyabsidianDebug`       | Información del LSP de obsidian                           |
-| `:NyabsidianFrontmatter` | Regenera el frontmatter de la nota actual (forzado)       |
+Comandos de Nyabsidian:
 
-## Qué probar (checklist)
+| Comando                  | Qué hace                                            |
+| ------------------------ | --------------------------------------------------- |
+| `:NyabsidianInit`        | Abre un buffer con la plantilla de `.nyabsidian`    |
+| `:NyabsidianInfo`        | Estado de la carpeta actual y sus vaults            |
+| `:NyabsidianRefresh`     | Redescubre las carpetas que son vaults              |
+| `:NyabsidianFrontmatter` | Regenera el frontmatter de la nota actual (forzado) |
+| `:NyabsidianDebug`       | Diagnóstico del LSP                                 |
 
-1. `:NyabsidianInit` en una carpeta nueva, guardar como `.nyabsidian` con la plantilla tal cual.
-   `:NyabsidianInfo` debe listar esa carpeta como workspace.
-2. Descomentar `frontmatter = { enabled = true }` y guardar. Abrir una nota nueva → al guardar se
-   genera el frontmatter (`id`, `aliases`, `tags`). `:NyabsidianFrontmatter` lo fuerza.
-3. Descomentar el `frontmatter.func` de ejemplo (la función completa) → se aplica por vault.
-4. Romper a propósito el `.nyabsidian` (sintaxis inválida) → warning claro y la carpeta sigue
-   funcionando con defaults; el resto de vaults intactos.
-5. Editar el `.nyabsidian` de un vault y volver a entrar en una nota → los cambios aplican sin
-   reiniciar (live reload).
-6. Crear un vault dentro de otro (carpeta con su propio `.nyabsidian`) → cada nota usa la config
-   de su carpeta más específica.
-7. Nota con `aliases: [` sin cerrar en el frontmatter → `:NyabsidianFrontmatter` avisa y no toca
-   el archivo.
+Y los del propio obsidian.nvim, disponibles dentro de cualquier nota:
 
-> [!TIP]
->
-> Si algo falla, `:NyabsidianInfo` y `:NyabsidianDebug` son el punto de partida para mirar qué
-> config quedó activa en cada carpeta.
+| Comando                                                                            | Qué hace                                             |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `:ObsidianNew`                                                                     | Crea una nota nueva en el vault                      |
+| `:ObsidianRename`                                                                  | Renombra la nota y actualiza todos sus enlaces       |
+| `:ObsidianQuickSwitch`                                                             | Cambia rápido de nota                                |
+| `:ObsidianSearch`                                                                  | Busca notas (con grep del contenido)                 |
+| `:ObsidianFollowLink`                                                              | Sigue el enlace bajo el cursor                       |
+| `:ObsidianLink` / `:ObsidianLinkNew`                                               | Crea un enlace a una nota existente / nueva          |
+| `:ObsidianToday` / `:ObsidianYesterday` / `:ObsidianTomorrow` / `:ObsidianDailies` | Notas diarias                                        |
+| `:ObsidianTemplate` / `:ObsidianNewFromTemplate`                                   | Inserta / crea nota desde plantilla                  |
+| `:ObsidianTOC`                                                                     | Tabla de contenidos de la nota                       |
+| `:ObsidianPasteImg`                                                                | Pega una imagen desde el portapapeles a los adjuntos |
+| `:ObsidianTags`                                                                    | Lista las etiquetas del vault                        |
+| `:ObsidianToggleCheckbox`                                                          | Marca/desmarca casillas de tareas                    |
+| `:ObsidianWorkspace`                                                               | Cambia de vault                                      |
+| `:ObsidianCheck`                                                                   | Estado y opciones del plugin                         |
+
+## Notas
+
+- Una nota con el frontmatter malformado (corchetes `[`/`{` sin cerrar) **no se reescribe al
+  guardar**: se avisa y el archivo queda intacto.
+- Si una carpeta no se comporta como vault, comprueba que su `.nyabsidian` es Lua válido y mira
+  `:NyabsidianInfo`.
