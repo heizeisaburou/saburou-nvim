@@ -262,7 +262,29 @@ M.config = {
 
   marksman = {
     cmd = { "marksman", "server" },
-    root_markers = { ".marksman.toml", ".git" },
+    -- marksman sobra cuando obsidian.nvim gestiona el buffer (obsidian-ls):
+    -- resuelve enlaces wiki complejos ("~ > .zshrc") que marksman no puede.
+    -- root_dir devuelve nil para notas de vault (.obsidian/.nyabsidian) y
+    -- workspace_required impide arrancar sin root. El root_markers vacío
+    -- anula el de nvim-lspconfig: con ".git" arrancaría igual en vaults.
+    workspace_required = true,
+    root_markers = {},
+    root_dir = function(bufnr, on_dir)
+      local name = vim.api.nvim_buf_get_name(bufnr)
+      if name == "" then
+        on_dir(nil)
+        return
+      end
+      local in_vault = #vim.fs.find({ ".obsidian", ".nyabsidian" }, {
+        upward = true,
+        path = vim.fs.dirname(name),
+      }) > 0
+      if in_vault then
+        on_dir(nil)
+        return
+      end
+      on_dir(vim.fs.root(bufnr, { ".marksman.toml", ".git" }))
+    end,
     filetypes = { "markdown", "markdown.mdx" },
   },
 

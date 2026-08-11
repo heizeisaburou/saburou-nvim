@@ -444,6 +444,29 @@ local function detach_obsidian_lsp(bufnr)
   end
 end
 
+--- marksman sobra en notas de vault: obsidian-ls gestiona los enlaces wiki
+--- (root_dir de marksman ya bloquea su arranque en vaults; esto cubre clients
+--- ya arrancados, p.ej. al crear el marker .nyabsidian en la misma sesión).
+---@param bufnr integer
+---@param ws table
+local function detach_marksman(bufnr, ws)
+  if not ws then
+    return
+  end
+  local root = normalize(tostring(ws.root))
+  for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }) do
+    local client_root = client.config
+      and client.config.root_dir
+      and normalize(tostring(client.config.root_dir))
+    if client_root and (client_root == root or client_root:sub(1, #root + 1) == root .. "/") then
+      -- El root del client es el vault: no le sirve a ninguna nota, se detiene.
+      client:stop(true)
+    else
+      pcall(vim.lsp.buf_detach_client, bufnr, client.id)
+    end
+  end
+end
+
 --- Deja un buffer como si obsidian.nvim nunca lo hubiera tocado.
 local function reset_obsidian_buffer(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
@@ -498,6 +521,7 @@ local function sync_current_context(reenter)
 
   if ws then
     set_workspace(ws)
+    detach_marksman(bufnr, ws)
     if
       reenter and (vim.bo[bufnr].filetype == "markdown" or vim.bo[bufnr].filetype == "quarto")
     then
@@ -904,6 +928,7 @@ local function install_workspace_switch()
       local ws = require("obsidian").api.find_workspace(ev.file)
       if ws then
         set_workspace(ws)
+        detach_marksman(ev.buf, ws)
       else
         reset_obsidian_buffer(ev.buf)
         set_workspace(workspace_for(cwd()) or dummy_workspace())
