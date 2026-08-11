@@ -17,6 +17,7 @@ local state = {
   config_errors = {},
   lsp_server_patched = false,
   note_save_patched = false,
+  backlink_escaped_pipe_patched = false,
 }
 
 local function notify(msg, level)
@@ -1034,6 +1035,33 @@ local function patch_note_save()
   state.note_save_patched = true
 end
 
+--- Los backlinks se buscan con rg y términos literales del tipo `[[%s|`
+--- (pipe normal). Los enlaces wiki escritos con el pipe escapado (`[[target\|...]]`)
+--- —habitual en filas de tablas Markdown— nunca se encuentran, así que no
+--- generan backlinks. Se añaden a get_reference_paths() las variantes con `\`
+--- para que el término `[[target\|` matchee esos enlaces (en rename también
+--- ayuda a localizarlos).
+local function patch_backlink_escaped_pipe()
+  if state.backlink_escaped_pipe_patched then
+    return
+  end
+
+  local Note = require "obsidian.note"
+  local get_reference_paths = Note.get_reference_paths
+
+  ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
+  Note.get_reference_paths = function(self, opts)
+    local refs = get_reference_paths(self, opts)
+    local escaped = {}
+    for _, ref in ipairs(refs) do
+      escaped[#escaped + 1] = ref .. "\\"
+    end
+    return vim.list_extend(refs, escaped)
+  end
+
+  state.backlink_escaped_pipe_patched = true
+end
+
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
   local lsp = require "obsidian.lsp"
@@ -1116,6 +1144,7 @@ function M.setup()
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
   patch_lsp_server_shutdown()
   patch_note_save()
+  patch_backlink_escaped_pipe()
   install_workspace_switch()
   require("obsidian").setup(M.opts())
 
