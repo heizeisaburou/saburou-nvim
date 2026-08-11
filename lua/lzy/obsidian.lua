@@ -91,6 +91,34 @@ end
 --- Extensiones de archivos que pueden pertenecer a un workspace.
 local NOTE_EXTENSIONS = { "md", "markdown", "mdown", "mkdn", "mkd", "qmd", "rmd", "base" }
 
+--- Keymaps de obsidian.nvim (buffer-local, solo en notas). Namespace
+--- <leader>n*: lo expone which-key, que ya tiene "n" registrado como grupo.
+local NOTE_KEYMAPS = {
+  { "<leader>nn", "Obsidian new", "Obsidian: nueva nota" },
+  { "<leader>nr", "Obsidian rename", "Obsidian: renombrar nota (actualiza enlaces)" },
+  { "<leader>ns", "Obsidian quick_switch", "Obsidian: cambiar de nota" },
+  { "<leader>nb", "Obsidian backlinks", "Obsidian: qué notas enlazan a esta" },
+  { "<leader>nl", "Obsidian link_new", "Obsidian: enlazar selección a nota nueva" },
+  { "<leader>nL", "Obsidian link", "Obsidian: enlazar a nota existente" },
+  { "<leader>nd", "Obsidian dailies", "Obsidian: notas diarias" },
+  { "<leader>nt", "Obsidian template", "Obsidian: insertar plantilla" },
+  { "<leader>nT", "Obsidian tags", "Obsidian: tags del vault" },
+  { "<leader>nf", "Obsidian follow_link", "Obsidian: seguir el enlace bajo el cursor" },
+  { "<leader>nx", "Obsidian toggle_checkbox", "Obsidian: toggle checkbox" },
+  { "<leader>np", "Obsidian paste_img", "Obsidian: pegar imagen del portapapeles" },
+}
+
+--- Keymaps buffer-local para notas. Se llaman por buffer (idempotente).
+---@param bufnr integer
+local function install_note_keymaps(bufnr)
+  for _, spec in ipairs(NOTE_KEYMAPS) do
+    vim.keymap.set("n", spec[1], ("<cmd>%s<CR>"):format(spec[2]), {
+      buffer = bufnr,
+      desc = spec[3],
+    })
+  end
+end
+
 ---@param name string
 ---@return boolean
 local function is_note(name)
@@ -870,6 +898,8 @@ local function install_workspace_switch()
       if not state.initialized then
         return
       end
+
+      install_note_keymaps(ev.buf)
 
       local ws = require("obsidian").api.find_workspace(ev.file)
       if ws then

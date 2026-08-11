@@ -313,7 +313,7 @@ return {
     -- TODO: poner nuestros grupos de teclas
     "folke/which-key.nvim",
     event = "VeryLazy",
-    keys = { "<leader>", "<c-w>", '"', "'", "`", "c", "v", "g", "l" },
+    keys = { "<leader>", "<c-w>", '"', "'", "`", "c", "v", "g", "l", "n"},
     cmd = "WhichKey",
     opts = {},
   },
