@@ -107,16 +107,29 @@ local function scan_buffers(known)
     seen[normalize(root)] = true
   end
 
+  -- Todas las notas de un mismo directorio comparten el mismo climb de
+  -- parents: se resuelve el root una vez por directorio y se reusa. Con
+  -- decenas de buffers abiertos evita repetir la subida para cada nota.
+  local dir_cache = {}
+
   local roots = {}
   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
     local name = vim.api.nvim_buf_get_name(bufnr)
     if name ~= "" then
       local tail = vim.fn.fnamemodify(name, ":t")
       if is_note(name) or tail == NYABSIDIAN_MARKER then
-        local found = discover(name)
-        if found and not seen[found.root] then
-          seen[found.root] = true
-          roots[#roots + 1] = found.root
+        local dir = normalize(vim.fs.dirname(name))
+        local root = false
+        if dir_cache[dir] ~= nil then
+          root = dir_cache[dir]
+        else
+          local found = discover(dir)
+          root = found and found.root or false
+          dir_cache[dir] = root
+        end
+        if root and not seen[root] then
+          seen[root] = true
+          roots[#roots + 1] = root
         end
       end
     end
