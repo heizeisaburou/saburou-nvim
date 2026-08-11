@@ -656,6 +656,63 @@ function M.debug_info(opts)
   notify(table.concat(out, "\n"))
 end
 
+--- El parser YAML del plugin es permisivo: un flow marker sin cerrar (p.ej.
+--- `aliases: [` o `id: [broken`) lo convierte en scalar y el round-trip
+--- escribe basura normalizada. Si el body del frontmatter tiene [ { sin
+--- balancear, mejor no reescribir.
+---@param lines string[]
+---@return boolean
+local function has_unclosed_flow(lines)
+  local open, close = 0, 0
+  for _, line in ipairs(lines) do
+    for ch in line:gmatch "." do
+      if ch == "[" or ch == "{" then
+        open = open + 1
+      elseif ch == "]" or ch == "}" then
+        close = close + 1
+      end
+    end
+  end
+  return open ~= close
+end
+
+--- Regenera el frontmatter del buffer actual, esté activado o no el frontmatter
+--- del workspace. Fuerza la escritura saltando should_save_frontmatter().
+function M.frontmatter()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local name = vim.api.nvim_buf_get_name(bufnr)
+  if name == "" or not is_note(name) then
+    notify("NyabsidianFrontmatter solo funciona en notas", vim.log.levels.WARN)
+    return
+  end
+
+  local ok, note = pcall(require("obsidian.note").from_buffer, bufnr)
+  if not ok or not note then
+    notify("No se pudo leer la nota: " .. tostring(note), vim.log.levels.ERROR)
+    return
+  end
+
+  -- Protección: no reescribir frontmatters malformados (flow sin cerrar).
+  if note.has_frontmatter and note.frontmatter_end_line and note.frontmatter_end_line > 1 then
+    local body = vim.api.nvim_buf_get_lines(bufnr, 1, note.frontmatter_end_line - 1, false)
+    if has_unclosed_flow(body) then
+      notify(
+        "Frontmatter malformado (flow [ { sin cerrar); no se tocó la nota",
+        vim.log.levels.WARN
+      )
+      return
+    end
+  end
+
+  local saved, updated = pcall(note.save_to_buffer, note, { bufnr = bufnr })
+  if not saved then
+    notify("Falló al generar el frontmatter: " .. tostring(updated), vim.log.levels.ERROR)
+    return
+  end
+
+  notify(updated and "Frontmatter actualizado" or "Frontmatter sin cambios")
+end
+
 --- Debe registrarse antes del setup de obsidian.nvim. Así el workspace global
 --- ya es correcto cuando sus BufEnter consultan Obsidian.opts / Obsidian.dir.
 local function install_workspace_switch()
@@ -797,6 +854,7 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianRefresh")
   pcall(vim.api.nvim_del_user_command, "NyabsidianInfo")
   pcall(vim.api.nvim_del_user_command, "NyabsidianDebug")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianFrontmatter")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -809,6 +867,10 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianDebug", function()
     M.debug_info()
   end, { desc = "Dump Nyabsidian LSP debug info" })
+
+  vim.api.nvim_create_user_command("NyabsidianFrontmatter", function()
+    M.frontmatter()
+  end, { desc = "Regenerate note frontmatter (forced)" })
 end
 
 function M.setup()
