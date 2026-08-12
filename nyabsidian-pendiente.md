@@ -20,9 +20,9 @@ Fecha: 2026-08-11. Replanteado tras probar `:NyabsidianFrontmatter` (hecho). La 
 
 ## Hecho el 2026-08-11 (verificado headless)
 
-- Pipeline Lua completo: `read_nyabsidian` (loadfile + pcall), validación con
-  `config.normalize` (sin whitelist, `legacy_commands` neutralizado), ftplugin reclasifica a
-  `lua`, conform aplica stylua, `.nyabsidian` del repo convertido.
+- Pipeline Lua completo: `read_nyabsidian` (loadfile + pcall), validación con `config.normalize`
+  (sin whitelist, `legacy_commands` neutralizado), ftplugin reclasifica a `lua`, conform aplica
+  stylua, `.nyabsidian` del repo convertido.
 - Verificado: sintaxis rota → warning + defaults; fragmento válido → aplica; live edit sin
   reiniciar; `frontmatter.enabled` como función por vault.
 - **Bug encontrado y corregido**: `set_workspace` pasaba `ws.root` (objeto `Path`) a
@@ -31,8 +31,8 @@ Fecha: 2026-08-11. Replanteado tras probar `:NyabsidianFrontmatter` (hecho). La 
   `read_nyabsidian`/`workspace_overrides`.
 - `NyabsidianInit` probado: buffer sin nombre, filetype `nyabsidian` → `lua` vía ftplugin,
   template de 17 líneas, notify con la ruta exigida.
-- Herramientas: `sync.sh` + módulos `hzsr/sync.lua` y `hzsr/test/init.lua` (harness headless
-  con `--root`, `--config`, `--plenary`) + comandos `:Synco` y `:Harness`.
+- Herramientas: `sync.sh` + módulos `hzsr/sync.lua` y `hzsr/test/init.lua` (harness headless con
+  `--root`, `--config`, `--plenary`) + comandos `:Synco` y `:Harness`.
 
 ## Decisiones
 
@@ -113,9 +113,9 @@ return {
 ## Verificación (harness headless, patrón de siempre)
 
 - [x] `read_nyabsidian` con Lua válido / vacío / sintaxis rota / runtime error / no-tabla (lista,
-  string).
+	  string).
 - [x] Fragmento con `frontmatter.func` función → `config.normalize` no se atraganta (tbl_override
-  maneja funciones: reemplazo por clave).
+	  maneja funciones: reemplazo por clave).
 - [x] `NyabsidianInit` → buffer con template; save flow pide ruta.
 - [x] stylua formatea el buffer `.nyabsidian` (filetype lua).
 
