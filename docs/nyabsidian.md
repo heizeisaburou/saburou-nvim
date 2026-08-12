@@ -101,7 +101,7 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 | `<CR>`       | **Acción inteligente**: sigue enlaces, togglea/crea checkboxes, pliega headings |
 | `]o` / `[o`  | Siguiente / anterior enlace de la nota                                          |
 | `<leader>nn` | Nueva nota                                                                      |
-| `<leader>nr` | Renombrar la nota (actualiza todos sus enlaces)                                 |
+| `<leader>nr` | Renombrar la nota o el heading bajo el cursor (actualiza sus enlaces)           |
 | `<leader>ns` | Cambiar rápido de nota                                                          |
 | `<leader>nb` | Qué notas enlazan a la actual                                                   |
 | `<leader>nl` | Enlazar la selección a una nota nueva                                           |
@@ -117,6 +117,15 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 >
 > El ciclo de checkbox por defecto es `" "` → `~` → `!` → `>` → `x`: el primer toggle de una
 > casilla vacía la deja en `~` (pendiente), no en `x` (hecho).
+
+Los enlaces jerárquicos como `[[nota#Header#Subheader]]` funcionan con `<CR>`, `gd` y
+`:Obsidian follow_link`. Si el heading no existe pero la nota sí, se muestra el error y la
+navegación cae en la nota. El rename LSP (`<C-A-r>`) distingue el componente bajo el cursor:
+nota, header o subheader; también puede iniciarse directamente sobre una declaración de heading.
+No hace falta escribir los ancestros comunes: `[[nota#FatherA#Child]]` es suficiente si esa cadena
+desambigua `Child`; solo se anteponen más headings cuando todavía quedan varios destinos.
+El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto se aplica literalmente
+al heading, mientras los enlaces se escriben con su anchor canónico (`My Father A` → `my-father-a`).
 
 ## Notas
 
