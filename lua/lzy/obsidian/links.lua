@@ -8,6 +8,7 @@ local M = {}
 
 local installed = false
 local prepared_heading
+local prepared_attachment
 local choose_heading
 local notify = function(msg, level)
   vim.notify(msg, level, { title = "Nyabsidian" })
@@ -17,6 +18,11 @@ end
 ---@return obsidian.parse.Ref|?
 local function cursor_ref(bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local attachment = require("lzy.obsidian.attachments").cursor_ref(bufnr)
+  if attachment then
+    return attachment
+  end
+
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
   for _, ref in ipairs(require("obsidian.parse.refs").extract(line, { row = row - 1 })) do
@@ -33,6 +39,18 @@ local function cursor_context()
     return nil
   end
   local _, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local attachments = require "lzy.obsidian.attachments"
+  if attachments.is_target(ref.target, { bufnr = vim.api.nvim_get_current_buf() }) then
+    return {
+      ref = ref,
+      component = {
+        kind = "attachment",
+        text = ref.target,
+        start_col = ref.target_range.start_col,
+        end_col = ref.target_range.end_col,
+      },
+    }
+  end
   return {
     ref = ref,
     component = require("lzy.obsidian.headings").component_at(ref, col),
@@ -49,7 +67,7 @@ end
 ---@param bufnr integer
 ---@param callback fun(notes: obsidian.Note[])
 local function resolve_notes(location, bufnr, callback)
-  local headings = require("lzy.obsidian.headings")
+  local headings = require "lzy.obsidian.headings"
   if location == "" then
     local note = require("obsidian.api").current_note(bufnr, {
       collect_sections = true,
@@ -73,9 +91,23 @@ end
 ---@return boolean handled
 local function follow_structured(link, callback, opts, original)
   opts = opts or {}
-  local util = require("obsidian.util")
-  local attachments = require("lzy.obsidian.attachments")
-  local headings = require("lzy.obsidian.headings")
+  local util = require "obsidian.util"
+  local attachments = require "lzy.obsidian.attachments"
+  local headings = require "lzy.obsidian.headings"
+  local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
+
+  -- El parser upstream incluye títulos Markdown dentro de `target`. Nuestro
+  -- parser conserva el rango y el target real, que es el que también consume
+  -- rename. Así definición, acción inteligente y rename ven el mismo enlace.
+  local attachment_ref = attachments.parse_refs(link, 0)[1]
+  if attachment_ref and attachments.is_target(attachment_ref.target, { bufnr = bufnr }) then
+    return attachments.follow(attachment_ref.target, {
+      bufnr = bufnr,
+      callback = callback,
+      notify = notify,
+    })
+  end
+
   local location, _, link_type = util.parse_link(link)
   if not location or (link_type ~= "wiki" and link_type ~= "markdown") then
     return false
@@ -89,17 +121,17 @@ local function follow_structured(link, callback, opts, original)
   local note_target, anchor, raw_anchor = util.strip_anchor_links(without_block)
   anchor = raw_anchor or anchor
 
-  if attachments.is_target(note_target) then
+  if attachments.is_target(note_target, { bufnr = bufnr }) then
     return attachments.follow(note_target, {
-      bufnr = opts.bufnr or vim.api.nvim_get_current_buf(),
+      bufnr = bufnr,
       callback = callback,
+      notify = notify,
     })
   end
   if not anchor then
     return false
   end
 
-  local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
   resolve_notes(note_target, bufnr, function(notes)
     if #notes == 0 then
       -- Conserva la creación de notas del upstream cuando la nota tampoco
@@ -127,7 +159,7 @@ local function follow_structured(link, callback, opts, original)
 end
 
 local function patch_cursor_autolink()
-  local api = require("obsidian.api")
+  local api = require "obsidian.api"
   if api.__nyabsidian_cursor_link then
     return
   end
@@ -146,9 +178,9 @@ local function patch_cursor_autolink()
 
     local line = vim.api.nvim_get_current_line()
     local _, cur_col = unpack(vim.api.nvim_win_get_cursor(0))
-    for start_col, inner, end_col in line:gmatch("()<([^<>%s]+)>()") do
+    for start_col, inner, end_col in line:gmatch "()<([^<>%s]+)>()" do
       if
-        inner:match("^[%a][%w%+%.%-]*://")
+        inner:match "^[%a][%w%+%.%-]*://"
         and not inside_inline_code(line, start_col)
         and start_col - 1 <= cur_col
         and cur_col < end_col - 1
@@ -161,7 +193,7 @@ local function patch_cursor_autolink()
 end
 
 local function patch_definition()
-  local definition = require("obsidian.lsp.handlers._definition")
+  local definition = require "obsidian.lsp.handlers._definition"
   if definition.__nyabsidian_links then
     return
   end
@@ -174,6 +206,30 @@ local function patch_definition()
     return original(link, callback, opts)
   end
   definition.__nyabsidian_links = true
+end
+
+local function patch_action_follow()
+  local actions = require "obsidian.actions"
+  if actions.__nyabsidian_attachments then
+    return
+  end
+  local original = actions.follow_link
+
+  actions.follow_link = function(link, opts)
+    local attachments = require "lzy.obsidian.attachments"
+    local bufnr = vim.api.nvim_get_current_buf()
+    local ref
+    if link then
+      ref = attachments.parse_refs(link, 0)[1]
+    else
+      ref = attachments.cursor_ref(bufnr)
+    end
+    if ref and attachments.is_target(ref.target, { bufnr = bufnr }) then
+      return attachments.follow(ref.target, { bufnr = bufnr, notify = notify })
+    end
+    return original(link, opts)
+  end
+  actions.__nyabsidian_attachments = true
 end
 
 ---@param result table
@@ -201,7 +257,7 @@ end
 ---@param context table
 ---@param callback fun(candidates: table[], err: string|?)
 local function heading_candidates(context, callback)
-  local headings = require("lzy.obsidian.headings")
+  local headings = require "lzy.obsidian.headings"
   local ref = context.ref
   local target = vim.uri_decode(ref.target or "") or ref.target or ""
   resolve_notes(target, vim.api.nvim_get_current_buf(), function(notes)
@@ -228,7 +284,7 @@ local function heading_candidates(context, callback)
 end
 
 local function patch_prepare_rename()
-  local handlers = require("obsidian.lsp.handlers")
+  local handlers = require "obsidian.lsp.handlers"
   if handlers.__nyabsidian_prepare_rename then
     return
   end
@@ -236,10 +292,31 @@ local function patch_prepare_rename()
 
   handlers["textDocument/prepareRename"] = function(params, callback, dispatchers)
     prepared_heading = nil
+    prepared_attachment = nil
     local context = cursor_context()
     if context then
       local component = context.component
-      if component.kind == "heading" then
+      if component.kind == "attachment" then
+        local attachments = require "lzy.obsidian.attachments"
+        local result = attachments.resolve(context.ref.target, {
+          bufnr = vim.api.nvim_get_current_buf(),
+        })
+        if result.status == "missing" then
+          notify("Rename de adjunto: " .. result.reason, vim.log.levels.ERROR)
+          return callback(nil, nil)
+        end
+        prepared_attachment = { key = context_key(context), path = result.path }
+        local row = context.ref.range.start_row
+        return prepare_result({
+          text = attachments.rename_placeholder(context.ref.target, result.path, {
+            bufnr = vim.api.nvim_get_current_buf(),
+          }),
+          range = {
+            start = { line = row, character = component.start_col },
+            ["end"] = { line = row, character = component.end_col },
+          },
+        }, callback)
+      elseif component.kind == "heading" then
         local row = context.ref.range.start_row
         local range = {
           start = { line = row, character = component.start_col },
@@ -305,11 +382,17 @@ end
 ---@param new_name string
 ---@param callback function
 local function rename_link_heading(context, new_name, callback)
-  local headings = require("lzy.obsidian.headings")
+  local headings = require "lzy.obsidian.headings"
   if prepared_heading and prepared_heading.key == context_key(context) then
     local candidate = prepared_heading.candidate
     prepared_heading = nil
-    return headings.rename(candidate.note, candidate.section, new_name, callback, { notify = notify })
+    return headings.rename(
+      candidate.note,
+      candidate.section,
+      new_name,
+      callback,
+      { notify = notify }
+    )
   end
   prepared_heading = nil
 
@@ -328,7 +411,7 @@ local function rename_link_heading(context, new_name, callback)
 end
 
 local function patch_rename()
-  local handlers = require("obsidian.lsp.handlers")
+  local handlers = require "obsidian.lsp.handlers"
   if handlers.__nyabsidian_rename then
     return
   end
@@ -343,29 +426,53 @@ local function patch_rename()
 
     local context = cursor_context()
     if context then
-      local attachments = require("lzy.obsidian.attachments")
-      if attachments.is_target(context.ref.target) then
+      local attachments = require "lzy.obsidian.attachments"
+      if context.component.kind == "attachment" then
         prepared_heading = nil
-        local edit, err = attachments.rename(context.ref.target, params.newName, {
-          bufnr = vim.api.nvim_get_current_buf(),
-        })
-        if edit then
+        local function rename_path(path)
+          prepared_attachment = nil
+          if not path then
+            return callback(nil, {})
+          end
+          local edit, err = attachments.rename(path, params.newName, {
+            bufnr = vim.api.nvim_get_current_buf(),
+          })
+          if not edit then
+            if err then
+              notify("Rename de adjunto: " .. err, vim.log.levels.ERROR)
+            end
+            return callback(nil, {})
+          end
           vim.schedule(function()
-            vim.cmd("silent! wall")
+            vim.cmd "silent! wall"
           end)
           return callback(nil, edit)
-        elseif err then
-          notify("Rename de adjunto: " .. err, vim.log.levels.ERROR)
+        end
+
+        if prepared_attachment and prepared_attachment.key == context_key(context) then
+          return rename_path(prepared_attachment.path)
+        end
+        prepared_attachment = nil
+
+        local result = attachments.resolve(context.ref.target, {
+          bufnr = vim.api.nvim_get_current_buf(),
+        })
+        if result.status == "missing" then
+          notify("Rename de adjunto: " .. result.reason, vim.log.levels.ERROR)
           return callback(nil, {})
         end
+        return rename_path(result.path)
       elseif context.component.kind == "heading" then
+        prepared_attachment = nil
         return rename_link_heading(context, params.newName, callback)
       end
       prepared_heading = nil
+      prepared_attachment = nil
       return original(params, callback, dispatchers)
     end
 
     prepared_heading = nil
+    prepared_attachment = nil
     local row = vim.api.nvim_win_get_cursor(0)[1] - 1
     local declaration = require("lzy.obsidian.headings").declaration_at(0, row)
     if declaration then
@@ -397,6 +504,7 @@ function M.setup(opts)
   notify = opts.notify or notify
   patch_cursor_autolink()
   patch_definition()
+  patch_action_follow()
   patch_prepare_rename()
   patch_rename()
   installed = true

@@ -93,9 +93,9 @@ plugin.
 `lua/lzy/obsidian/` separa actualmente:
 
 - `init.lua`: workspaces, conmutación LSP y ciclo de vida;
-- `links.lua`: parser y dispatch compartido por `<CR>`, definición y rename;
+- `links.lua`: dispatch común de `<CR>`, `gd`, `prepareRename` y rename;
 - `headings.lua`: resolución jerárquica y refactor de headings;
-- `attachments.lua`: adaptación Obsidian de apertura y rename de archivos locales.
+- `attachments.lua`: índice, resolvedor, apertura y refactor de cualquier archivo local del vault.
 
 Los enlaces `[[nota#header#subheader]]` se resuelven leyendo la nota completa. Si la nota existe
 pero la jerarquía no, definición y acción inteligente diagnostican el heading roto y devuelven la
@@ -105,6 +105,9 @@ iniciarse desde la declaración del heading.
 El último punto explica un resultado experimental antiguo atribuido erróneamente a obsidian-ls:
 el `WorkspaceEdit` que renombraba una imagen y editaba referencias lo generaba nuestro wrapper, no
 el handler upstream.
+
+El adaptador de adjuntos ya no requiere `sabunv.nvim.markdown`: el mapping común de `gx` despacha
+primero al dominio Obsidian y solo usa ese módulo antiguo como fallback fuera de un vault.
 
 ### 2.4 Marksman queda fuera de esta fase
 
@@ -155,23 +158,25 @@ Observaciones tras recargar la caché del vault:
 - desde `left/common/bare.md`, resolvió `left/common/a.png`;
 - desde una nota sin candidato local, escogió uno de los duplicados del vault.
 
-Esto confirma que `sourcePath` influye en el «best match», pero el empate global no debe
-reimplementarse como una regla inventada. La API pública de Obsidian lo denomina precisamente
-`getFirstLinkpathDest(linkpath, sourcePath)`: devuelve el mejor primer resultado, no una lista de
-candidatos ni una garantía de unicidad.
+Además del probe, se inspeccionó la implementación de Obsidian 1.13.6 instalada. Su
+`getFirstLinkpathDest()` llama a `getLinkpathDest()` y toma el primer resultado. Este último:
 
-Este probe de la app explica su semántica, pero la integración dentro de Neovim seguirá el
-contrato observable del resolver de notas de obsidian-ls: coincidencia directa desde la nota y,
-si no basta, búsqueda en el vault que puede devolver varios candidatos.
+1. indexa por basename sin distinguir mayúsculas/minúsculas;
+2. devuelve primero un path exacto relativo al vault o a la nota;
+3. acepta también sufijos de path;
+4. separa los candidatos que están bajo la carpeta de la nota de los demás;
+5. ordena cada grupo por longitud del path y conserva el orden de indexación en empates.
+
+Por tanto, la fidelidad a la app sí define un ganador. Un duplicado no se entrega al selector de
+obsidian-ls: se abre el mismo «best match» que elegiría `getFirstLinkpathDest()`.
 
 Contrato para Sabunv:
 
 1. Un target con path se resuelve de forma exacta desde la raíz del vault.
 2. Un basename único en el vault se resuelve a ese archivo.
-3. Un basename duplicado devuelve los mismos candidatos que devolvería el flujo de notas de
-   obsidian-ls; no se escoge uno dentro del resolver.
-4. La apertura entrega esos candidatos al picker `Resolve link` que ya usa
-   `:Obsidian follow_link` para notas ambiguas.
+3. Un basename duplicado conserva los candidatos ordenados para diagnóstico, pero resuelve al
+   primero con el orden real de la app.
+4. La apertura sigue directamente ese ganador; no hereda el picker de notas de obsidian-ls.
 5. La apertura y el rename llaman al mismo resolver Obsidian; nunca implementan búsquedas
    distintas.
 
@@ -255,9 +260,9 @@ Se considera adjunto cualquier archivo local enlazado que no pertenezca al flujo
 Obsidian. No se usa una lista cerrada de extensiones: los plugins pueden introducir tipos nuevos.
 Las URIs externas conservan su flujo propio.
 
-Los paths fuera del vault se admiten cuando el enlace los expresa de forma explícita. La sintaxis
-exacta que cuenta como explícita y el alcance de rename/move fuera del vault se fijarán como una
-decisión separada.
+Los paths fuera del vault se admiten cuando el enlace los expresa de forma explícita: URI
+`file://`, path absoluto del sistema o ruta `./` / `../` desde la nota. También pueden ser origen o
+destino de rename; las referencias que se actualizan siguen estando dentro del vault.
 
 ### 4.2 Resolver Obsidian
 
@@ -267,21 +272,23 @@ Debe ser una función propia del dominio Obsidian, conceptualmente:
 resolve_obsidian_attachment(target, {
   bufnr = bufnr,
   root = vault_root,
-}) -> resolved | ambiguous | missing
+}) -> resolved | missing
 ```
 
 Propiedades obligatorias:
 
 - normaliza URL encoding y separadores;
 - elimina fragmentos de embed que no forman parte del filename;
-- con el default `shortest`, un path con carpetas es vault-relative y se comprueba exactamente;
-- un target que exprese una ruta relativa se evalúa desde la nota origen; `relative` y `absolute`
-  siguen la configuración activa del workspace;
-- un basename busca archivos locales de ese nombre en todo el vault con la misma semántica de
-  identidad que una nota Obsidian;
-- usa la nota origen como contexto igual que `resolve_note_async()`;
-- representa la ambigüedad explícitamente, no como `nil` ni como el primer resultado de
-  `vim.fs.find()`;
+- un path con carpetas prueba primero el path vault-relative exacto y después los sufijos
+  compatibles de la app, independientemente de la política usada al reescribir enlaces;
+- un target `./` / `../` se evalúa desde la nota origen; un path sin ese prefijo se interpreta con
+  la semántica vault-relative o de sufijo de Obsidian;
+- un basename busca archivos locales de ese nombre en todo el vault con la semántica de
+  `MetadataCache.getLinkpathDest()` / `getFirstLinkpathDest()`;
+- compara sin distinguir mayúsculas, admite sufijos de path y usa la nota origen como contexto;
+- prioriza candidatos bajo la carpeta origen y luego el path más corto, conservando además la
+  lista ordenada para diagnóstico;
+- no cruza el límite de un vault anidado;
 - no conoce `.marksman.toml`, `.git` ni reglas Markdown fuera del vault.
 
 La apertura (`gx`, smart action, `Obsidian follow_link`, definición) y el rename consumen este mismo
@@ -298,8 +305,8 @@ Validaciones:
 
 - no vacío, `.` ni `..` como destino final;
 - solo `/` como separador;
-- un destino dentro del vault se calcula desde su root; un destino externo requiere una forma
-  explícita todavía pendiente de concretar;
+- un destino dentro del vault se calcula desde su root; un destino externo requiere `file://`, un
+  path absoluto o una ruta `./` / `../` desde la nota;
 - se conserva la extensión si el usuario la omite;
 - el destino no existe;
 - origen y destino son distintos;
@@ -311,8 +318,8 @@ Aplicación:
 2. Calcular el destino desde el root del vault.
 3. Crear los directorios padre necesarios solo como parte del move solicitado.
 4. Buscar únicamente referencias que Obsidian atribuya al archivo origen.
-5. Para cada nota, calcular el target nuevo según `link.format` del workspace; para el default
-   `shortest`, basename si es único y path vault-relative si necesita desambiguación.
+5. Para cada nota, calcular el target nuevo según la política propia de Nyabsidian. El default
+   `preserve` conserva la clase original de cada referencia; `simplify` delega en `link.format`.
 6. Conservar wiki/Markdown, embed, label/alt, anchors, dimensiones y títulos.
 7. Construir un único `WorkspaceEdit` con text edits y `RenameFile`.
 8. Dejar que el cliente aplique el edit y persistir los buffers modificados siguiendo el patrón
@@ -321,47 +328,58 @@ Aplicación:
 No se reemplazan cadenas por mera coincidencia textual. Antes de editar una ocurrencia, su target
 se resuelve desde la nota que la contiene y debe apuntar al mismo archivo origen.
 
-### 4.4 Ambigüedad
+### 4.4 Duplicados
 
-Un enlace ya ambiguo devuelve todos sus candidatos, igual que una definición de nota:
+Los duplicados no se ordenan con una regla inventada ni con el primer resultado bruto del
+filesystem. El resolver reproduce el ranking de la app y devuelve el ganador junto con los
+candidatos ordenados. Apertura, `prepareRename` y rename reutilizan esa misma identidad; no pueden
+escoger archivos distintos durante una operación.
 
-- abrir: usa el picker `Resolve link` existente de obsidian.nvim;
-- renombrar: queda una decisión real, porque el handler upstream de notas contiene
-  `TODO: pick note` y actualmente toma `notes[1]`;
-- el resolver nunca escoge el primer archivo devuelto por el recorrido del filesystem.
+### 4.5 Políticas de representación
 
-### 4.5 Configuración del workspace
+Son opciones propias de Nyabsidian, separadas de la configuración nativa de obsidian.nvim:
 
-El formateo de los targets nuevos debe leer la configuración activa de obsidian.nvim:
+```lua
+nyabsidian = {
+  attachment_paths = {
+    vault = "preserve",    -- "preserve" | "simplify"
+    external = "preserve", -- "preserve" | "absolute"
+  },
+}
+```
 
-- `link.style`: `wiki`, `markdown` o callback;
-- `link.format`: `shortest`, `relative` o `absolute`;
-- `link.auto_update` cuando sea relevante para respetar la intención del vault.
+Ambas usan `preserve` por defecto. Para destinos internos conserva la clase de cada referencia
+(`file://`, absoluto, relativo a la nota, relativo al vault o basename); solo amplía un basename
+si mantenerlo perdería identidad. Para destinos externos conserva URI, absoluto o relativo. La
+opción `vault = "simplify"` canonicaliza con el `link.format` activo de obsidian.nvim, mientras
+`external = "absolute"` convierte targets externos en paths absolutos.
 
-Este documento concentra los probes en el default `shortest`. `relative` y `absolute` deben usar las
-mismas definiciones del plugin/app y requieren casos de prueba propios antes de implementar el
-printer definitivo.
+Estas políticas modifican la representación, no la identidad ni el estilo sintáctico: wiki sigue
+wiki y Markdown sigue Markdown.
 
-## 5. Separación de código necesaria
+## 5. Separación de código
 
-El módulo actual `lua/sabunv/nvim/markdown.lua` mezcla la política de vault y de proyecto en
-`root_of()`, `resolve()`, `open()` y `rename_attachment()`. Debe partirse antes de ampliar el rename.
+`lua/sabunv/nvim/markdown.lua` conserva provisionalmente la política antigua para el fallback de
+Markdown/Marksman. El dominio de vault ya no entra en esas funciones: vive en
+`lua/lzy/obsidian/attachments.lua` y se despacha antes desde el mapping común.
 
-Una estructura posible:
+La estructura efectiva de la fase Obsidian es:
 
 ```text
-lua/sabunv/nvim/markdown/
-├── init.lua          # parser y dispatch por contexto; sin resolución
-├── link.lua          # tipos/rangos/encoding puramente mecánicos
-├── obsidian.lua      # resolver, open y rename de vault
-└── marksman.lua      # resolver/open/rename de proyecto; diseño posterior
+lua/lzy/obsidian/
+├── init.lua          # workspaces, configuración y ciclo de vida
+├── links.lua         # dispatch LSP y acción inteligente
+├── headings.lua      # identidad y refactor de headings
+└── attachments.lua   # identidad, apertura y refactor de archivos
+
+lua/sabunv/nvim/markdown.lua  # fallback antiguo fuera de vaults
 ```
 
 Los nombres concretos pueden cambiar; la frontera no:
 
 ```text
-entrada de vault ──────> markdown.obsidian ──────> semántica Obsidian
-entrada de proyecto ───> markdown.marksman ──────> semántica Marksman
+entrada de vault ──────> lzy.obsidian.attachments ──> semántica Obsidian
+entrada de proyecto ───> sabunv.nvim.markdown ─────> fallback / futura semántica Marksman
 ```
 
 `lua/lzy/obsidian/init.lua` solo debe requerir adaptadores Obsidian. No debe llamar a una función cuyo
@@ -370,44 +388,51 @@ resultado dependa de detectar `.git` o `.marksman.toml`.
 `after/ftplugin/markdown.lua` puede mantener `gx` como mapping común, pero primero despacha por el
 contexto real del buffer:
 
-- vault → `markdown.obsidian.open_under_cursor()`;
+- vault → `lzy.obsidian.attachments.open_under_cursor()`;
 - no vault → `markdown.marksman.open_under_cursor()` o el fallback provisional.
 
 Durante la separación se acepta que el flujo Marksman quede reducido al comportamiento actual o a
 un fallback claramente marcado. No se añade compatibilidad accidental desde el adaptador
 Obsidian.
 
-## 6. Plan de implementación de la fase Obsidian
+## 6. Implementación verificada de la fase Obsidian
 
-1. Extraer parser/utilidades mecánicas sin cambiar comportamiento.
-2. Crear el resolver exclusivo de adjuntos Obsidian y pruebas de:
+Se implementó y probó:
+
+1. Un parser con rangos exactos para wiki, Markdown y Canvas.
+2. El resolver exclusivo de adjuntos Obsidian con casos de:
    - basename único;
    - basename duplicado junto a la nota;
-   - basename duplicado sin ganador local;
+   - basename duplicado con ganador por carpeta origen y por longitud;
    - path vault-relative;
    - espacios/URL encoding;
    - missing y fuera del root.
-3. Hacer que todas las entradas de apertura de vault consuman ese resolver.
-4. Sustituir el rename por un flujo Obsidian que acepte basename o path vault-relative.
-5. Reemplazar backlinks por identidad resuelta y printer según `link.format`.
-6. Probar `WorkspaceEdit` con buffers abiertos y cerrados, creación de carpetas y colisiones.
-7. Solo entonces diseñar el módulo Marksman en una sección/documento independiente.
+3. Todas las entradas de apertura de vault (`gx`, `<CR>`, definición y `follow_link`) consumiendo
+   ese resolver.
+4. Rename/move por basename o path vault-relative, con paths externos explícitos.
+5. Referencias actualizadas por identidad con `preserve` por defecto y canonicalización opcional.
+6. Un único `WorkspaceEdit`, creación de carpetas, colisiones y conservación de sintaxis.
+
+Marksman queda como la siguiente fase independiente.
 
 ## 7. Casos de aceptación de Obsidian
 
 - Un único `a.png`: `![[a.png]]` abre y se renombra correctamente desde cualquier nota.
 - Dos `a.png`: `![[one/a.png]]` abre y renombra exclusivamente `one/a.png`.
-- Dos `a.png` y target pelado: abrir presenta los candidatos con `Resolve link`, igual que para
-  notas ambiguas; el comportamiento de rename está pendiente.
-- Renombrar `one/a.png` a `b` crea `one/b.png`; si es único, las referencias quedan cortas.
-- Renombrar a `archive/b` crea/mueve a `archive/b.png` y reescribe las referencias con el target
-  mínimo inequívoco.
-- Crear otra colisión `b.png` hace que `shortest` añada el path vault-relative necesario.
-- Wiki y Markdown conservan su sintaxis, labels/alt, títulos, dimensiones y encoding.
+- Dos `a.png` y target pelado: abrir y rename usan el mismo best match que la app Obsidian.
+- Renombrar `one/a.png` a `b` crea `one/b.png`; las referencias que ya eran basename quedan cortas
+  si siguen siendo inequívocas y las explícitas conservan su clase.
+- Renombrar a `archive/b` crea/mueve a `archive/b.png` y actualiza cada referencia sin convertir
+  arbitrariamente absolutos en relativos ni relativos en absolutos.
+- Crear una colisión `b.png` amplía los basenames afectados al path vault-relative necesario.
+- Wiki y Markdown conservan su sintaxis, labels/alt, títulos, dimensiones, encoding y, por
+  defecto, la clase de path original.
 - `gx`, `<CR>`, `:Obsidian follow_link`, definición y rename identifican siempre el mismo
   archivo.
 - Ninguna operación de vault consulta o hereda la política de Marksman.
 - Ningún basename pelado ni path vault-relative escapa accidentalmente del vault.
+- Un path `file://`, absoluto o `./` / `../` puede apuntar fuera únicamente porque lo expresa de
+  forma explícita.
 
 ## 8. Pendiente deliberado: Marksman
 
@@ -442,14 +467,12 @@ Estas decisiones no bloquean ni modifican el diseño cerrado de Obsidian.
   resolución de un enlace existente.
 - Notas y demás archivos locales comparten el resolver de identidad de la app Obsidian. El tipo
   de archivo solo decide la acción de apertura posterior.
-- Los paths externos se permiten si son explícitos; queda por definir qué formas son explícitas y
-  si además pueden renombrarse o moverse.
 - En vaults anidados manda siempre el marker `.nyabsidian` o `.obsidian/` más cercano a la nota.
   Si ambos están en la misma carpeta, identifican el mismo root y no compiten entre sí.
-- Un basename duplicado devuelve todos los candidatos y la apertura usa el picker `Resolve link`
-  existente, igual que las notas de obsidian-ls.
-- Solo queda pendiente el rename ambiguo: obsidian-ls tiene `TODO: pick note` y hoy toma
-  `notes[1]`, una limitación que no define una política segura.
+- Un basename duplicado se ordena como `getLinkpathDest()`: carpeta de la nota, longitud de path y
+  orden de indexación; `getFirstLinkpathDest()` define el ganador para abrir y renombrar.
+- Los paths externos explícitos son `file://`, absolutos del sistema o `./` / `../`; se permiten
+  como origen y destino, mientras el scan de referencias permanece limitado al vault.
 - En `[[nota#header#subheader]]`, el componente bajo el cursor decide el rename: nota, header o
   subheader. Renombrar un heading actualiza las referencias estructurales que apuntan a esa sección.
 - El prompt de rename muestra el texto real de la declaración (`FatherA`, aunque el enlace diga

@@ -10,7 +10,7 @@ local uv = vim.uv or vim.loop
 local OBSIDIAN_MARKER = ".obsidian"
 local NYABSIDIAN_MARKER = ".nyabsidian"
 local DUMMY_NAME = "__nyabsidian_dummy__"
-local STATE_DIR = vim.fs.joinpath(vim.fn.stdpath("state"), "nyabsidian")
+local STATE_DIR = vim.fs.joinpath(vim.fn.stdpath "state", "nyabsidian")
 local STATE_FILE = vim.fs.joinpath(STATE_DIR, "workspaces.json")
 
 local state = {
@@ -73,7 +73,8 @@ local function inspect_root(root)
     root = root,
     has_obsidian = has_obsidian,
     has_nyabsidian = has_nyabsidian,
-    kind = has_obsidian and (has_nyabsidian and "obsidian+nyabsidian" or "obsidian") or "nyabsidian",
+    kind = has_obsidian and (has_nyabsidian and "obsidian+nyabsidian" or "obsidian")
+      or "nyabsidian",
   }
 end
 
@@ -142,7 +143,7 @@ end
 ---@param name string
 ---@return boolean
 local function is_note(name)
-  local ext = name:match("%.([^./]+)$")
+  local ext = name:match "%.([^./]+)$"
   return ext ~= nil and vim.tbl_contains(NOTE_EXTENSIONS, ext)
 end
 
@@ -225,7 +226,7 @@ local function read_state()
     return {}
   end
 
-  local raw = f:read("*a")
+  local raw = f:read "*a"
   f:close()
   if not raw or vim.trim(raw) == "" then
     return {}
@@ -349,25 +350,35 @@ end
 --- función global de make_opts (fallback por merge).
 local function workspace_overrides(root)
   local overrides = read_nyabsidian(root)
+  local plugin_overrides = vim.deepcopy(overrides)
+  local custom = plugin_overrides.nyabsidian
+  plugin_overrides.nyabsidian = nil
 
-  if vim.tbl_isempty(overrides) then
-    return overrides
+  local configured, custom_error = require("lzy.obsidian.attachments").configure(root, custom)
+  if not configured then
+    config_warning(vim.fs.joinpath(root, NYABSIDIAN_MARKER), custom_error)
+    return {}
+  end
+
+  if vim.tbl_isempty(plugin_overrides) then
+    return plugin_overrides
   end
 
   local ok, err = pcall(function()
     -- Validar contra los defaults del plugin dispara la deprecación de
     -- legacy_commands (true por defecto); el merge real usa Obsidian._opts
     -- (legacy_commands = false), así que aquí lo neutralizamos también.
-    local copy = vim.deepcopy(overrides)
+    local copy = vim.deepcopy(plugin_overrides)
     copy.legacy_commands = false
     require("obsidian.config").normalize(copy)
   end)
   if not ok then
+    require("lzy.obsidian.attachments").configure(root, nil)
     config_warning(vim.fs.joinpath(root, NYABSIDIAN_MARKER), err)
     return {}
   end
 
-  return overrides
+  return plugin_overrides
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -515,7 +526,7 @@ local function enter_vault(bufnr, root)
     return
   end
   root = root_str(root)
-  for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr, name = "marksman" })) do
+  for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }) do
     local client_root = marksman_root(client)
     if client_root and (client_root == root or client_root:sub(1, #root + 1) == root .. "/") then
       -- Sirve a este vault: se detiene del todo.
@@ -537,7 +548,7 @@ local function leave_vault(bufnr)
 
   -- obsidian-ls ya no gestiona este buffer (el client puede seguir vivo para
   -- otras notas del vault).
-  for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr, name = "obsidian-ls" })) do
+  for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr, name = "obsidian-ls" }) do
     pcall(vim.lsp.buf_detach_client, bufnr, client.id)
   end
 
@@ -546,7 +557,7 @@ local function leave_vault(bufnr)
     return
   end
 
-  if #vim.lsp.get_clients({ bufnr = bufnr, name = "marksman" }) > 0 then
+  if #vim.lsp.get_clients { bufnr = bufnr, name = "marksman" } > 0 then
     return
   end
 
@@ -600,11 +611,17 @@ end
 ---@return string[]
 local function summary(bufnr)
   local lines = {}
-  table.insert(lines, "obsidian-ls on buffer: " .. #vim.lsp.get_clients({ bufnr = bufnr, name = "obsidian-ls" }))
-  table.insert(lines, "marksman on buffer: " .. #vim.lsp.get_clients({ bufnr = bufnr, name = "marksman" }))
+  table.insert(
+    lines,
+    "obsidian-ls on buffer: " .. #vim.lsp.get_clients { bufnr = bufnr, name = "obsidian-ls" }
+  )
+  table.insert(
+    lines,
+    "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }
+  )
   table.insert(lines, "all LSP on buffer: " .. vim.inspect(vim.tbl_map(function(client)
     return client.name
-  end, vim.lsp.get_clients({ bufnr = bufnr }))))
+  end, vim.lsp.get_clients { bufnr = bufnr })))
   return lines
 end
 
@@ -642,9 +659,9 @@ local function reset_obsidian_buffer(bufnr)
     vim.bo[bufnr].readonly = false
   end
 
-  for _, lhs in ipairs({ "<CR>", "]o", "[o" }) do
+  for _, lhs in ipairs { "<CR>", "]o", "[o" } do
     for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
-      if map.lhs == lhs and (map.desc or ""):find("^Obsidian") then
+      if map.lhs == lhs and (map.desc or ""):find "^Obsidian" then
         pcall(vim.keymap.del, "n", lhs, { buffer = bufnr })
       end
     end
@@ -664,7 +681,9 @@ local function sync_current_context(reenter)
   if ws then
     set_workspace(ws)
     enter_vault(bufnr, ws.root)
-    if reenter and (vim.bo[bufnr].filetype == "markdown" or vim.bo[bufnr].filetype == "quarto") then
+    if
+      reenter and (vim.bo[bufnr].filetype == "markdown" or vim.bo[bufnr].filetype == "quarto")
+    then
       pcall(vim.api.nvim_exec_autocmds, "BufEnter", {
         group = "obsidian_setup",
         buffer = bufnr,
@@ -692,8 +711,10 @@ local function stop_removed_lsp(roots)
     end
   end
 
-  for _, client in ipairs(vim.lsp.get_clients({ name = "obsidian-ls" })) do
-    local root = client.config and client.config.root_dir and normalize(tostring(client.config.root_dir))
+  for _, client in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
+    local root = client.config
+      and client.config.root_dir
+      and normalize(tostring(client.config.root_dir))
     if root and not valid[root] then
       client:stop(true)
     end
@@ -704,7 +725,7 @@ end
 ---@param removed? string[] Roots que han dejado de existir.
 ---@param added? string[] Roots que acaban de entrar.
 local function rebuild_runtime(roots, removed, added)
-  local obsidian = require("obsidian")
+  local obsidian = require "obsidian"
   local workspaces = {}
 
   workspaces[#workspaces + 1] = assert(obsidian.Workspace.new(dummy_spec()))
@@ -855,7 +876,7 @@ function M.debug_info(opts)
   table.insert(out, "attachment_rename_patched: " .. tostring(state.attachment_rename_patched))
   table.insert(out, "heading_links_patched: " .. tostring(state.heading_links_patched))
 
-  for _, c in ipairs(vim.lsp.get_clients({ name = "obsidian-ls" })) do
+  for _, c in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
     table.insert(
       out,
       ("client %d closing=%s stopped=%s root=%s"):format(
@@ -891,7 +912,7 @@ end
 local function has_unclosed_flow(lines)
   local open, close = 0, 0
   for _, line in ipairs(lines) do
-    for ch in line:gmatch(".") do
+    for ch in line:gmatch "." do
       if ch == "[" or ch == "{" then
         open = open + 1
       elseif ch == "]" or ch == "}" then
@@ -922,7 +943,10 @@ function M.frontmatter()
   if note.has_frontmatter and note.frontmatter_end_line and note.frontmatter_end_line > 1 then
     local body = vim.api.nvim_buf_get_lines(bufnr, 1, note.frontmatter_end_line - 1, false)
     if has_unclosed_flow(body) then
-      notify("Frontmatter malformado (flow [ { sin cerrar); no se tocó la nota", vim.log.levels.WARN)
+      notify(
+        "Frontmatter malformado (flow [ { sin cerrar); no se tocó la nota",
+        vim.log.levels.WARN
+      )
       return
     end
   end
@@ -996,6 +1020,13 @@ local function nyabsidian_template()
 ---@field img_text_func? fun(path: string): string
 ---@field confirm_img_paste? boolean
 
+---@class nyabsidian.AttachmentPathOpts
+---@field vault? "preserve"|"simplify" Cómo reescribir referencias a archivos dentro del vault.
+---@field external? "preserve"|"absolute" Cómo reescribir referencias a archivos fuera del vault.
+
+---@class nyabsidian.OwnOpts
+---@field attachment_paths? nyabsidian.AttachmentPathOpts Políticas propias; no pertenecen a obsidian.nvim.
+
 ---@class nyabsidian.SearchOpts
 ---@field sort_by? "path"|"modified"|"accessed"|"created"|false
 ---@field sort_reversed? boolean
@@ -1020,6 +1051,7 @@ local function nyabsidian_template()
 ---@field note_path_func? fun(spec: { id: string, dir: string, title: string|? }): string
 ---@field callbacks? nyabsidian.CallbackConfig
 ---@field search? nyabsidian.SearchOpts
+---@field nyabsidian? nyabsidian.OwnOpts Opciones exclusivas de esta integración.
 
 ---@type nyabsidian.VaultConfig
 return {
@@ -1056,17 +1088,27 @@ return {
   -- templates = { folder = "Templates" },
   -- daily_notes = { folder = "Daily", default_tags = { "diario" } },
   -- attachments = { folder = "Archivos" },
+
+  --- Opciones propias de Nyabsidian, no de obsidian.nvim. Ambas usan
+  --- "preserve" por defecto: cada referencia conserva su clase original
+  --- (absoluta, file://, relativa a la nota, relativa al vault o basename).
+  -- nyabsidian = {
+  --   attachment_paths = {
+  --     vault = "preserve",    -- "preserve" | "simplify" (usa link.format)
+  --     external = "preserve", -- "preserve" | "absolute"
+  --   },
+  -- },
 }
 ]]
 end
 
 --- :NyabsidianInit — buffer sin nombre con el template de .nyabsidian.
 function M.nyabsidian_init()
-  vim.cmd("enew")
+  vim.cmd "enew"
   vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(nyabsidian_template(), "\n"))
   -- El ftplugin de nyabsidian lo reclasifica a lua (sintaxis, stylua).
   vim.bo.filetype = "nyabsidian"
-  notify("Guárdalo como .nyabsidian en el directorio que quieras tratar como vault")
+  notify "Guárdalo como .nyabsidian en el directorio que quieras tratar como vault"
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -1179,7 +1221,7 @@ local function patch_note_save()
     return
   end
 
-  local Note = require("obsidian.note")
+  local Note = require "obsidian.note"
   local update = Note.update_frontmatter
 
   ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
@@ -1188,7 +1230,10 @@ local function patch_note_save()
     if self.has_frontmatter and self.frontmatter_end_line and self.frontmatter_end_line > 1 then
       local body = vim.api.nvim_buf_get_lines(bufnr, 1, self.frontmatter_end_line - 1, false)
       if has_unclosed_flow(body) then
-        notify("Frontmatter malformado (flow [ { sin cerrar); no se tocó la nota", vim.log.levels.WARN)
+        notify(
+          "Frontmatter malformado (flow [ { sin cerrar); no se tocó la nota",
+          vim.log.levels.WARN
+        )
         return false
       end
     end
@@ -1209,7 +1254,7 @@ local function patch_backlink_escaped_pipe()
     return
   end
 
-  local Note = require("obsidian.note")
+  local Note = require "obsidian.note"
   local get_reference_paths = Note.get_reference_paths
 
   ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
@@ -1227,7 +1272,7 @@ end
 
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
-  local lsp = require("obsidian.lsp")
+  local lsp = require "obsidian.lsp"
   if lsp.__nyabsidian_patched then
     return
   end
@@ -1264,7 +1309,7 @@ local function install_runtime()
     group = group,
     pattern = NYABSIDIAN_MARKER,
     callback = function()
-      M.refresh({ notify = true })
+      M.refresh { notify = true }
     end,
   })
 
@@ -1285,7 +1330,7 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianInit")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
-    M.refresh({ notify = true })
+    M.refresh { notify = true }
   end, { desc = "Refresh Nyabsidian workspaces" })
 
   vim.api.nvim_create_user_command("NyabsidianInfo", function()
@@ -1309,7 +1354,7 @@ function M.setup()
   -- El filetype de .nyabsidian se registra en ftdetect/nyabsidian.lua para
   -- que aplique desde el arranque, sin depender de que este módulo cargue.
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
-  require("lzy.obsidian.links").setup({ notify = notify, state = state })
+  require("lzy.obsidian.links").setup { notify = notify, state = state }
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()

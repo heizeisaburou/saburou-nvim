@@ -29,6 +29,8 @@ tienes:
 - **Frontmatter automático** (opcional, por carpeta): al guardar se generan `id`, `aliases` y
   `tags` conservando el resto de metadatos de la nota.
 - **Notas diarias, plantillas y adjuntos** con carpeta y reglas propias por vault.
+- **Adjuntos completos**: abre y renombra imágenes, PDF y cualquier otro archivo local sin
+  depender de las limitaciones de obsidian-ls.
 
 ## Cómo funciona
 
@@ -51,15 +53,17 @@ tienes:
 
 Edita su `.nyabsidian` y descomenta o añade lo que quieras:
 
-| Clave                      | Qué hace                                                     | Ejemplo                                         |
-| -------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
-| `frontmatter.enabled`      | Genera `id`/`aliases`/`tags` al guardar                      | `frontmatter = { enabled = true }`              |
-| `frontmatter.func`         | Construye el frontmatter a medida (función por nota)         | la función de ejemplo de la plantilla           |
-| `link.style`               | Enlaces `wiki` (`[[nota]]`) o `markdown` (`[nota](nota.md)`) | `link = { style = "markdown" }`                 |
-| `templates.folder`         | Carpeta de plantillas del vault                              | `templates = { folder = "Templates" }`          |
-| `daily_notes.folder`       | Carpeta de las notas diarias                                 | `daily_notes = { folder = "Diario" }`           |
-| `daily_notes.default_tags` | Tags que llevan las notas diarias                            | `daily_notes = { default_tags = { "diario" } }` |
-| `attachments.folder`       | Carpeta para adjuntos e imágenes                             | `attachments = { folder = "Adjuntos" }`         |
+| Clave                                    | Qué hace                                                     | Ejemplo                                         |
+| ---------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
+| `frontmatter.enabled`                    | Genera `id`/`aliases`/`tags` al guardar                      | `frontmatter = { enabled = true }`              |
+| `frontmatter.func`                       | Construye el frontmatter a medida (función por nota)         | la función de ejemplo de la plantilla           |
+| `link.style`                             | Enlaces `wiki` (`[[nota]]`) o `markdown` (`[nota](nota.md)`) | `link = { style = "markdown" }`                 |
+| `templates.folder`                       | Carpeta de plantillas del vault                              | `templates = { folder = "Templates" }`          |
+| `daily_notes.folder`                     | Carpeta de las notas diarias                                 | `daily_notes = { folder = "Diario" }`           |
+| `daily_notes.default_tags`               | Tags que llevan las notas diarias                            | `daily_notes = { default_tags = { "diario" } }` |
+| `attachments.folder`                     | Carpeta para adjuntos e imágenes                             | `attachments = { folder = "Adjuntos" }`         |
+| `nyabsidian.attachment_paths.vault`      | Reescritura de adjuntos internos (propia)                    | `"preserve"` o `"simplify"`                    |
+| `nyabsidian.attachment_paths.external`   | Reescritura de adjuntos externos (propia)                    | `"preserve"` o `"absolute"`                    |
 
 ## Comandos
 
@@ -112,6 +116,9 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 | `<leader>nf` | Seguir el enlace bajo el cursor                                                 |
 | `<leader>nx` | Toggle de checkbox en la línea                                                  |
 | `<leader>np` | Pegar imagen del portapapeles                                                   |
+| `gd`         | Ir a una nota/heading o abrir el adjunto bajo el cursor                         |
+| `gx`         | Abrir un adjunto con Neovim o con la aplicación del sistema                    |
+| `<C-A-r>`    | Rename LSP del componente bajo el cursor: nota, heading o adjunto               |
 
 > [!NOTE]
 >
@@ -124,8 +131,68 @@ navegación cae en la nota. El rename LSP (`<C-A-r>`) distingue el componente ba
 nota, header o subheader; también puede iniciarse directamente sobre una declaración de heading.
 No hace falta escribir los ancestros comunes: `[[nota#FatherA#Child]]` es suficiente si esa cadena
 desambigua `Child`; solo se anteponen más headings cuando todavía quedan varios destinos.
-El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto se aplica literalmente
-al heading, mientras los enlaces se escriben con su anchor canónico (`My Father A` → `my-father-a`).
+El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto se aplica
+literalmente al heading, mientras los enlaces se escriben con su anchor canónico
+(`My Father A` → `my-father-a`).
+
+## Adjuntos
+
+`<CR>`, `gd` y `gx` comparten un único resolvedor de vault. Los archivos de texto se abren dentro
+de Neovim; imágenes, PDF, audio, vídeo y demás binarios se abren con la aplicación del sistema.
+La decisión se toma por el contenido, no mediante una lista cerrada de extensiones: un `.mp4`
+textual entra en Neovim y cualquier formato no textual se delega al opener/MIME del sistema.
+`attachments.folder` solo decide dónde se añaden o pegan archivos nuevos: nunca altera la
+resolución de un enlace existente.
+
+El resolvedor reproduce el ranking de la app Obsidian: paths exactos primero; para un basename
+duplicado, candidatos bajo la carpeta de la nota antes que el resto y, después, el path más corto.
+La búsqueda no distingue mayúsculas/minúsculas y no entra en vaults anidados.
+
+El rename LSP muestra como valor inicial una ubicación editable, no únicamente el basename. Para
+un archivo interno usa su path desde la raíz del vault; para uno externo conserva su forma
+explícita. Acepta tanto un nombre como un path:
+
+```text
+new.png                  rename en la carpeta actual del adjunto
+archive/deep/new.png     rename + move desde la raíz del vault
+```
+
+Si se omite la extensión se conserva la anterior y las carpetas necesarias se crean. Todas las
+referencias wiki, Markdown y Canvas se actualizan por identidad, preservando embeds, labels,
+dimensiones, títulos, fragments y URL encoding. Por defecto también conservan su clase de path;
+`link.format` solo canonicaliza adjuntos si se activa expresamente `vault = "simplify"`.
+
+### Políticas propias de Nyabsidian
+
+Estas opciones no existen en obsidian.nvim. Viven deliberadamente bajo la clave `nyabsidian` del
+archivo `.nyabsidian`:
+
+```lua
+return {
+  nyabsidian = {
+    attachment_paths = {
+      vault = "preserve",
+      external = "preserve",
+    },
+  },
+}
+```
+
+Las dos usan `preserve` por defecto:
+
+- `vault = "preserve"`: cada referencia interna conserva su sistema de coordenadas. Un absoluto
+  continúa absoluto, `file://` continúa URI, `./`/`../` continúa relativo a su nota, un path de
+  vault continúa relativo al vault y un basename continúa corto mientras no pierda identidad.
+- `vault = "simplify"`: las referencias internas se canonicalizan mediante `link.format` del
+  workspace (`shortest`, `relative` o `absolute`).
+- `external = "preserve"`: los absolutos externos permanecen absolutos, las URI permanecen URI y
+  los relativos externos se recalculan desde cada nota, pero continúan siendo relativos.
+- `external = "absolute"`: toda referencia a un destino externo se convierte en un path absoluto
+  del sistema.
+
+`preserve` no significa dejar una referencia rota sin modificar: el target se actualiza para
+seguir al archivo, pero no cambia arbitrariamente de absoluto a relativo ni al contrario. Si un
+basename interno deja de ser seguro por una colisión, se amplía al path de vault necesario.
 
 ## Notas
 
