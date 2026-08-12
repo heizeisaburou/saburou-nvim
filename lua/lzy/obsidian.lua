@@ -608,12 +608,9 @@ local function summary(bufnr)
     lines,
     "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }
   )
-  table.insert(
-    lines,
-    "all LSP on buffer: " .. vim.inspect(vim.tbl_map(function(client)
-      return client.name
-    end, vim.lsp.get_clients { bufnr = bufnr }))
-  )
+  table.insert(lines, "all LSP on buffer: " .. vim.inspect(vim.tbl_map(function(client)
+    return client.name
+  end, vim.lsp.get_clients { bufnr = bufnr })))
   return lines
 end
 
@@ -1387,7 +1384,9 @@ local function patch_attachment_rename()
     if loc and not util.is_uri(loc) and api.is_attachment_path(loc) then
       local ok_wall, err_wall = pcall(vim.cmd.wall)
       if not ok_wall then
-        return log.err(err_wall and err_wall or "failed writing all buffers before renaming, abort")
+        return log.err(
+          err_wall and err_wall or "failed writing all buffers before renaming, abort"
+        )
       end
 
       local edit, err = md.rename_attachment(loc, new_name, {
@@ -1501,7 +1500,7 @@ function M.setup()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
-patch_follow_link_attachments()
+  patch_follow_link_attachments()
   patch_attachment_rename()
   install_workspace_switch()
   require("obsidian").setup(M.opts())

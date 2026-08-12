@@ -14,7 +14,11 @@ local COMMANDS = {
   },
   { cmd = "NyabsidianInfo", fn = "info", desc = "Show Nyabsidian workspace info" },
   { cmd = "NyabsidianDebug", fn = "debug_info", desc = "Dump Nyabsidian LSP debug info" },
-  { cmd = "NyabsidianFrontmatter", fn = "frontmatter", desc = "Regenerate note frontmatter (forced)" },
+  {
+    cmd = "NyabsidianFrontmatter",
+    fn = "frontmatter",
+    desc = "Regenerate note frontmatter (forced)",
+  },
   { cmd = "NyabsidianInit", fn = "nyabsidian_init", desc = "New .nyabsidian template buffer" },
 }
 

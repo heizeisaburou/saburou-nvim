@@ -96,24 +96,25 @@ Y los del propio obsidian.nvim, disponibles dentro de cualquier nota:
 
 Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 
-| Tecla | Qué hace |
-| ----- | -------- |
-| `<CR>` | **Acción inteligente**: sigue enlaces, togglea/crea checkboxes, pliega headings |
-| `]o` / `[o` | Siguiente / anterior enlace de la nota |
-| `<leader>nn` | Nueva nota |
-| `<leader>nr` | Renombrar la nota (actualiza todos sus enlaces) |
-| `<leader>ns` | Cambiar rápido de nota |
-| `<leader>nb` | Qué notas enlazan a la actual |
-| `<leader>nl` | Enlazar la selección a una nota nueva |
-| `<leader>nL` | Enlazar a una nota existente |
-| `<leader>nd` | Notas diarias |
-| `<leader>nt` | Insertar plantilla |
-| `<leader>nT` | Listar tags del vault |
-| `<leader>nf` | Seguir el enlace bajo el cursor |
-| `<leader>nx` | Toggle de checkbox en la línea |
-| `<leader>np` | Pegar imagen del portapapeles |
+| Tecla        | Qué hace                                                                        |
+| ------------ | ------------------------------------------------------------------------------- |
+| `<CR>`       | **Acción inteligente**: sigue enlaces, togglea/crea checkboxes, pliega headings |
+| `]o` / `[o`  | Siguiente / anterior enlace de la nota                                          |
+| `<leader>nn` | Nueva nota                                                                      |
+| `<leader>nr` | Renombrar la nota (actualiza todos sus enlaces)                                 |
+| `<leader>ns` | Cambiar rápido de nota                                                          |
+| `<leader>nb` | Qué notas enlazan a la actual                                                   |
+| `<leader>nl` | Enlazar la selección a una nota nueva                                           |
+| `<leader>nL` | Enlazar a una nota existente                                                    |
+| `<leader>nd` | Notas diarias                                                                   |
+| `<leader>nt` | Insertar plantilla                                                              |
+| `<leader>nT` | Listar tags del vault                                                           |
+| `<leader>nf` | Seguir el enlace bajo el cursor                                                 |
+| `<leader>nx` | Toggle de checkbox en la línea                                                  |
+| `<leader>np` | Pegar imagen del portapapeles                                                   |
 
 > [!NOTE]
+>
 > El ciclo de checkbox por defecto es `" "` → `~` → `!` → `>` → `x`: el primer toggle de una
 > casilla vacía la deja en `~` (pendiente), no en `x` (hecho).
 
