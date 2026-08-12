@@ -41,6 +41,8 @@ tienes:
 - **En vivo**: guarda cambios en un `.nyabsidian` y aplican sin reiniciar Neovim.
 - **Vaults anidados**: si hay un vault dentro de otro, gana el más específico (la carpeta más
   profunda).
+- **Sesiones restauradas**: después de `rs`, todas las notas cargadas recuperan sus autocmds,
+  obsidian-ls, footer y Tree-sitter aunque su `FileType` ocurriera antes de cargar el plugin.
 
 ## Empezar
 
@@ -139,6 +141,10 @@ El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto s
 literalmente al heading, mientras los enlaces se escriben con su anchor canónico
 (`My Father A` → `my-father-a`).
 
+`<leader>nb` abre siempre el selector de backlinks: no salta directamente al destino cuando solo
+hay uno y también muestra el selector vacío cuando no existe ninguno. Así la acción conserva el
+mismo significado de revisión con cero, uno o varios resultados.
+
 ## Adjuntos
 
 `<CR>`, `gd` y `gx` comparten un único resolvedor de vault. Los archivos de texto se abren dentro
@@ -154,11 +160,13 @@ La búsqueda no distingue mayúsculas/minúsculas y no entra en vaults anidados.
 
 El rename LSP muestra como valor inicial una ubicación editable, no únicamente el basename. Para
 un archivo interno usa su path desde la raíz del vault; para uno externo conserva su forma
-explícita. Acepta tanto un nombre como un path:
+explícita. El contenido editado conserva esa gramática: cualquier path ordinario, incluido un
+basename, parte de la raíz del vault; `./` y `../` parten de la carpeta de la nota.
 
 ```text
-new.png                  rename en la carpeta actual del adjunto
+new.png                  rename + move a la raíz del vault
 archive/deep/new.png     rename + move desde la raíz del vault
+./new.png                rename + move junto a la nota actual
 ```
 
 Si se omite la extensión se conserva la anterior y las carpetas necesarias se crean. Todas las

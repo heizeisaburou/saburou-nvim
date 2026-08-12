@@ -228,8 +228,9 @@ movió el archivo y reescribió sus referencias como:
 porque continuaban existiendo otros `a.png`. Esto confirma las dos entradas que debe aceptar
 nuestro prompt:
 
-- `nuevo.png`: rename dentro de la carpeta actual;
-- `carpeta/subcarpeta/nuevo.png`: path desde la raíz del vault; rename + move.
+- `nuevo.png`: rename + move a la raíz del vault;
+- `carpeta/subcarpeta/nuevo.png`: path desde la raíz del vault; rename + move;
+- `./nuevo.png`: path desde la carpeta de la nota; rename + move.
 
 Si el nombre final vuelve a ser único, `shortest` puede reducir las referencias otra vez al
 basename.
@@ -384,6 +385,7 @@ La estructura efectiva de la fase Obsidian es:
 ```text
 lua/lzy/obsidian/
 ├── init.lua          # workspaces, configuración y ciclo de vida
+├── backlinks.lua     # selector estable para cero, uno o varios backlinks
 ├── links.lua         # dispatch LSP y acción inteligente
 ├── link_actions.lua  # copiar paths y convertir una referencia
 ├── headings.lua      # identidad y refactor de headings
@@ -426,10 +428,13 @@ Se implementó y probó:
    - missing y fuera del root.
 3. Todas las entradas de apertura de vault (`gx`, `<CR>`, definición y `follow_link`) consumiendo
    ese resolver.
-4. Rename/move por basename o path vault-relative, con paths externos explícitos.
+4. Rename/move desde la raíz por basename o path vault-relative, con `./` relativo a la nota y
+   paths externos explícitos.
 5. Referencias actualizadas por identidad con `preserve` por defecto y canonicalización opcional.
 6. Un único `WorkspaceEdit`, creación de carpetas, colisiones y conservación de sintaxis.
 7. Copia de identidad absoluta y conversión local entre formatos válidos de notas/adjuntos.
+8. Selector estable de backlinks y rehidratación completa de todos los buffers tras restaurar una
+   sesión.
 
 Marksman queda como la siguiente fase independiente.
 
@@ -438,8 +443,8 @@ Marksman queda como la siguiente fase independiente.
 - Un único `a.png`: `![[a.png]]` abre y se renombra correctamente desde cualquier nota.
 - Dos `a.png`: `![[one/a.png]]` abre y renombra exclusivamente `one/a.png`.
 - Dos `a.png` y target pelado: abrir y rename usan el mismo best match que la app Obsidian.
-- Renombrar `one/a.png` a `b` crea `one/b.png`; las referencias que ya eran basename quedan cortas
-  si siguen siendo inequívocas y las explícitas conservan su clase.
+- Renombrar `one/a.png` a `b` crea `b.png` en la raíz; las referencias que ya eran basename quedan
+  cortas si siguen siendo inequívocas y las explícitas conservan su clase.
 - Renombrar a `archive/b` crea/mueve a `archive/b.png` y actualiza cada referencia sin convertir
   arbitrariamente absolutos en relativos ni relativos en absolutos.
 - Crear una colisión `b.png` amplía los basenames afectados al path vault-relative necesario.

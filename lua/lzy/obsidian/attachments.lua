@@ -899,13 +899,14 @@ function M.destination(old_path, new_name, opts)
     destination = normalize(new_name, false)
   elseif vim.startswith(new_name, "./") or vim.startswith(new_name, "../") then
     destination = normalize(vim.fs.joinpath(ctx.source_dir, new_name), false)
-  elseif new_name:find("/", 1, true) then
+  else
+    -- El placeholder del rename siempre representa una ubicación desde la
+    -- raíz del vault. Mantener esa misma gramática después de editarlo evita
+    -- que borrar `attachments/` conserve silenciosamente la carpeta antigua.
     destination = normalize(vim.fs.joinpath(ctx.root, new_name), false)
     if not inside(destination, ctx.root) then
       return nil, "un destino relativo al vault no puede escapar de su raíz"
     end
-  else
-    destination = normalize(vim.fs.joinpath(vim.fs.dirname(old_path), new_name), false)
   end
 
   local basename = vim.fs.basename(destination)

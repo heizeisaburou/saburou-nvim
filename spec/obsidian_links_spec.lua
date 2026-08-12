@@ -393,8 +393,23 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal(0, selections)
     assert.are.equal("one/a.png", prepared.placeholder)
     assert.are.equal("![[chosen.png]]", vim.fn.readfile(root .. "/source.md")[1])
-    assert.is_not_nil((vim.uv or vim.loop).fs_stat(root .. "/one/chosen.png"))
+    assert.is_not_nil((vim.uv or vim.loop).fs_stat(root .. "/chosen.png"))
+    assert.is_nil((vim.uv or vim.loop).fs_stat(root .. "/one/chosen.png"))
     assert.is_not_nil((vim.uv or vim.loop).fs_stat(root .. "/two/a.png"))
+  end)
+
+  it("treats a bare attachment rename as a destination at the vault root", function()
+    write("attachments/nyaruko-taquilla.gif", { "gif" })
+    write("source.md", { "![[nyaruko-taquilla.gif]]" })
+    vim.cmd.edit(root .. "/source.md")
+
+    local destination = require("lzy.obsidian.attachments").destination(
+      root .. "/attachments/nyaruko-taquilla.gif",
+      "nyaruko-taquilla_otro.gif",
+      { bufnr = 0 }
+    )
+
+    assert.are.equal(root .. "/nyaruko-taquilla_otro.gif", destination)
   end)
 
   it("prepares attachment rename with its editable vault location", function()
@@ -665,7 +680,7 @@ describe("Nyabsidian structured links and attachments", function()
 
     local _, reserved = attachments.destination(root .. "/assets/a.png", "bad#name", opts)
     local _, separator = attachments.destination(root .. "/assets/a.png", "bad\\name", opts)
-    local _, collision = attachments.destination(root .. "/assets/a.png", "taken.png", opts)
+    local _, collision = attachments.destination(root .. "/assets/a.png", "assets/taken.png", opts)
 
     assert.matches("no puede contener", reserved)
     assert.matches("separador", separator)
@@ -1000,5 +1015,40 @@ describe("Nyabsidian structured links and attachments", function()
     }
 
     assert.are.equal(root .. "/docs/target.md", copied)
+  end)
+
+  it("always sends zero or one backlink to the picker", function()
+    local backlinks = require "lzy.obsidian.backlinks"
+    local picked = {}
+    local function pick(items, opts)
+      picked[#picked + 1] = { items = items, title = opts.prompt_title }
+    end
+
+    backlinks.open {
+      references = function(callback)
+        callback(nil, {})
+      end,
+      pick = pick,
+    }
+    backlinks.open {
+      references = function(callback)
+        callback(nil, {
+          {
+            uri = vim.uri_from_fname(root .. "/source.md"),
+            range = {
+              start = { line = 0, character = 0 },
+              ["end"] = { line = 0, character = 4 },
+            },
+          },
+        })
+      end,
+      pick = pick,
+    }
+
+    assert.are.equal(2, #picked)
+    assert.are.equal(0, #picked[1].items)
+    assert.are.equal(1, #picked[2].items)
+    assert.are.equal("Backlinks", picked[1].title)
+    assert.are.equal(root .. "/source.md", picked[2].items[1].filename)
   end)
 end)

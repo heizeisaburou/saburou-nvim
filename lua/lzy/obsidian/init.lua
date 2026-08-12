@@ -23,6 +23,7 @@ local state = {
   cursor_link_patched = false,
   note_save_patched = false,
   backlink_escaped_pipe_patched = false,
+  backlink_picker_patched = false,
   follow_link_patched = false,
   attachment_rename_patched = false,
   heading_links_patched = false,
@@ -673,9 +674,68 @@ local function reset_obsidian_buffer(bufnr)
   leave_vault(bufnr)
 end
 
+---@param bufnr integer
+---@return boolean
+local function has_obsidian_bufenter(bufnr)
+  local ok, autocmds = pcall(vim.api.nvim_get_autocmds, {
+    group = "obsidian_setup",
+    event = "BufEnter",
+    buffer = bufnr,
+  })
+  return ok and #autocmds > 0
+end
+
+---Repara un buffer cuya lectura/FileType ocurrió antes de que lazy.nvim
+---instalase los autocmds de obsidian.nvim o Treesitter (caso típico al
+---restaurar varias ventanas mediante `:restart source session`).
+---@param bufnr integer
+---@param ws obsidian.Workspace
+---@param select_workspace boolean|?
+local function rehydrate_vault_buffer(bufnr, ws, select_workspace)
+  if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
+    return
+  end
+  local ft = vim.bo[bufnr].filetype
+  if ft ~= "markdown" and ft ~= "quarto" then
+    return
+  end
+
+  install_note_keymaps(bufnr)
+  local missing_bufenter = not has_obsidian_bufenter(bufnr)
+  local missing_runtime = vim.b[bufnr].obsidian_buffer ~= true
+    or #vim.lsp.get_clients { bufnr = bufnr, name = "obsidian-ls" } == 0
+  if select_workspace ~= false and (missing_bufenter or missing_runtime) then
+    set_workspace(ws)
+  end
+  enter_vault(bufnr, ws.root)
+
+  -- obsidian.nvim crea sus BufEnter/BufWrite autocmds desde FileType. Si el
+  -- FileType precedió a la carga lazy del plugin, hay que registrar esa capa
+  -- una vez para este buffer antes de poder ejecutar su entrada.
+  if missing_bufenter then
+    pcall(vim.api.nvim_exec_autocmds, "FileType", {
+      group = "obsidian_setup",
+      buffer = bufnr,
+      modeline = false,
+    })
+  end
+
+  if missing_runtime then
+    pcall(vim.api.nvim_exec_autocmds, "BufEnter", {
+      group = "obsidian_setup",
+      buffer = bufnr,
+      modeline = false,
+    })
+  end
+
+  -- El highlighter también se instala desde FileType en esta configuración.
+  -- start() es idempotente y cubre los buffers restaurados antes de ese hook.
+  pcall(vim.treesitter.start, bufnr)
+end
+
 --- Sincroniza el estado global con el buffer actual. Si el buffer no pertenece
 --- a ningún workspace, usa el workspace del cwd; si tampoco existe, dummy.
-local function sync_current_context(reenter)
+local function sync_current_context()
   local bufnr = vim.api.nvim_get_current_buf()
   local name = vim.api.nvim_buf_get_name(bufnr)
   local ws = name ~= "" and require("obsidian").api.find_workspace(name) or nil
@@ -683,15 +743,6 @@ local function sync_current_context(reenter)
   if ws then
     set_workspace(ws)
     enter_vault(bufnr, ws.root)
-    if
-      reenter and (vim.bo[bufnr].filetype == "markdown" or vim.bo[bufnr].filetype == "quarto")
-    then
-      pcall(vim.api.nvim_exec_autocmds, "BufEnter", {
-        group = "obsidian_setup",
-        buffer = bufnr,
-        modeline = false,
-      })
-    end
     return
   end
 
@@ -725,8 +776,7 @@ end
 
 ---@param roots string[]
 ---@param removed? string[] Roots que han dejado de existir.
----@param added? string[] Roots que acaban de entrar.
-local function rebuild_runtime(roots, removed, added)
+local function rebuild_runtime(roots, removed)
   local obsidian = require "obsidian"
   local workspaces = {}
 
@@ -763,21 +813,23 @@ local function rebuild_runtime(roots, removed, added)
     end
   end
 
-  -- Buffers abiertos de los roots que acaban de entrar: marksman se desconecta
-  -- (obsidian.nvim toma el relevo en cada BufEnter).
-  for _, root in ipairs(added or {}) do
-    local prefix = normalize(root) .. "/"
-    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-      if vim.api.nvim_buf_is_loaded(bufnr) then
-        local name = normalize(vim.api.nvim_buf_get_name(bufnr))
-        if name and name:sub(1, #prefix) == prefix then
-          enter_vault(bufnr, root)
-        end
+  -- Rehidrata todas las notas cargadas, no solo las de roots recién añadidos.
+  -- En una sesión restaurada `make_opts()` ya conoce los roots antes del
+  -- primer refresh, por lo que comparar solo roots añadidos dejaba algunos
+  -- buffers sin autocmds, LSP, footer ni Treesitter.
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      local name = vim.api.nvim_buf_get_name(bufnr)
+      local ws = name ~= "" and obsidian.api.find_workspace(name) or nil
+      if ws then
+        rehydrate_vault_buffer(bufnr, ws)
       end
     end
   end
 
-  sync_current_context(true)
+  -- El bucle anterior cambia el workspace global para preparar cada buffer;
+  -- termina restaurando el correspondiente a la ventana actual.
+  sync_current_context()
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -803,17 +855,10 @@ function M.refresh(opts)
       end
     end
 
-    local added = {}
-    for _, root in ipairs(roots) do
-      if not vim.tbl_contains(before, root) then
-        added[#added + 1] = root
-      end
-    end
-
     state.roots = roots
 
     if state.initialized then
-      rebuild_runtime(roots, removed, added)
+      rebuild_runtime(roots, removed)
     end
 
     if opts.notify then
@@ -877,6 +922,7 @@ function M.debug_info(opts)
   table.insert(out, "follow_link_patched: " .. tostring(state.follow_link_patched))
   table.insert(out, "attachment_rename_patched: " .. tostring(state.attachment_rename_patched))
   table.insert(out, "heading_links_patched: " .. tostring(state.heading_links_patched))
+  table.insert(out, "backlink_picker_patched: " .. tostring(state.backlink_picker_patched))
 
   for _, c in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
     table.insert(
@@ -1136,6 +1182,24 @@ local function install_workspace_switch()
       if ws then
         set_workspace(ws)
         enter_vault(ev.buf, ws.root)
+        -- Este callback puede ejecutarse antes que el BufEnter buffer-local de
+        -- obsidian.nvim. Comprobarlo en el siguiente tick permite que el flujo
+        -- normal termine primero y solo repara los buffers restaurados que se
+        -- quedaron sin su FileType/BufEnter durante `rs`.
+        vim.schedule(function()
+          if
+            vim.api.nvim_buf_is_valid(ev.buf)
+            and vim.api.nvim_buf_is_loaded(ev.buf)
+            and vim.api.nvim_get_current_buf() == ev.buf
+          then
+            local current_ws = require("obsidian").api.find_workspace(
+              vim.api.nvim_buf_get_name(ev.buf)
+            )
+            if current_ws then
+              rehydrate_vault_buffer(ev.buf, current_ws)
+            end
+          end
+        end)
       else
         reset_obsidian_buffer(ev.buf)
         set_workspace(workspace_for(cwd()) or dummy_workspace())
@@ -1306,6 +1370,18 @@ local function install_runtime()
     end,
   })
 
+  vim.api.nvim_create_autocmd("SessionLoadPost", {
+    group = group,
+    callback = function()
+      -- `:restart source session` puede restaurar varios buffers después del
+      -- setup inicial. El refresh posterior cubre todos ellos, no solo el que
+      -- terminó siendo la ventana actual.
+      vim.schedule(function()
+        M.refresh()
+      end)
+    end,
+  })
+
   -- La detección solo al guardar un .nyabsidian (abrir el archivo no dispara).
   vim.api.nvim_create_autocmd("BufWritePost", {
     group = group,
@@ -1367,6 +1443,7 @@ function M.setup()
   -- que aplique desde el arranque, sin depender de que este módulo cargue.
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
   require("lzy.obsidian.links").setup { notify = notify, state = state }
+  require("lzy.obsidian.backlinks").setup(state)
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
