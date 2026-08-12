@@ -23,6 +23,7 @@ local state = {
   cursor_link_patched = false,
   note_save_patched = false,
   backlink_escaped_pipe_patched = false,
+  follow_link_patched = false,
 }
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -862,6 +863,7 @@ function M.debug_info(opts)
   table.insert(out, "state.roots: " .. vim.inspect(state.roots))
   table.insert(out, "lsp_server_patched: " .. tostring(state.lsp_server_patched))
   table.insert(out, "cursor_link_patched: " .. tostring(state.cursor_link_patched))
+  table.insert(out, "follow_link_patched: " .. tostring(state.follow_link_patched))
 
   for _, c in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
     table.insert(
@@ -1287,6 +1289,65 @@ local function patch_cursor_link_autolink()
   state.cursor_link_patched = true
 end
 
+--- La acción inteligente (<CR>) y `:Obsidian follow_link` delegan todo al LSP
+--- de obsidian, que resuelve los adjuntos con la predicción de
+--- attachments.folder ("assets"); con rutas reales (subcarpetas, ../, otras
+--- carpetas) no encuentra nada, responde vacío y el picker abre con lista
+--- vacía. Se intercepta antes de la petición al servidor: si el ref bajo el
+--- cursor es un adjunto que sabunv.nvim.markdown resuelve en disco, se abre
+--- con vim.ui.open y se corta. También se envuelve el follow_link del servidor
+--- (obsidian-ls corre en proceso), para cubrir el vim.lsp.buf.definition
+--- directo (gd) sobre un adjunto.
+local function patch_follow_link_attachments()
+  if state.follow_link_patched then
+    return
+  end
+
+  local api = require "obsidian.api"
+  local util = require "obsidian.util"
+  local md = require "sabunv.nvim.markdown"
+
+  local orig_command = require "obsidian.commands.follow_link"
+  package.loaded["obsidian.commands.follow_link"] = function(data)
+    if (data.args or "") == "" then
+      local link = api.cursor_link()
+      if link then
+        local location, _, link_type = util.parse_link(link)
+        if location and not util.is_uri(location) and api.is_attachment_path(location) then
+          if md.open(location, { bufnr = vim.api.nvim_get_current_buf() }) then
+            return
+          end
+        end
+      end
+    end
+    return orig_command(data)
+  end
+
+  local def = require "obsidian.lsp.handlers._definition"
+  local follow_link = def.follow_link
+  ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
+  def.follow_link = function(link, callback, opts)
+    local location, _, link_type = util.parse_link(link)
+    if location and (link_type == "markdown" or link_type == "wiki") then
+      local is_uri = util.is_uri(location)
+      if not is_uri and api.is_attachment_path(location) then
+        local bufnr = (opts and opts.bufnr) or vim.api.nvim_get_current_buf()
+        local resolved = md.resolve(location, { bufnr = bufnr })
+        if resolved then
+          vim.ui.open(resolved)
+          -- Respuesta vacía al cliente: el LSP no debe abrir la nota (el
+          -- adjunto ya se ha abierto). El on_list del plugin abre el picker
+          -- con 0 items, que mini.pick cierra sin ruido.
+          return callback(nil, {})
+        end
+      end
+    end
+    return follow_link(link, callback, opts)
+  end
+
+  state.follow_link_patched = true
+end
+
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
   local lsp = require "obsidian.lsp"
@@ -1375,6 +1436,7 @@ function M.setup()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
+  patch_follow_link_attachments()
   install_workspace_switch()
   require("obsidian").setup(M.opts())
 
