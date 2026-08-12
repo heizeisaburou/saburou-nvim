@@ -409,6 +409,14 @@ normal del clipboard y de los registros de Vim.
 Es preferible usar los registros de Vim de forma explícita cuando quieras controlar exactamente qué se copia, qué se
 borra y qué va al clipboard del sistema.
 
+La sincronización manual está disponible en ambos sentidos y conserva el tipo del registro:
+
+- `<leader>cs`: registro principal de Neovim → clipboard del sistema.
+- `<leader>cn`: clipboard del sistema → registros `"` y `0` de Neovim.
+
+Si no hay provider de clipboard en la sesión actual, la operación avisa y los registros internos
+permanecen intactos.
+
 > [!TIP]
 >
 > Si quieres sincronizar siempre el clipboard de Neovim con el clipboard del sistema, puedes descomentar esto en

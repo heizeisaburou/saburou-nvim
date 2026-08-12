@@ -357,6 +357,22 @@ opción `vault = "simplify"` canonicaliza con el `link.format` activo de obsidia
 Estas políticas modifican la representación, no la identidad ni el estilo sintáctico: wiki sigue
 wiki y Markdown sigue Markdown.
 
+### 4.6 Acciones locales de path
+
+Dos acciones consumen los mismos resolvedores sin alterar las políticas persistentes:
+
+- hacer yank characterwise, sin salto de línea, del path absoluto de la nota actual o del
+  destino bajo el cursor en los registros internos `"` y `0`;
+- convertir solo el target bajo el cursor a otro formato.
+
+La conversión ofrece `shortest`, vault-relative y note-relative para notas internas. Una nota
+externa no puede representarse mediante `shortest` ni desde la raíz del vault, por lo que solo
+ofrece absoluto y note-relative. Los adjuntos añaden absoluto y `file://`; los externos conservan
+solo `file://`, absoluto y note-relative. `shortest` nunca fuerza un basename ambiguo.
+
+Cambiar todas las referencias de una nota o del vault queda deliberadamente fuera de esta acción
+local y podrá añadirse después.
+
 ## 5. Separación de código
 
 `lua/sabunv/nvim/markdown.lua` conserva provisionalmente la política antigua para el fallback de
@@ -369,6 +385,7 @@ La estructura efectiva de la fase Obsidian es:
 lua/lzy/obsidian/
 ├── init.lua          # workspaces, configuración y ciclo de vida
 ├── links.lua         # dispatch LSP y acción inteligente
+├── link_actions.lua  # copiar paths y convertir una referencia
 ├── headings.lua      # identidad y refactor de headings
 └── attachments.lua   # identidad, apertura y refactor de archivos
 
@@ -412,6 +429,7 @@ Se implementó y probó:
 4. Rename/move por basename o path vault-relative, con paths externos explícitos.
 5. Referencias actualizadas por identidad con `preserve` por defecto y canonicalización opcional.
 6. Un único `WorkspaceEdit`, creación de carpetas, colisiones y conservación de sintaxis.
+7. Copia de identidad absoluta y conversión local entre formatos válidos de notas/adjuntos.
 
 Marksman queda como la siguiente fase independiente.
 
@@ -433,6 +451,8 @@ Marksman queda como la siguiente fase independiente.
 - Ningún basename pelado ni path vault-relative escapa accidentalmente del vault.
 - Un path `file://`, absoluto o `./` / `../` puede apuntar fuera únicamente porque lo expresa de
   forma explícita.
+- Convertir un enlace solo cambia ese target y preserva su sintaxis, label, fragment y título.
+- Una nota externa nunca ofrece `shortest` ni un path relativo a la raíz del vault.
 
 ## 8. Pendiente deliberado: Marksman
 

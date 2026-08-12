@@ -15,6 +15,74 @@ end
 
 map("n", "<C-c>", "<cmd>%y+<CR>", { desc = "Clipboard: Copy file" })
 
+local function read_register(name)
+  local ok, info = pcall(vim.fn.getreginfo, name)
+  if not ok then
+    return false, info
+  elseif
+    type(info) ~= "table"
+    or type(info.regcontents) ~= "table"
+    or type(info.regtype) ~= "string"
+    or info.regtype == ""
+  then
+    return false, "el registro está vacío o no disponible"
+  end
+  return true, info.regcontents, info.regtype
+end
+
+local function write_register(name, contents, register_type)
+  return pcall(vim.fn.setreg, name, contents, register_type)
+end
+
+map("n", "<leader>cs", function()
+  if vim.fn.has "clipboard" == 0 then
+    vim.notify("Clipboard del sistema no disponible", vim.log.levels.ERROR)
+    return
+  end
+  local read_ok, contents, register_type = read_register '"'
+  if not read_ok then
+    vim.notify(
+      "No se pudo leer el registro de Neovim: " .. tostring(contents),
+      vim.log.levels.ERROR
+    )
+    return
+  end
+  local write_ok, err = write_register("+", contents, register_type)
+  if not write_ok then
+    vim.notify("Clipboard del sistema no disponible: " .. tostring(err), vim.log.levels.ERROR)
+    return
+  end
+  vim.notify "Clipboard: Neovim → sistema"
+end, { desc = "Clipboard: Neovim → sistema" })
+
+map("n", "<leader>cn", function()
+  if vim.fn.has "clipboard" == 0 then
+    vim.notify("Clipboard del sistema no disponible", vim.log.levels.ERROR)
+    return
+  end
+  local read_ok, contents, register_type = read_register "+"
+  if not read_ok then
+    vim.notify(
+      "Clipboard del sistema no disponible: " .. tostring(contents),
+      vim.log.levels.ERROR
+    )
+    return
+  end
+
+  -- Como un yank normal: el contenido queda disponible tanto en el registro
+  -- sin nombre como en el registro 0, conservando si era character/line/block.
+  local zero_ok, zero_err = write_register("0", contents, register_type)
+  local unnamed_ok, unnamed_err = write_register('"', contents, register_type)
+  if not zero_ok or not unnamed_ok then
+    vim.notify(
+      "No se pudo actualizar el registro de Neovim: " .. tostring(zero_err or unnamed_err),
+      vim.log.levels.ERROR
+    )
+    return
+  end
+  vim.notify "Clipboard: sistema → Neovim"
+end, { desc = "Clipboard: Sistema → Neovim" })
+
 -- -> Los mappings legacy se quedaron a medio hacer y van a dar problemas.
 -- sabunv.util.clipboard.saburou.legacy_mappings.set(true)
 

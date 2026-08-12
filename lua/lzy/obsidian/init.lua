@@ -127,6 +127,8 @@ local NOTE_KEYMAPS = {
   { "<leader>nf", "Obsidian follow_link", "Obsidian: seguir el enlace bajo el cursor" },
   { "<leader>nx", "Obsidian toggle_checkbox", "Obsidian: toggle checkbox" },
   { "<leader>np", "Obsidian paste_img", "Obsidian: pegar imagen del portapapeles" },
+  { "<leader>nc", "NyabsidianCopyPath", "Nyabsidian: copiar path absoluto" },
+  { "<leader>nC", "NyabsidianConvertLink", "Nyabsidian: cambiar formato del enlace" },
 }
 
 --- Keymaps buffer-local para notas. Se llaman por buffer (idempotente).
@@ -1328,6 +1330,8 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianDebug")
   pcall(vim.api.nvim_del_user_command, "NyabsidianFrontmatter")
   pcall(vim.api.nvim_del_user_command, "NyabsidianInit")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianCopyPath")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianConvertLink")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -1348,6 +1352,14 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianInit", function()
     M.nyabsidian_init()
   end, { desc = "New .nyabsidian template buffer" })
+
+  vim.api.nvim_create_user_command("NyabsidianCopyPath", function()
+    require("lzy.obsidian.link_actions").copy_path()
+  end, { desc = "Copy absolute path of note or attachment" })
+
+  vim.api.nvim_create_user_command("NyabsidianConvertLink", function()
+    require("lzy.obsidian.link_actions").convert_link()
+  end, { desc = "Change the path format of the link under cursor" })
 end
 
 function M.setup()

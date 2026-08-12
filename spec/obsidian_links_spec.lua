@@ -828,4 +828,177 @@ describe("Nyabsidian structured links and attachments", function()
       attachments.path_policy(path_root)
     )
   end)
+
+  it("converts only the attachment target to a chosen path format", function()
+    write("assets/a.png", { "image" })
+    write("notes/source.md", { "![[assets/a.png#page=3|Preview]]" })
+    vim.cmd.edit(root .. "/notes/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+    local seen
+    require("lzy.obsidian.link_actions").convert_link {
+      notify = function() end,
+      select = function(items, _, callback)
+        seen = vim.tbl_map(function(item)
+          return item.id
+        end, items)
+        callback(vim.iter(items):find(function(item)
+          return item.id == "relative"
+        end))
+      end,
+    }
+
+    assert.are.same({ "shortest", "vault", "relative", "absolute", "file_uri" }, seen)
+    assert.are.equal("![[../assets/a.png#page=3|Preview]]", vim.api.nvim_get_current_line())
+  end)
+
+  it("uses a safe vault path when a note basename is ambiguous", function()
+    write("one/a.md", { "# One" })
+    write("two/a.md", { "# Two" })
+    write("source.md", { "[[" .. root .. "/one/a.md#One|A]]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+    local seen
+    require("lzy.obsidian.link_actions").convert_link {
+      notify = function() end,
+      select = function(items, _, callback)
+        seen = vim.tbl_map(function(item)
+          return item.id
+        end, items)
+        callback(vim.iter(items):find(function(item)
+          return item.id == "shortest"
+        end))
+      end,
+    }
+    vim.wait(1000, function()
+      return vim.api.nvim_get_current_line() == "[[one/a#One|A]]"
+    end, 10)
+
+    assert.are.same({ "shortest", "vault", "relative" }, seen)
+    assert.are.equal("[[one/a#One|A]]", vim.api.nvim_get_current_line())
+  end)
+
+  it("uses an empty shortest target for a heading in the current note", function()
+    write("source.md", { "# Local", "[[source#local]]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 2, 5 })
+
+    require("lzy.obsidian.link_actions").convert_link {
+      notify = function() end,
+      select = function(items, _, callback)
+        local choice = vim.iter(items):find(function(item)
+          return item.id == "shortest"
+        end)
+        assert.is_not_nil(choice)
+        assert.are.equal("", choice.target)
+        callback(choice)
+      end,
+    }
+
+    vim.wait(1000, function()
+      return vim.api.nvim_get_current_line() == "[[#local]]"
+    end, 10)
+
+    assert.are.equal("[[#local]]", vim.api.nvim_get_current_line())
+  end)
+
+  it("offers only absolute and note-relative formats for an external note", function()
+    local external_dir = root .. "-external"
+    local external = external_dir .. "/outside.md"
+    vim.fn.mkdir(external_dir, "p")
+    vim.fn.writefile({ "# Outside" }, external)
+    write("notes/source.md", { "[[" .. external .. "]]" })
+    vim.cmd.edit(root .. "/notes/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+    local seen
+    require("lzy.obsidian.link_actions").convert_link {
+      notify = function() end,
+      select = function(items, _, callback)
+        seen = vim.tbl_map(function(item)
+          return item.id
+        end, items)
+        callback(items[1])
+      end,
+    }
+
+    assert.are.same({ "relative", "absolute" }, seen)
+    assert.are.equal(
+      "[[../../" .. vim.fs.basename(external_dir) .. "/outside.md]]",
+      vim.api.nvim_get_current_line()
+    )
+  end)
+
+  it("preserves Markdown encoding, fragments and titles while converting", function()
+    write("assets/My Image.png", { "image" })
+    write("notes/source.md", { '![alt](assets/My%20Image.png#page=3 "caption")' })
+    vim.cmd.edit(root .. "/notes/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 15 })
+
+    require("lzy.obsidian.link_actions").convert_link {
+      notify = function() end,
+      select = function(items, _, callback)
+        callback(vim.iter(items):find(function(item)
+          return item.id == "relative"
+        end))
+      end,
+    }
+
+    assert.are.equal(
+      '![alt](../assets/My%20Image.png#page=3 "caption")',
+      vim.api.nvim_get_current_line()
+    )
+  end)
+
+  it("copies the absolute identity resolved for a linked attachment", function()
+    write("assets/data.bin", { "data" })
+    write("source.md", { "[[assets/data.bin]]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+    local copied
+    require("lzy.obsidian.link_actions").copy_path {
+      copy = function(path)
+        copied = path
+      end,
+      notify = function() end,
+    }
+
+    assert.are.equal(root .. "/assets/data.bin", copied)
+  end)
+
+  it("yanks a copied path internally as characterwise text without a newline", function()
+    write("assets/data.bin", { "data" })
+    write("source.md", { "[[assets/data.bin]]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 8 })
+    vim.o.clipboard = ""
+
+    require("lzy.obsidian.link_actions").copy_path {
+      notify = function() end,
+    }
+
+    assert.are.equal(root .. "/assets/data.bin", vim.fn.getreg '"')
+    assert.are.equal(root .. "/assets/data.bin", vim.fn.getreg "0")
+    assert.are.equal("v", vim.fn.getregtype '"')
+    assert.are.equal("v", vim.fn.getregtype "0")
+  end)
+
+  it("copies a linked note's absolute path without including its heading", function()
+    write("docs/target.md", { "# Heading" })
+    write("source.md", { "[[docs/target#heading]]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+    local copied
+    require("lzy.obsidian.link_actions").copy_path {
+      copy = function(path)
+        copied = path
+      end,
+      notify = function() end,
+    }
+
+    assert.are.equal(root .. "/docs/target.md", copied)
+  end)
 end)

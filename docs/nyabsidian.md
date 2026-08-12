@@ -76,6 +76,8 @@ Comandos de Nyabsidian:
 | `:NyabsidianRefresh`     | Redescubre las carpetas que son vaults              |
 | `:NyabsidianFrontmatter` | Regenera el frontmatter de la nota actual (forzado) |
 | `:NyabsidianDebug`       | Diagnóstico del LSP                                 |
+| `:NyabsidianCopyPath`    | Copia el path absoluto de la nota o enlace          |
+| `:NyabsidianConvertLink` | Cambia el formato del enlace bajo el cursor          |
 
 Y los del propio obsidian.nvim, disponibles dentro de cualquier nota:
 
@@ -116,6 +118,8 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 | `<leader>nf` | Seguir el enlace bajo el cursor                                                 |
 | `<leader>nx` | Toggle de checkbox en la línea                                                  |
 | `<leader>np` | Pegar imagen del portapapeles                                                   |
+| `<leader>nc` | Copiar el path absoluto de la nota o del enlace bajo el cursor                  |
+| `<leader>nC` | Elegir el formato del enlace bajo el cursor                                     |
 | `gd`         | Ir a una nota/heading o abrir el adjunto bajo el cursor                         |
 | `gx`         | Abrir un adjunto con Neovim o con la aplicación del sistema                    |
 | `<C-A-r>`    | Rename LSP del componente bajo el cursor: nota, heading o adjunto               |
@@ -193,6 +197,28 @@ Las dos usan `preserve` por defecto:
 `preserve` no significa dejar una referencia rota sin modificar: el target se actualiza para
 seguir al archivo, pero no cambia arbitrariamente de absoluto a relativo ni al contrario. Si un
 basename interno deja de ser seguro por una colisión, se amplía al path de vault necesario.
+
+### Acciones de paths
+
+`<leader>nc` (`:NyabsidianCopyPath`) hace un yank characterwise del path absoluto ya resuelto en
+los registros `"` y `0` de Neovim, sin añadir un salto de línea. Sobre un enlace copia la nota o
+adjunto de destino; fuera de un enlace copia la nota actual. No fuerza el clipboard del sistema:
+la sincronización global de Neovim o `<leader>cs` se ocupan de ello cuando interesa.
+
+`<leader>nC` (`:NyabsidianConvertLink`) cambia únicamente la referencia bajo el cursor. No modifica
+otros enlaces de la nota ni del vault. El selector ofrece solo representaciones válidas:
+
+| Destino          | Formatos disponibles                                                    |
+| ---------------- | ----------------------------------------------------------------------- |
+| Nota interna     | más corto seguro, desde la raíz del vault, relativo a la nota          |
+| Nota externa     | absoluto del sistema, relativo a la nota                                |
+| Adjunto interno  | los tres anteriores, absoluto del sistema y URI `file://`               |
+| Adjunto externo  | absoluto del sistema, relativo a la nota y URI `file://`                |
+
+"Más corto" usa el basename solo si sigue identificando inequívocamente el destino; también
+considera las colisiones de nombres y aliases entre notas. La conversión conserva el estilo wiki
+o Markdown, embeds, labels, headings/fragments, dimensiones, títulos y URL encoding. Un relativo
+en la misma carpeta se escribe explícitamente como `./archivo`.
 
 ## Notas
 
