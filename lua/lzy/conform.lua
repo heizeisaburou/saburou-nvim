@@ -84,56 +84,56 @@ local formatters_by_ft = {
   --
   --
   --
-  bash = { "shfmt" },
-  c = { "clang_format" },
-  clojure = { "zprint" }, -- activa edn también
-  cpp = { "clang_format" },
-  cs = { "csharpier" }, -- C#
-  css = { "prettier" },
-  dart = { "dart_format" }, -- externo
-  edn = { "zprint" }, -- .edn de Clojure
-  eelixir = { "mix" },
-  elixir = { "mix" },
-  fsharp = { "fantomas" }, -- F#
-  gleam = { "gleam" },
-  go = { "gofmt" },
-  gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
-  handlebars = { "prettier_handlebars" },
-  haskell = { "fourmolu" },
-  heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
-  html = { "prettier" },
-  htmldjango = { "djlint" },
-  java = { "google-java-format" },
-  javascript = { "prettier" },
-  javascriptreact = { "prettier" },
-  jinja = { "prettier_jinja" },
-  json = { "biome" },
-  kotlin = { "ktlint" },
-  lhaskell = { "fourmolu" }, -- .lhs
-  liquid = { "prettier_liquid" },
-  ocaml = { "ocamlformat" }, -- camellito
-  ocamlinterface = { "ocamlformat" }, -- camellitox2
-  php = { "php_cs_fixer" },
-  plaintex = { "latexindent" }, -- Latex
-  pug = { "prettier_pug" }, -- Pug (Jade)
-  python = { "ruff_format" },
-  qml = { "qmlformat" }, -- externo
-  ruby = { "rubocop", timeout_ms = 10000 },
-  rust = { "rustfmt" },
-  scala = { "scalafmt", timeout_ms = 10000 },
-  scss = { "prettier" },
-  surface = { "mix" }, -- Elixir/Phoenix
-  svelte = { "prettier_svelte" },
-  swift = { "swiftformat" },
-  tex = { "latexindent" }, -- latex
-  toml = { "taplo" }, -- toml
-  twig = { "prettier_twig" }, -- twig
-  typescript = { "prettier" },
-  typescriptreact = { "prettier" },
-  typst = { "typstyle" }, -- Typst
-  vue = { "prettier" }, -- Vue (framework de javascript)
-  yaml = { "yamlfmt" },
-  zig = { "zigfmt" },
+  -- bash = { "shfmt" },
+  -- c = { "clang_format" },
+  -- clojure = { "zprint" }, -- activa edn también
+  -- cpp = { "clang_format" },
+  -- cs = { "csharpier" }, -- C#
+  -- css = { "prettier" },
+  -- dart = { "dart_format" }, -- externo
+  -- edn = { "zprint" }, -- .edn de Clojure
+  -- eelixir = { "mix" },
+  -- elixir = { "mix" },
+  -- fsharp = { "fantomas" }, -- F#
+  -- gleam = { "gleam" },
+  -- go = { "gofmt" },
+  -- gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
+  -- handlebars = { "prettier_handlebars" },
+  -- haskell = { "fourmolu" },
+  -- heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
+  -- html = { "prettier" },
+  -- htmldjango = { "djlint" },
+  -- java = { "google-java-format" },
+  -- javascript = { "prettier" },
+  -- javascriptreact = { "prettier" },
+  -- jinja = { "prettier_jinja" },
+  -- json = { "biome" },
+  -- kotlin = { "ktlint" },
+  -- lhaskell = { "fourmolu" }, -- .lhs
+  -- liquid = { "prettier_liquid" },
+  -- ocaml = { "ocamlformat" }, -- camellito
+  -- ocamlinterface = { "ocamlformat" }, -- camellitox2
+  -- php = { "php_cs_fixer" },
+  -- plaintex = { "latexindent" }, -- Latex
+  -- pug = { "prettier_pug" }, -- Pug (Jade)
+  -- python = { "ruff_format" },
+  -- qml = { "qmlformat" }, -- externo
+  -- ruby = { "rubocop", timeout_ms = 10000 },
+  -- rust = { "rustfmt" },
+  -- scala = { "scalafmt", timeout_ms = 10000 },
+  -- scss = { "prettier" },
+  -- surface = { "mix" }, -- Elixir/Phoenix
+  -- svelte = { "prettier_svelte" },
+  -- swift = { "swiftformat" },
+  -- tex = { "latexindent" }, -- latex
+  -- toml = { "taplo" }, -- toml
+  -- twig = { "prettier_twig" }, -- twig
+  -- typescript = { "prettier" },
+  -- typescriptreact = { "prettier" },
+  -- typst = { "typstyle" }, -- Typst
+  -- vue = { "prettier" }, -- Vue (framework de javascript)
+  -- yaml = { "yamlfmt" },
+  -- zig = { "zigfmt" },
 }
 
 -- ----------------------------------------------------------------------------
