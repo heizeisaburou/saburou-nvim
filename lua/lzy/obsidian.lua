@@ -20,6 +20,7 @@ local state = {
   refreshing = false,
   config_errors = {},
   lsp_server_patched = false,
+  cursor_link_patched = false,
   note_save_patched = false,
   backlink_escaped_pipe_patched = false,
 }
@@ -860,6 +861,7 @@ function M.debug_info(opts)
   table.insert(out, "cr_desc: " .. tostring(vim.fn.maparg("<CR>", "n", false, true).desc))
   table.insert(out, "state.roots: " .. vim.inspect(state.roots))
   table.insert(out, "lsp_server_patched: " .. tostring(state.lsp_server_patched))
+  table.insert(out, "cursor_link_patched: " .. tostring(state.cursor_link_patched))
 
   for _, c in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
     table.insert(
@@ -1237,6 +1239,54 @@ local function patch_backlink_escaped_pipe()
   state.backlink_escaped_pipe_patched = true
 end
 
+--- Los autolinks markdown (`<https://...>`) no los detecta parse_refs, así
+--- que cursor_link() los ignora y la acción inteligente del <CR> se cae al
+--- toggle de checkbox: convierte la línea en un li `- [ ]`. Se envuelve
+--- cursor_link() para devolver un enlace markdown sintetizado `[url](url)`
+--- cuando el cursor está sobre un autolink con scheme://: parse_link del LSP
+--- lo reconoce (kind "markdown" + is_uri) y lo abre en el navegador, igual
+--- que `[algo](https://...)`. No cubre autolinks de email (`<a@b.c>`):
+--- parse_link los trataría como nota.
+local function patch_cursor_link_autolink()
+  if state.cursor_link_patched then
+    return
+  end
+
+  local api = require "obsidian.api"
+  local cursor_link = api.cursor_link
+
+  ---@param line string
+  ---@param start_col integer 1-based
+  ---@return boolean
+  local function inside_inline_code(line, start_col)
+    local prefix = line:sub(1, start_col - 1)
+    return #prefix:gsub("[^`]", "") % 2 == 1
+  end
+
+  api.cursor_link = function(...)
+    local link, kind, range = cursor_link(...)
+    if link then
+      return link, kind, range
+    end
+
+    local line = vim.api.nvim_get_current_line()
+    local _, cur_col = unpack(vim.api.nvim_win_get_cursor(0))
+
+    -- ()<([^<>%s]+)>(): start_col en el "<", end_col justo tras el ">".
+    for start_col, inner, end_col in line:gmatch "()<([^<>%s]+)>()" do
+      local is_url = inner:match "^[%a][%w%+%.%-]*://"
+      if is_url and not inside_inline_code(line, start_col) then
+        if start_col - 1 <= cur_col and cur_col < end_col - 1 then
+          -- Markdown sintetizado para que parse_link lo clasifique como tal.
+          return ("[%s](%s)"):format(inner, inner), "markdown", { start_col - 1, end_col - 1 }
+        end
+      end
+    end
+  end
+
+  state.cursor_link_patched = true
+end
+
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
   local lsp = require "obsidian.lsp"
@@ -1321,6 +1371,7 @@ function M.setup()
   -- El filetype de .nyabsidian se registra en ftdetect/nyabsidian.lua para
   -- que aplique desde el arranque, sin depender de que este módulo cargue.
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
+  patch_cursor_link_autolink()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
