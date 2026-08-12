@@ -1,5 +1,9 @@
 -- lzy/l_obsidian.lua
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Módulo y estado
+-- ─────────────────────────────────────────────────────────────────────────────
+
 local M = {}
 local uv = vim.uv or vim.loop
 
@@ -19,6 +23,10 @@ local state = {
   note_save_patched = false,
   backlink_escaped_pipe_patched = false,
 }
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Utilidades
+-- ─────────────────────────────────────────────────────────────────────────────
 
 local function notify(msg, level)
   vim.notify(msg, level or vim.log.levels.INFO, { title = "Nyabsidian" })
@@ -40,6 +48,10 @@ local function stat(path, kind)
   local s = uv.fs_stat(path)
   return s ~= nil and (kind == nil or s.type == kind)
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Detección de vaults
+-- ─────────────────────────────────────────────────────────────────────────────
 
 local function inspect_root(root)
   root = normalize(root)
@@ -88,6 +100,10 @@ local function discover(path)
     dir = parent
   end
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Keymaps y notas
+-- ─────────────────────────────────────────────────────────────────────────────
 
 --- Extensiones de archivos que pueden pertenecer a un workspace.
 local NOTE_EXTENSIONS = { "md", "markdown", "mdown", "mkdn", "mkd", "qmd", "rmd", "base" }
@@ -166,6 +182,10 @@ local function scan_buffers(known)
   end
   return roots
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Persistencia de workspaces
+-- ─────────────────────────────────────────────────────────────────────────────
 
 local function sort_roots(roots)
   local seen, out = {}, {}
@@ -267,6 +287,10 @@ local function collect_roots()
   return roots, found
 end
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Config del vault (.nyabsidian)
+-- ─────────────────────────────────────────────────────────────────────────────
+
 local function config_warning(path, err)
   err = tostring(err)
   if state.config_errors[path] == err then
@@ -342,6 +366,10 @@ local function workspace_overrides(root)
 
   return overrides
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Workspaces y opts
+-- ─────────────────────────────────────────────────────────────────────────────
 
 local function dummy_root()
   if state.dummy and stat(state.dummy, "directory") then
@@ -439,33 +467,151 @@ local function workspace_for(path)
   return require("obsidian").Workspace.find(path, Obsidian.workspaces)
 end
 
-local function detach_obsidian_lsp(bufnr)
-  for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr, name = "obsidian-ls" }) do
-    pcall(vim.lsp.buf_detach_client, bufnr, client.id)
-  end
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Conmutación LSP (marksman <-> obsidian-ls)
+-- ─────────────────────────────────────────────────────────────────────────────
+--
+-- Reglas:
+--   - Buffer EN un vault (tiene .obsidian/.nyabsidian por parents): marksman
+--     sobra → enter_vault() lo desconecta/detiene; obsidian-ls gestiona el
+--     buffer.
+--   - Buffer FUERA de un vault (p.ej. se borró el .nyabsidian y se lanzó
+--     NyabsidianRefresh): obsidian-ls se desconecta y marksman toma el
+--     relevo; nunca se queda un .md sin LSP → leave_vault().
+--
+-- marksman está registrado globalmente (lzy.lspconfig) con root_dir que
+-- devuelve nil en vaults; aquí solo se maneja lo que ese root_dir no cubre:
+-- clients ya arrancados y buffers que cambian de estado en runtime.
+
+--- Normaliza un root de workspace (string o Path) a string con separador
+--- consistente. El normalize() del módulo solo acepta strings.
+---@param root string|Path
+---@return string
+local function root_str(root)
+  return vim.fs.normalize(tostring(root))
 end
 
---- marksman sobra en notas de vault: obsidian-ls gestiona los enlaces wiki
---- (root_dir de marksman ya bloquea su arranque en vaults; esto cubre clients
---- ya arrancados, p.ej. al crear el marker .nyabsidian en la misma sesión).
+--- El root de marksman puede ser un string o nil.
+---@param client vim.lsp.Client
+---@return string|?
+local function marksman_root(client)
+  local cfg = client.config
+  if not cfg or not cfg.root_dir then
+    return nil
+  end
+  return root_str(cfg.root_dir)
+end
+
+--- El buffer entra en un vault: marksman sobra en notas de vault. El root_dir
+--- de marksman ya bloquea su arranque en vaults; esto cubre clients ya
+--- arrancados (p.ej. al crear el marker .nyabsidian en la misma sesión).
 ---@param bufnr integer
----@param ws table
-local function detach_marksman(bufnr, ws)
-  if not ws then
+---@param root string|Path Root del vault (workspace root).
+local function enter_vault(bufnr, root)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
-  local root = normalize(tostring(ws.root))
+  root = root_str(root)
   for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }) do
-    local client_root = client.config
-      and client.config.root_dir
-      and normalize(tostring(client.config.root_dir))
+    local client_root = marksman_root(client)
     if client_root and (client_root == root or client_root:sub(1, #root + 1) == root .. "/") then
-      -- El root del client es el vault: no le sirve a ninguna nota, se detiene.
+      -- Sirve a este vault: se detiene del todo.
       client:stop(true)
     else
+      -- Sirve a otro proyecto: solo se desconecta de este buffer.
       pcall(vim.lsp.buf_detach_client, bufnr, client.id)
     end
   end
+end
+
+--- El buffer deja de estar en un vault: obsidian-ls se desconecta y marksman
+--- toma el relevo para no dejar el .md sin LSP. Idempotente.
+---@param bufnr integer
+local function leave_vault(bufnr)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  -- obsidian-ls ya no gestiona este buffer (el client puede seguir vivo para
+  -- otras notas del vault).
+  for _, client in ipairs(vim.lsp.get_clients { bufnr = bufnr, name = "obsidian-ls" }) do
+    pcall(vim.lsp.buf_detach_client, bufnr, client.id)
+  end
+
+  local ft = vim.bo[bufnr].filetype
+  if ft ~= "markdown" and ft ~= "markdown.mdx" then
+    return
+  end
+
+  if #vim.lsp.get_clients { bufnr = bufnr, name = "marksman" } > 0 then
+    return
+  end
+
+  -- marksman puede no estar configurado (p.ej. harness headless sin
+  -- lzy.lspconfig): en ese caso no hay nada que arrancar.
+  -- En 0.12 vim.lsp.config es un índice; la forma llamable es la de registro.
+  local config = vim.lsp.config["marksman"]
+  if not config then
+    local ok, cfg = pcall(vim.lsp.config, "marksman")
+    config = ok and cfg or nil
+  end
+  if not config then
+    return
+  end
+
+  -- vim.lsp.start() NO resuelve root_dir funcref (eso solo lo hace el camino
+  -- de vim.lsp.enable): pasarle el config registrado tal cual crearía un client
+  -- con root_dir de tipo function (nunca reutilizable, rompe checkhealth con
+  -- E729). Se resuelve igual que nvim (lsp.lua _enabled_configs): on_dir + copy.
+  local function start_marksman(resolved)
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    -- El camino normal (FileType) puede haber arrancado marksman mientras el
+    -- root_dir se resolvía; vim.lsp.start reutiliza por name+root igualmente.
+    local ok, err = pcall(vim.lsp.start, resolved, { bufnr = bufnr })
+    if not ok then
+      vim.notify_once(
+        ("No se pudo arrancar marksman para el buffer: %s"):format(tostring(err)),
+        vim.log.levels.WARN,
+        { title = "Nyabsidian" }
+      )
+    end
+  end
+
+  config = vim.deepcopy(config)
+  if type(config.root_dir) == "function" then
+    config.root_dir(bufnr, function(root)
+      config.root_dir = root
+      vim.schedule(function()
+        start_marksman(config)
+      end)
+    end)
+    return
+  end
+  start_marksman(config)
+end
+
+--- Líneas de resumen LSP del buffer para NyabsidianDebug.
+---@param bufnr integer
+---@return string[]
+local function summary(bufnr)
+  local lines = {}
+  table.insert(
+    lines,
+    "obsidian-ls on buffer: " .. #vim.lsp.get_clients { bufnr = bufnr, name = "obsidian-ls" }
+  )
+  table.insert(
+    lines,
+    "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }
+  )
+  table.insert(
+    lines,
+    "all LSP on buffer: " .. vim.inspect(vim.tbl_map(function(client)
+      return client.name
+    end, vim.lsp.get_clients { bufnr = bufnr }))
+  )
+  return lines
 end
 
 --- Deja un buffer como si obsidian.nvim nunca lo hubiera tocado.
@@ -510,7 +656,8 @@ local function reset_obsidian_buffer(bufnr)
     end
   end
 
-  detach_obsidian_lsp(bufnr)
+  -- Fuera del vault: obsidian-ls se desconecta y marksman toma el relevo.
+  leave_vault(bufnr)
 end
 
 --- Sincroniza el estado global con el buffer actual. Si el buffer no pertenece
@@ -522,7 +669,7 @@ local function sync_current_context(reenter)
 
   if ws then
     set_workspace(ws)
-    detach_marksman(bufnr, ws)
+    enter_vault(bufnr, ws.root)
     if
       reenter and (vim.bo[bufnr].filetype == "markdown" or vim.bo[bufnr].filetype == "quarto")
     then
@@ -565,7 +712,8 @@ end
 
 ---@param roots string[]
 ---@param removed? string[] Roots que han dejado de existir.
-local function rebuild_runtime(roots, removed)
+---@param added? string[] Roots que acaban de entrar.
+local function rebuild_runtime(roots, removed, added)
   local obsidian = require "obsidian"
   local workspaces = {}
 
@@ -588,6 +736,8 @@ local function rebuild_runtime(roots, removed)
   stop_removed_lsp(roots)
 
   -- Des-obsidianiza los buffers abiertos de los roots que desaparecieron.
+  -- reset_obsidian_buffer() deja el LSP a leave_vault(): obsidian-ls fuera,
+  -- marksman dentro (no se queda un .md sin LSP).
   for _, root in ipairs(removed or {}) do
     local prefix = normalize(root) .. "/"
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
@@ -600,8 +750,26 @@ local function rebuild_runtime(roots, removed)
     end
   end
 
+  -- Buffers abiertos de los roots que acaban de entrar: marksman se desconecta
+  -- (obsidian.nvim toma el relevo en cada BufEnter).
+  for _, root in ipairs(added or {}) do
+    local prefix = normalize(root) .. "/"
+    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_loaded(bufnr) then
+        local name = normalize(vim.api.nvim_buf_get_name(bufnr))
+        if name and name:sub(1, #prefix) == prefix then
+          enter_vault(bufnr, root)
+        end
+      end
+    end
+  end
+
   sync_current_context(true)
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Comandos
+-- ─────────────────────────────────────────────────────────────────────────────
 
 ---@param opts? { notify?: boolean }
 function M.refresh(opts)
@@ -622,10 +790,17 @@ function M.refresh(opts)
       end
     end
 
+    local added = {}
+    for _, root in ipairs(roots) do
+      if not vim.tbl_contains(before, root) then
+        added[#added + 1] = root
+      end
+    end
+
     state.roots = roots
 
     if state.initialized then
-      rebuild_runtime(roots, removed)
+      rebuild_runtime(roots, removed, added)
     end
 
     if opts.notify then
@@ -698,17 +873,9 @@ function M.debug_info(opts)
     )
   end
 
-  table.insert(
-    out,
-    "obsidian-ls on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "obsidian-ls" }
-  )
-  table.insert(
-    out,
-    "marksman on buffer: " .. #vim.lsp.get_clients { bufnr = b, name = "marksman" }
-  )
-  table.insert(out, "all LSP on buffer: " .. vim.inspect(vim.tbl_map(function(c)
-    return c.name
-  end, vim.lsp.get_clients { bufnr = b })))
+  for _, line in ipairs(summary(b)) do
+    table.insert(out, line)
+  end
 
   local Obsidian = rawget(_G, "Obsidian")
   if Obsidian then
@@ -911,6 +1078,10 @@ function M.nyabsidian_init()
   notify "Guárdalo como .nyabsidian en el directorio que quieras tratar como vault"
 end
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Instalación
+-- ─────────────────────────────────────────────────────────────────────────────
+
 --- Debe registrarse antes del setup de obsidian.nvim. Así el workspace global
 --- ya es correcto cuando sus BufEnter consultan Obsidian.opts / Obsidian.dir.
 local function install_workspace_switch()
@@ -929,7 +1100,7 @@ local function install_workspace_switch()
       local ws = require("obsidian").api.find_workspace(ev.file)
       if ws then
         set_workspace(ws)
-        detach_marksman(ev.buf, ws)
+        enter_vault(ev.buf, ws.root)
       else
         reset_obsidian_buffer(ev.buf)
         set_workspace(workspace_for(cwd()) or dummy_workspace())
@@ -937,6 +1108,10 @@ local function install_workspace_switch()
     end,
   })
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Parches a obsidian.nvim
+-- ─────────────────────────────────────────────────────────────────────────────
 
 --- obsidian-ls es un servidor LSP in-process (función pasada a `vim.lsp.start`).
 --- Neovim requiere que un servidor así invoque `dispatchers.on_exit()` para
@@ -1081,6 +1256,10 @@ local function patch_lsp_start()
   end
   lsp.__nyabsidian_patched = true
 end
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Arranque
+-- ─────────────────────────────────────────────────────────────────────────────
 
 local function install_runtime()
   local group = vim.api.nvim_create_augroup("nyabsidian", { clear = true })
