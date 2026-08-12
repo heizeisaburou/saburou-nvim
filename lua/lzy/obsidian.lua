@@ -24,6 +24,7 @@ local state = {
   note_save_patched = false,
   backlink_escaped_pipe_patched = false,
   follow_link_patched = false,
+  attachment_rename_patched = false,
 }
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -864,6 +865,7 @@ function M.debug_info(opts)
   table.insert(out, "lsp_server_patched: " .. tostring(state.lsp_server_patched))
   table.insert(out, "cursor_link_patched: " .. tostring(state.cursor_link_patched))
   table.insert(out, "follow_link_patched: " .. tostring(state.follow_link_patched))
+  table.insert(out, "attachment_rename_patched: " .. tostring(state.attachment_rename_patched))
 
   for _, c in ipairs(vim.lsp.get_clients { name = "obsidian-ls" }) do
     table.insert(
@@ -1348,6 +1350,69 @@ local function patch_follow_link_attachments()
   state.follow_link_patched = true
 end
 
+--- El LSP de obsidian solo renombra notas: con un enlace de adjunto en el
+--- cursor (imagen/audio/pdf) resolve_note_async vuelve vacío y el rename no
+--- hace nada. Se envuelve el handler textDocument/rename del servidor (que
+--- corre en proceso) y, si el ref bajo el cursor es un adjunto, sabunv mueve
+--- el archivo y responde con el WorkspaceEdit que actualiza los enlaces del
+--- vault completo. El cliente aplica el edit (buffers) y el wall diferido
+--- persiste a disco, igual que hace el plugin con las notas.
+local function patch_attachment_rename()
+  if state.attachment_rename_patched then
+    return
+  end
+
+  local api = require "obsidian.api"
+  local util = require "obsidian.util"
+  local log = require "obsidian.log"
+  local md = require "sabunv.nvim.markdown"
+  local handlers = require "obsidian.lsp.handlers"
+
+  local orig_rename = handlers["textDocument/rename"]
+  ---@diagnostic disable-next-line: duplicate-set-field -- reemplazo intencionado
+  handlers["textDocument/rename"] = function(params, callback)
+    local new_name = params.newName
+
+    local loc
+    local link = api.cursor_link()
+    if link then
+      local parsed = util.parse_link(link)
+      if parsed then
+        local stripped = util.strip_anchor_links(parsed)
+        stripped = util.strip_block_links(stripped)
+        loc = stripped ~= "" and stripped or parsed
+      end
+    end
+
+    if loc and not util.is_uri(loc) and api.is_attachment_path(loc) then
+      local ok_wall, err_wall = pcall(vim.cmd.wall)
+      if not ok_wall then
+        return log.err(err_wall and err_wall or "failed writing all buffers before renaming, abort")
+      end
+
+      local edit, err = md.rename_attachment(loc, new_name, {
+        bufnr = vim.api.nvim_get_current_buf(),
+      })
+      if edit then
+        -- apply_text_edits no escribe a disco; el wall diferido persiste los
+        -- buffers que el cliente acaba de modificar (incluidos los ocultos).
+        vim.schedule(function()
+          vim.cmd "silent! wall"
+        end)
+        return callback(nil, edit)
+      end
+      if err then
+        log.err("rename adjunto: " .. err)
+        return callback(nil, {})
+      end
+    end
+
+    return orig_rename(params, callback)
+  end
+
+  state.attachment_rename_patched = true
+end
+
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
   local lsp = require "obsidian.lsp"
@@ -1436,7 +1501,8 @@ function M.setup()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
-  patch_follow_link_attachments()
+patch_follow_link_attachments()
+  patch_attachment_rename()
   install_workspace_switch()
   require("obsidian").setup(M.opts())
 
