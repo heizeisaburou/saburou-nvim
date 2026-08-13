@@ -68,7 +68,7 @@ describe("Sabunv Markdown spoilers", function()
   local function has_block_controller()
     for _, mark in ipairs(extmarks()) do
       local details = mark[4]
-      if mark[2] == 6 and details.end_row == 9 and not details.virt_text then
+      if mark[2] == 6 and details.end_row == 8 and not details.virt_text then
         return true
       end
     end
@@ -147,6 +147,12 @@ describe("Sabunv Markdown spoilers", function()
         return spoiler_virtual_count() == 2 and has_block_controller()
       end, 10),
       "spoilers did not conceal again"
+    )
+
+    move(9)
+    assert(
+      vim.wait(1000, has_block_controller, 10),
+      "the line immediately after the closing fence still revealed the block"
     )
   end)
 

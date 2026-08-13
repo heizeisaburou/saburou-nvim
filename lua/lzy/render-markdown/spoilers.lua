@@ -285,8 +285,8 @@ local function block_marks(block)
       start_row = block.start_row + 1,
       start_col = 0,
       opts = {
-        end_row = block.end_row,
-        end_col = block.end_col,
+        end_row = block.closing_row,
+        end_col = block.closing_end_col,
         conceal_lines = "",
         priority = 9600,
       },
