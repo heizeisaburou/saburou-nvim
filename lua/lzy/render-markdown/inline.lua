@@ -3,6 +3,7 @@
 local M = {}
 
 local code_query = vim.treesitter.query.parse("markdown_inline", "(code_span) @code")
+local italic_query = vim.treesitter.query.parse("markdown_inline", "(emphasis) @italic")
 local emphasis_query = vim.treesitter.query.parse(
   "markdown_inline",
   [[
@@ -17,6 +18,41 @@ local emphasis_query = vim.treesitter.query.parse(
     ] @excluded
   ]]
 )
+
+---@param bufnr integer
+---@param row integer
+---@return string?, integer?
+local function heading_italic_highlight(bufnr, row)
+  local level = require("lzy.render-markdown.cursor").heading_level(bufnr, row)
+  if level then
+    return "RenderMarkdownH" .. level .. "Italic", level
+  end
+end
+
+---@param ctx render.md.handler.Context
+---@param marks render.md.Mark[]
+local function render_heading_italics(ctx, marks)
+  for _, node in italic_query:iter_captures(ctx.root, ctx.buf) do
+    local start_row, start_col, end_row, end_col = node:range()
+    local highlight = heading_italic_highlight(ctx.buf, start_row)
+
+    if highlight then
+      marks[#marks + 1] = {
+        modes = { "i" },
+        conceal = false,
+        start_row = start_row,
+        start_col = start_col,
+        opts = {
+          end_row = end_row,
+          end_col = end_col,
+          hl_group = highlight,
+          -- La banda del heading usa 4096 y el código inline contextual 4097.
+          priority = 4098,
+        },
+      }
+    end
+  end
+end
 
 ---@class lzy.render_markdown.Range
 ---@field start_row integer
@@ -107,6 +143,7 @@ local function render_unparsed_underscore_emphasis(ctx, marks)
         and not escaped
         and not overlaps(protected, row, candidate_start, candidate_end)
       then
+        local highlight, level = heading_italic_highlight(ctx.buf, row)
         marks[#marks + 1] = {
           modes = { "i" },
           conceal = true,
@@ -127,8 +164,8 @@ local function render_unparsed_underscore_emphasis(ctx, marks)
           opts = {
             end_row = row,
             end_col = candidate_end,
-            hl_group = "@markup.italic.markdown_inline",
-            priority = 101,
+            hl_group = highlight or "@markup.italic.markdown_inline",
+            priority = level and 4098 or 101,
           },
         }
         marks[#marks + 1] = {
@@ -157,6 +194,7 @@ function M.parse(ctx)
   -- tree-sitter-markdown-inline no reconoce algunos énfasis válidos con `_`,
   -- por ejemplo `_v1_`, cuando el contenido termina en un dígito.
   render_unparsed_underscore_emphasis(ctx, marks)
+  render_heading_italics(ctx, marks)
   require("lzy.render-markdown.links").render_inline(ctx, marks)
   require("lzy.render-markdown.spoilers").render_inline(ctx, marks)
 

@@ -12,26 +12,32 @@ local function solid_heading_palette()
     h1 = {
       fg = "#181B1E",
       bg = "#C7C9CC", -- dimmer soft gray-white
+      italic = "#702044", -- dark berry on light gray (6.39:1)
     },
     h2 = {
       fg = "#140202",
       bg = "#9C4A4A", -- dimmer muted red
+      italic = "#FFF0F4", -- porcelain rose on muted red (5.45:1)
     },
     h3 = {
       fg = "#21190D",
       bg = "#B5995F", -- muted orange / yellow
+      italic = "#4B1730", -- dark berry on gold (5.25:1)
     },
     h4 = {
       fg = "#062126",
       bg = "#4F98A7", -- slightly dimmer cyan / light blue
+      italic = "#40142D", -- dark berry on cyan (4.71:1)
     },
     h5 = {
       fg = "#050B26",
       bg = "#5064B0", -- slightly dimmer blue
+      italic = "#FFF0F4", -- porcelain rose on blue (5.02:1)
     },
     h6 = {
       fg = "#100B34",
       bg = "#8479D0", -- slightly dimmer purple
+      italic = "#27112F", -- dark aubergine on purple (4.66:1)
     },
   }
 end
@@ -41,26 +47,32 @@ local function transparent_heading_palette()
     h1 = {
       fg = "#EDEFF0",
       bg = "NONE",
+      italic = "#F2A7C8",
     },
     h2 = {
       fg = "#E56666",
       bg = "NONE",
+      italic = "#F2A7C8",
     },
     h3 = {
       fg = "#DDBE7C",
       bg = "NONE",
+      italic = "#F2A7C8",
     },
     h4 = {
       fg = "#61B8CC",
       bg = "NONE",
+      italic = "#F2A7C8",
     },
     h5 = {
       fg = "#5F7DDD",
       bg = "NONE",
+      italic = "#F2A7C8",
     },
     h6 = {
       fg = "#998CF7",
       bg = "NONE",
+      italic = "#F2A7C8",
     },
   }
 end
@@ -70,38 +82,50 @@ local function tty_heading_palette()
     h1 = {
       fg = "black",
       bg = "white",
+      italic = "black",
       ctermfg = 0,
       ctermbg = 15,
+      italic_ctermfg = 0,
     },
     h2 = {
       fg = tty.colors.h2.fg,
       bg = tty.colors.h2.bg,
+      italic = "white",
       ctermfg = tty.colors.h2.ctermfg,
       ctermbg = tty.colors.h2.ctermbg,
+      italic_ctermfg = 15,
     },
     h3 = {
       fg = "black",
       bg = "orange",
+      italic = "black",
       ctermfg = 0,
       ctermbg = 11,
+      italic_ctermfg = 0,
     },
     h4 = {
       fg = "black",
       bg = "cyan",
+      italic = "black",
       ctermfg = 0,
       ctermbg = 14,
+      italic_ctermfg = 0,
     },
     h5 = {
       fg = "black",
       bg = "blue",
+      italic = "white",
       ctermfg = 15,
       ctermbg = 4,
+      italic_ctermfg = 15,
     },
     h6 = {
       fg = "black",
       bg = "purple",
+      italic = "white",
       ctermfg = 15,
       ctermbg = 5,
+      italic_ctermfg = 15,
     },
   }
 end
@@ -136,6 +160,16 @@ local function set_heading(level, colors)
   set("RenderMarkdownH" .. level .. "Bg", {
     bg = colors.bg,
     ctermbg = colors.ctermbg,
+  })
+
+  -- El fondo se repite a propósito: este grupo se aplica como extmark de alta
+  -- prioridad sobre el heading y no debe abrir un agujero en la banda sólida.
+  set("RenderMarkdownH" .. level .. "Italic", {
+    fg = colors.italic,
+    bg = colors.bg,
+    ctermfg = colors.italic_ctermfg,
+    ctermbg = colors.ctermbg,
+    italic = true,
   })
 
   set("@markup.heading." .. level .. ".markdown", {
