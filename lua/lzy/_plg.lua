@@ -178,6 +178,8 @@ return {
   -- --- [ render-markdown ] ---------------------------------------------------
   {
     "MeanderingProgrammer/render-markdown.nvim",
+    -- Nuestros handlers dependen de la API interna de esta revisión.
+    commit = "f422cb5c6855f150e2ddcfaf44e7157b98b34f6a",
     lazy = false,
     dependencies = { "nvim-treesitter/nvim-treesitter", "nvim-tree/nvim-web-devicons" }, -- if you prefer nvim-web-devicons
     config = function()
@@ -331,7 +333,8 @@ return {
   -- Sin workspaces configurados: el directorio actual se trata como vault.
   {
     "obsidian-nvim/obsidian.nvim",
-    version = "*",
+    -- Nyabsidian parchea comportamiento interno: actualizar sólo tras probarlo.
+    commit = "69fe7c6bf61a5222b5061a9a9dfc5023f2ec0fdc",
     ft = { "markdown" },
     init = function()
       -- Comandos Nyabsidian* disponibles desde el arranque, sin esperar a
