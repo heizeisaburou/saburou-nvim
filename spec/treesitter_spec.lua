@@ -1,6 +1,7 @@
 local config = "/home/saburou/.config/hzsr12"
 
 vim.opt.runtimepath:prepend(config)
+package.path = config .. "/lua/?.lua;" .. config .. "/lua/?/init.lua;" .. package.path
 
 describe("TSInstallAll Windows TLS preflight", function()
   local originals
