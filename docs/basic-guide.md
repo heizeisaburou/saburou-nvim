@@ -41,6 +41,7 @@ falta información o crees que se puede explicar mejor, cualquier sugerencia es 
   garantiza compatibilidad con versiones anteriores. Comprueba tu versión con `nvim --version`.
 - `git`, `curl` y un compilador de C (`gcc`/`clang`) en el `PATH` para que `lazy.nvim`, `mason.nvim` y `nvim-treesitter`
   puedan instalar lo que necesitan.
+- `tree-sitter-cli` 0.26.1 o superior en el `PATH`; `nvim-treesitter` lo necesita para compilar los parsers.
 - Una _Nerd Font_ configurada en la terminal para los iconos.
 
 ## Resumen rápido
@@ -342,6 +343,11 @@ Por último, instala los parsers de Treesitter configurados con:
 ```vim
 :TSInstallAll
 ```
+
+`TSInstallAll` comprueba que `tree-sitter-cli` esté disponible antes de descargar parsers. En Windows también prueba
+la conexión de `curl` con el tarball exacto de un parser. Si Schannel responde con `CRYPT_E_NO_REVOCATION_CHECK`, el
+comando pregunta si quieres reintentar solo esa instalación con comprobación de revocación _best-effort_. No cambia
+`.curlrc` ni desactiva la validación del certificado; los demás errores detienen la instalación y se muestran tal cual.
 
 En resumen, después de abrir Neovim por primera vez, puedes ejecutar:
 

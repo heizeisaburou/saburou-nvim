@@ -67,6 +67,8 @@ detallada está en las [notas de saburou-nvim](docs/saburou-nvim.md).
 - **[Git](https://git-scm.com/)** — necesario para clonar el repositorio y para que `lazy.nvim` instale los plugins.
 - **`curl`** y un compilador de C (`gcc`/`clang`) disponibles en el `PATH` para que `lazy.nvim`, `mason.nvim` y
   `nvim-treesitter` puedan descargar y compilar lo que necesitan.
+- **[`tree-sitter-cli`](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1 o
+  superior** — `nvim-treesitter` lo usa para compilar los parsers.
 - Una _Nerd Font_ configurada en la terminal para que se vean bien los iconos.
 
 ### Recomendadas
@@ -76,8 +78,6 @@ por Mason. Sin ellas, parte de la experiencia (búsquedas, parsers, formatters, 
 correctamente.
 
 - **[Rust](https://www.rust-lang.org/)** — necesario para compilar herramientas instaladas mediante `cargo`.
-- **[`tree-sitter-cli`](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md)** — herramienta de
-  línea de comandos de Tree-sitter usada por `nvim-treesitter` para compilar parsers.
 - **[Go](https://go.dev/)** — requerido por varios servidores LSP, formatters y linters (incluido el toolchain de Go).
 - **[Python](https://www.python.org/)** — necesario para servidores LSP y herramientas externas escritas en Python, así
   como para `nvim-dap` con adaptadores Python.
@@ -117,6 +117,11 @@ correctamente.
    :MasonInstallAll
    :TSInstallAll
    ```
+
+   En Windows, `TSInstallAll` comprueba primero una de las descargas exactas de los parsers. Si Schannel devuelve
+   `CRYPT_E_NO_REVOCATION_CHECK`, ofrece reintentar interactivamente con `--ssl-revoke-best-effort`. La excepción solo
+   se aplica a los archivos de parsers fijados por commit durante esa ejecución: no modifica `.curlrc`, no desactiva la
+   validación del certificado y cualquier otro error de TLS detiene la instalación.
 
 ### Configuración de LuaLS
 
