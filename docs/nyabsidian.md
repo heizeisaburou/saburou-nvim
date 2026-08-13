@@ -46,7 +46,7 @@ tienes:
 
 ## Empezar
 
-1. `:NyabsidianInit` — abre un archivo nuevo con la plantilla.
+1. `:NyabsidianMake` — abre un archivo nuevo con la plantilla.
 2. Guárdalo como `.nyabsidian` en la carpeta que quieras convertir en vault (`:w` te pide la ruta
    y gestiona conflictos si ya existe).
 3. Listo: abre cualquier `.md` de esa carpeta y tendrás las capacidades de Obsidian.
@@ -73,7 +73,7 @@ Comandos de Nyabsidian:
 
 | Comando                  | Qué hace                                            |
 | ------------------------ | --------------------------------------------------- |
-| `:NyabsidianInit`        | Abre un buffer con la plantilla de `.nyabsidian`    |
+| `:NyabsidianMake`        | Abre un buffer con la plantilla de `.nyabsidian`    |
 | `:NyabsidianInfo`        | Estado de la carpeta actual y sus vaults            |
 | `:NyabsidianRefresh`     | Redescubre las carpetas que son vaults              |
 | `:NyabsidianFrontmatter` | Regenera el frontmatter de la nota actual (forzado) |

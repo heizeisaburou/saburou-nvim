@@ -16,7 +16,7 @@ Fecha: 2026-08-11. Replanteado tras probar `:NyabsidianFrontmatter` (hecho). La 
 	  `aliases: [` o `id: [broken`) → warning y no reescribe (el parser YAML del plugin es
 	  permisivo y los "arregla" en basura). Implementado y verificado.
 - [x] `.nyabsidian` pasa de JSON a Lua.
-- [x] `NyabsidianInit` — genera un `.nyabsidian` de ejemplo en buffer sin nombre.
+- [x] `NyabsidianMake` — genera un `.nyabsidian` de ejemplo en buffer sin nombre.
 
 ## Hecho el 2026-08-11 (verificado headless)
 
@@ -29,7 +29,7 @@ Fecha: 2026-08-11. Replanteado tras probar `:NyabsidianFrontmatter` (hecho). La 
   `read_nyabsidian`, y `vim.fs.joinpath` descarta el Path → leía el `.nyabsidian` del cwd
   (overrides del vault equivocado). Fix: normalizar `tostring(root)` a la entrada de
   `read_nyabsidian`/`workspace_overrides`.
-- `NyabsidianInit` probado: buffer sin nombre, filetype `nyabsidian` → `lua` vía ftplugin,
+- `NyabsidianMake` probado: buffer sin nombre, filetype `nyabsidian` → `lua` vía ftplugin,
   template de 17 líneas, notify con la ruta exigida.
 - Herramientas: `sync.sh` + módulos `hzsr/sync.lua` y `hzsr/test/init.lua` (harness headless con
   `--root`, `--config`, `--plenary`) + comandos `:Synco` y `:Harness`.
@@ -54,7 +54,7 @@ Fecha: 2026-08-11. Replanteado tras probar `:NyabsidianFrontmatter` (hecho). La 
   función, `templates.substitutions`, `note_id_func`, `note_path_func`, `callbacks` — todo por
   vault. Si un vault no define `frontmatter.func`, aplica la función global de `make_opts`
   (fallback por merge).
-- **`NyabsidianInit`**: buffer sin nombre con template comentado; el usuario copia lo que le
+- **`NyabsidianMake`**: buffer sin nombre con template comentado; el usuario copia lo que le
   interesa y guarda con su `:w` (su save flow pide ruta y gestiona conflictos). La única
   incongruencia —guardarlo con otro nombre— se resuelve con docstring en el propio archivo +
   aviso del comando (factor humano). Nada de detección de ubicación ni check de existencia.
@@ -74,7 +74,7 @@ Fecha: 2026-08-11. Replanteado tras probar `:NyabsidianFrontmatter` (hecho). La 
 5. Convertir el `.nyabsidian` del repo (el único que existe) a Lua.
 6. ftdetect y live reload (BufWritePost por nombre) no cambian.
 
-## NyabsidianInit (comando)
+## NyabsidianMake (comando)
 
 - Buffer nuevo sin nombre, filetype `nyabsidian` (→ `lua` vía ftplugin).
 - Template con docstring y ejemplos comentados:
@@ -107,7 +107,7 @@ return {
 1. **Pipeline Lua** — hecho y verificado (11-08). Que pruebe el usuario: `.nyabsidian` Lua con
    `frontmatter.enabled = true` funciona live; sintaxis rota → warning y defaults; una vault JSON
    vieja rota con warning claro.
-2. **NyabsidianInit** — hecho y verificado (11-08). Que pruebe el usuario: genera, guarda como
+2. **NyabsidianMake** — hecho y verificado (11-08). Que pruebe el usuario: genera, guarda como
    `.nyabsidian`, refresca solo; guarda con otro nombre → solo es un buffer Lua normal.
 
 ## Verificación (harness headless, patrón de siempre)
@@ -116,7 +116,7 @@ return {
 	  string).
 - [x] Fragmento con `frontmatter.func` función → `config.normalize` no se atraganta (tbl_override
 	  maneja funciones: reemplazo por clave).
-- [x] `NyabsidianInit` → buffer con template; save flow pide ruta.
+- [x] `NyabsidianMake` → buffer con template; save flow pide ruta.
 - [x] stylua formatea el buffer `.nyabsidian` (filetype lua).
 
 ## Notas

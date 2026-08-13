@@ -375,6 +375,184 @@ local function yank_path(path)
   vim.fn.setreg('"', path, "v")
 end
 
+---@param value string
+---@return string
+local function decode_html_entities(value)
+  local named = {
+    amp = "&",
+    apos = "'",
+    gt = ">",
+    lt = "<",
+    nbsp = " ",
+    quot = '"',
+  }
+  local function character(number, base)
+    local codepoint = tonumber(number, base)
+    if
+      not codepoint
+      or codepoint < 1
+      or codepoint > 0x10FFFF
+      or codepoint >= 0xD800 and codepoint <= 0xDFFF
+    then
+      return ""
+    end
+    local ok, result = pcall(vim.fn.nr2char, codepoint)
+    return ok and result or ""
+  end
+  value = value:gsub("&#[xX]([%da-fA-F]+);", function(hex)
+    return character(hex, 16)
+  end)
+  value = value:gsub("&#(%d+);", function(decimal)
+    return character(decimal, 10)
+  end)
+  return value:gsub("&([%a]+);", function(name)
+    return named[name:lower()] or "&" .. name .. ";"
+  end)
+end
+
+---@param html string
+---@return string|?
+local function html_title(html)
+  local lower = html:lower()
+  local start_col, end_col = lower:find("<title[^>]*>")
+  if not start_col then
+    return nil
+  end
+  local close = lower:find("</title%s*>", end_col + 1)
+  if not close then
+    return nil
+  end
+  local title = html:sub(end_col + 1, close - 1):gsub("<[^>]+>", "")
+  title = vim.trim(decode_html_entities(title):gsub("%s+", " "))
+  return title ~= "" and title or nil
+end
+
+---@param title string
+---@return string
+local function escape_markdown_label(title)
+  return title:gsub("\\", "\\\\"):gsub("%[", "\\["):gsub("%]", "\\]")
+end
+
+---@param url string
+---@param callback fun(body: string|?, err: string|?)
+local function request_url(url, callback)
+  if not vim.system then
+    return callback(nil, "esta versión de Neovim no dispone de vim.system()")
+  end
+  vim.system({
+    "curl",
+    "--location",
+    "--fail",
+    "--silent",
+    "--show-error",
+    "--compressed",
+    "--connect-timeout",
+    "5",
+    "--max-time",
+    "12",
+    "--max-filesize",
+    "1048576",
+    "--range",
+    "0-1048575",
+    "--proto",
+    "=http,https",
+    "--proto-redir",
+    "=http,https",
+    "--user-agent",
+    "Mozilla/5.0 Nyabsidian/1.0",
+    url,
+  }, { text = true }, function(result)
+    vim.schedule(function()
+      if result.stdout and html_title(result.stdout) then
+        return callback(result.stdout)
+      end
+      local detail = vim.trim(result.stderr or "")
+      callback(nil, detail ~= "" and detail or ("curl terminó con código %s"):format(result.code))
+    end)
+  end)
+end
+
+---@param opts { request?: fun(url: string, callback: fun(body: string|?, err: string|?)), notify?: function }|?
+function M.fetch_web_title(opts)
+  opts = opts or {}
+  local notify_user = opts.notify or notify
+  local request = opts.request or request_url
+  local context = require("lzy.obsidian.links").cursor_context()
+  local ref = context and context.ref or nil
+  local url = ref and (ref.raw_target or ref.target) or nil
+  if
+    not ref
+    or (ref.kind ~= "markdown" and ref.kind ~= "autolink")
+    or not url
+    or not url:match "^https?://"
+  then
+    return notify_user("No hay un enlace web Markdown bajo el cursor", vim.log.levels.ERROR)
+  end
+  if ref.embed then
+    return notify_user(
+      "El enlace bajo el cursor es una imagen, no una página web",
+      vim.log.levels.ERROR
+    )
+  end
+
+  local bufnr = vim.api.nvim_get_current_buf()
+  local original = ref.raw
+  local row = ref.range.start_row
+  local start_col, end_col = ref.range.start_col, ref.range.end_col
+  notify_user("Obteniendo el título de " .. url .. "…")
+  request(url, function(body, err)
+    if not body then
+      return notify_user(
+        "No se pudo obtener el título: " .. (err or "respuesta vacía"),
+        vim.log.levels.ERROR
+      )
+    end
+    local title = html_title(body)
+    if not title then
+      return notify_user("La página no contiene un título HTML", vim.log.levels.ERROR)
+    end
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      return
+    end
+    local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+    if line:sub(start_col + 1, end_col) ~= original then
+      return notify_user(
+        "El enlace cambió mientras se obtenía el título; no se ha modificado",
+        vim.log.levels.WARN
+      )
+    end
+
+    title = escape_markdown_label(title)
+    if ref.kind == "autolink" then
+      vim.api.nvim_buf_set_text(
+        bufnr,
+        row,
+        start_col,
+        row,
+        end_col,
+        { ("[%s](%s)"):format(title, url) }
+      )
+    else
+      local label = require("lzy.obsidian.links").label_component(ref)
+      if not label then
+        return notify_user(
+          "El enlace Markdown no contiene una etiqueta editable",
+          vim.log.levels.ERROR
+        )
+      end
+      vim.api.nvim_buf_set_text(
+        bufnr,
+        row,
+        label.start_col,
+        row,
+        label.end_col,
+        { title }
+      )
+    end
+    notify_user("Etiqueta actualizada desde el título web")
+  end)
+end
+
 ---@param opts { bufnr?: integer, select?: function, copy?: fun(path: string), notify?: function }|?
 function M.copy_path(opts)
   opts = opts or {}
@@ -452,5 +630,6 @@ end
 -- API pequeña para pruebas.
 M.resolve_cursor = resolve_cursor
 M.format_choices = format_choices
+M.html_title = html_title
 
 return M

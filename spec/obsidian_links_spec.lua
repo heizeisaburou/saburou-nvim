@@ -460,6 +460,117 @@ describe("Nyabsidian structured links and attachments", function()
     )
   end)
 
+  it("prepares Markdown labels and external URLs as independent rename targets", function()
+    write("source.md", { "[gh](https://github.com)" })
+    vim.cmd.edit(root .. "/source.md")
+    local handler = require("obsidian.lsp.handlers")["textDocument/prepareRename"]
+    local function prepared_at(col)
+      vim.api.nvim_win_set_cursor(0, { 1, col })
+      local result
+      handler({}, function(err, value)
+        assert.is_nil(err)
+        result = value
+      end, {})
+      return result
+    end
+
+    local label = prepared_at(2)
+    assert.are.equal("gh", label.placeholder)
+    assert.are.same({ 1, 3 }, { label.range.start.character, label.range["end"].character })
+
+    local url = prepared_at(10)
+    assert.are.equal("https://github.com", url.placeholder)
+    assert.are.same({ 5, 23 }, { url.range.start.character, url.range["end"].character })
+  end)
+
+  it("renames an external Markdown URL locally instead of waiting for a note", function()
+    write("source.md", { '[gh](https://github.com "GitHub")' })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+    local called = false
+    require("obsidian.lsp.handlers")["textDocument/rename"](
+      { newName = "https://githuba.com" },
+      function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+        called = true
+      end,
+      {}
+    )
+
+    assert.is_true(called)
+    assert.are.equal('[gh](https://githuba.com "GitHub")', vim.api.nvim_get_current_line())
+  end)
+
+  it("renames a Markdown label without changing its destination", function()
+    write("source.md", { "[gh](https://github.com)" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 2 })
+
+    require("obsidian.lsp.handlers")["textDocument/rename"](
+      { newName = "GitHub" },
+      function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+      end,
+      {}
+    )
+
+    assert.are.equal("[GitHub](https://github.com)", vim.api.nvim_get_current_line())
+  end)
+
+  it("renames the destination of an angle-bracket autolink", function()
+    write("source.md", { "<https://github.com>" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+    require("obsidian.lsp.handlers")["textDocument/rename"](
+      { newName = "https://githuba.com" },
+      function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+      end,
+      {}
+    )
+
+    assert.are.equal("<https://githuba.com>", vim.api.nvim_get_current_line())
+  end)
+
+  it("fills a Markdown label from the page title", function()
+    write("source.md", { "[gh](https://github.com)" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+    require("lzy.obsidian.link_actions").fetch_web_title {
+      notify = function() end,
+      request = function(url, callback)
+        assert.are.equal("https://github.com", url)
+        callback("<html><head><title>GitHub &amp; friends [home]</title></head></html>")
+      end,
+    }
+
+    assert.are.equal(
+      "[GitHub & friends \\[home\\]](https://github.com)",
+      vim.api.nvim_get_current_line()
+    )
+  end)
+
+  it("turns an angle-bracket URL into a labeled link from the page title", function()
+    write("source.md", { "See <https://github.com>" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+    require("lzy.obsidian.link_actions").fetch_web_title {
+      notify = function() end,
+      request = function(_, callback)
+        callback("<TITLE> GitHub \n Home </TITLE>")
+      end,
+    }
+
+    assert.are.equal("See [GitHub Home](https://github.com)", vim.api.nvim_get_current_line())
+  end)
+
   it("rejects names that cannot preserve a literal heading and a valid anchor", function()
     local headings = require "lzy.obsidian.headings"
     assert.is_nil(headings.validate_name "My Father A")

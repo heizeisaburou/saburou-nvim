@@ -14,25 +14,90 @@ local notify = function(msg, level)
   vim.notify(msg, level, { title = "Nyabsidian" })
 end
 
----@param bufnr integer|?
----@return obsidian.parse.Ref|?
-local function cursor_ref(bufnr)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local attachment = require("lzy.obsidian.attachments").cursor_ref(bufnr)
-  if attachment then
-    return attachment
+---@param line string
+---@param row integer
+---@param col integer
+---@return table|?
+local function angle_ref_at(line, row, col)
+  local function inside_inline_code(start_col)
+    local prefix = line:sub(1, start_col - 1)
+    return #prefix:gsub("[^`]", "") % 2 == 1
   end
 
-  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
-  for _, ref in ipairs(require("obsidian.parse.refs").extract(line, { row = row - 1 })) do
-    if ref.range.start_col <= col and col < ref.range.end_col then
-      return ref
+  for start_col, target, end_col in line:gmatch "()<([^<>%s]+)>()" do
+    if
+      target:match "^[%a][%w%+%.%-]*://"
+      and not inside_inline_code(start_col)
+      and start_col - 1 <= col
+      and col < end_col - 1
+    then
+      return {
+        kind = "autolink",
+        raw = "<" .. target .. ">",
+        range = { start_row = row, start_col = start_col - 1, end_row = row, end_col = end_col - 1 },
+        target = target,
+        raw_target = target,
+        target_range = { start_col = start_col, end_col = end_col - 2 },
+        embed = false,
+      }
     end
   end
 end
 
----@return { ref: obsidian.parse.Ref, component: table }|?
+---@param bufnr integer|?
+---@return obsidian.parse.Ref|table|?
+local function cursor_ref(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
+  local parsed_refs = require("obsidian.parse.refs").extract(line, { row = row - 1 })
+  local ranged_refs = require("lzy.obsidian.attachments").parse_refs(line, row - 1)
+  for _, ref in ipairs(parsed_refs) do
+    if ref.range.start_col <= col and col < ref.range.end_col then
+      for _, ranged in ipairs(ranged_refs) do
+        if
+          ranged.raw == ref.raw
+          and ranged.range.start_col == ref.range.start_col
+          and ranged.range.end_col == ref.range.end_col
+        then
+          ref.raw_target = ranged.target
+          ref.target_range = ranged.target_range
+          break
+        end
+      end
+      return ref
+    end
+  end
+  return angle_ref_at(line, row - 1, col)
+end
+
+---@param ref table
+---@return table|?
+local function label_component(ref)
+  if not ref.label then
+    return nil
+  end
+  local offset
+  if ref.kind == "markdown" then
+    offset = ref.embed and 2 or 1
+  elseif ref.kind == "wiki" then
+    local pipe = ref.raw:find("|", 1, true)
+    if not pipe then
+      return nil
+    end
+    offset = pipe
+  else
+    return nil
+  end
+  return {
+    kind = "label",
+    text = ref.label,
+    start_col = ref.range.start_col + offset,
+    end_col = ref.range.start_col + offset + #ref.label,
+  }
+end
+
+---@return { ref: table, component: table, label?: table }|?
 local function cursor_context()
   local ref = cursor_ref()
   if not ref then
@@ -40,19 +105,47 @@ local function cursor_context()
   end
   local _, col = unpack(vim.api.nvim_win_get_cursor(0))
   local attachments = require "lzy.obsidian.attachments"
-  if attachments.is_target(ref.target, { bufnr = vim.api.nvim_get_current_buf() }) then
+  local label = label_component(ref)
+  if label and label.start_col <= col and col < label.end_col then
+    return { ref = ref, component = label, label = label }
+  end
+
+  local raw_target = ref.raw_target or ref.target
+  if attachments.is_target(raw_target, { bufnr = vim.api.nvim_get_current_buf() }) then
     return {
       ref = ref,
+      label = label,
       component = {
         kind = "attachment",
-        text = ref.target,
+        text = raw_target,
         start_col = ref.target_range.start_col,
         end_col = ref.target_range.end_col,
       },
     }
   end
+
+  if ref.kind == "autolink" or require("obsidian.util").is_uri(raw_target) then
+    if
+      ref.target_range
+      and ref.target_range.start_col <= col
+      and col < ref.target_range.end_col
+    then
+      return {
+        ref = ref,
+        label = label,
+        component = {
+          kind = "url",
+          text = raw_target,
+          start_col = ref.target_range.start_col,
+          end_col = ref.target_range.end_col,
+        },
+      }
+    end
+    return nil
+  end
   return {
     ref = ref,
+    label = label,
     component = require("lzy.obsidian.headings").component_at(ref, col),
   }
 end
@@ -165,11 +258,6 @@ local function patch_cursor_autolink()
   end
   local original = api.cursor_link
 
-  local function inside_inline_code(line, start_col)
-    local prefix = line:sub(1, start_col - 1)
-    return #prefix:gsub("[^`]", "") % 2 == 1
-  end
-
   api.cursor_link = function(...)
     local link, kind, range = original(...)
     if link then
@@ -178,15 +266,12 @@ local function patch_cursor_autolink()
 
     local line = vim.api.nvim_get_current_line()
     local _, cur_col = unpack(vim.api.nvim_win_get_cursor(0))
-    for start_col, inner, end_col in line:gmatch "()<([^<>%s]+)>()" do
-      if
-        inner:match "^[%a][%w%+%.%-]*://"
-        and not inside_inline_code(line, start_col)
-        and start_col - 1 <= cur_col
-        and cur_col < end_col - 1
-      then
-        return ("[%s](%s)"):format(inner, inner), "markdown", { start_col - 1, end_col - 1 }
-      end
+    local ref = angle_ref_at(line, 0, cur_col)
+    if ref then
+      return ("[%s](%s)"):format(ref.target, ref.target), "markdown", {
+        ref.range.start_col,
+        ref.range.end_col,
+      }
     end
   end
   api.__nyabsidian_cursor_link = true
@@ -298,7 +383,8 @@ local function patch_prepare_rename()
       local component = context.component
       if component.kind == "attachment" then
         local attachments = require "lzy.obsidian.attachments"
-        local result = attachments.resolve(context.ref.target, {
+        local attachment_target = context.ref.raw_target or context.ref.target
+        local result = attachments.resolve(attachment_target, {
           bufnr = vim.api.nvim_get_current_buf(),
         })
         if result.status == "missing" then
@@ -308,7 +394,7 @@ local function patch_prepare_rename()
         prepared_attachment = { key = context_key(context), path = result.path }
         local row = context.ref.range.start_row
         return prepare_result({
-          text = attachments.rename_placeholder(context.ref.target, result.path, {
+          text = attachments.rename_placeholder(attachment_target, result.path, {
             bufnr = vim.api.nvim_get_current_buf(),
           }),
           range = {
@@ -427,7 +513,25 @@ local function patch_rename()
     local context = cursor_context()
     if context then
       local attachments = require "lzy.obsidian.attachments"
-      if context.component.kind == "attachment" then
+      if context.component.kind == "label" or context.component.kind == "url" then
+        prepared_heading = nil
+        prepared_attachment = nil
+        local row = context.ref.range.start_row
+        local component = context.component
+        return callback(nil, {
+          changes = {
+            [vim.uri_from_bufnr(vim.api.nvim_get_current_buf())] = {
+              {
+                range = {
+                  start = { line = row, character = component.start_col },
+                  ["end"] = { line = row, character = component.end_col },
+                },
+                newText = params.newName,
+              },
+            },
+          },
+        })
+      elseif context.component.kind == "attachment" then
         prepared_heading = nil
         local function rename_path(path)
           prepared_attachment = nil
@@ -454,7 +558,7 @@ local function patch_rename()
         end
         prepared_attachment = nil
 
-        local result = attachments.resolve(context.ref.target, {
+        local result = attachments.resolve(context.ref.raw_target or context.ref.target, {
           bufnr = vim.api.nvim_get_current_buf(),
         })
         if result.status == "missing" then
@@ -517,5 +621,6 @@ end
 -- API pequeña para pruebas y diagnóstico.
 M.cursor_ref = cursor_ref
 M.cursor_context = cursor_context
+M.label_component = label_component
 
 return M

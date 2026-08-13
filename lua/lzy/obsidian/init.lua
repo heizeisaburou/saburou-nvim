@@ -130,6 +130,7 @@ local NOTE_KEYMAPS = {
   { "<leader>np", "Obsidian paste_img", "Obsidian: pegar imagen del portapapeles" },
   { "<leader>nc", "NyabsidianCopyPath", "Nyabsidian: copiar path absoluto" },
   { "<leader>nC", "NyabsidianConvertLink", "Nyabsidian: cambiar formato del enlace" },
+  { "<leader>nu", "NyabsidianFetchTitle", "Nyabsidian: usar el título de la web como etiqueta" },
 }
 
 --- Keymaps buffer-local para notas. Se llaman por buffer (idempotente).
@@ -1008,7 +1009,7 @@ function M.frontmatter()
   notify(updated and "Frontmatter actualizado" or "Frontmatter sin cambios")
 end
 
---- Template de .nyabsidian para NyabsidianInit.
+--- Template de .nyabsidian para NyabsidianMake.
 local function nyabsidian_template()
   return [[-- Config de Nyabsidian para este vault.
 -- Guarda este archivo como ".nyabsidian" en el directorio que quieras
@@ -1150,8 +1151,8 @@ return {
 ]]
 end
 
---- :NyabsidianInit — buffer sin nombre con el template de .nyabsidian.
-function M.nyabsidian_init()
+--- :NyabsidianMake — buffer sin nombre con el template de .nyabsidian.
+function M.nyabsidian_make()
   vim.cmd "enew"
   vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(nyabsidian_template(), "\n"))
   -- El ftplugin de nyabsidian lo reclasifica a lua (sintaxis, stylua).
@@ -1406,8 +1407,10 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianDebug")
   pcall(vim.api.nvim_del_user_command, "NyabsidianFrontmatter")
   pcall(vim.api.nvim_del_user_command, "NyabsidianInit")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianMake")
   pcall(vim.api.nvim_del_user_command, "NyabsidianCopyPath")
   pcall(vim.api.nvim_del_user_command, "NyabsidianConvertLink")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianFetchTitle")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -1425,8 +1428,8 @@ local function install_runtime()
     M.frontmatter()
   end, { desc = "Regenerate note frontmatter (forced)" })
 
-  vim.api.nvim_create_user_command("NyabsidianInit", function()
-    M.nyabsidian_init()
+  vim.api.nvim_create_user_command("NyabsidianMake", function()
+    M.nyabsidian_make()
   end, { desc = "New .nyabsidian template buffer" })
 
   vim.api.nvim_create_user_command("NyabsidianCopyPath", function()
@@ -1436,6 +1439,10 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianConvertLink", function()
     require("lzy.obsidian.link_actions").convert_link()
   end, { desc = "Change the path format of the link under cursor" })
+
+  vim.api.nvim_create_user_command("NyabsidianFetchTitle", function()
+    require("lzy.obsidian.link_actions").fetch_web_title()
+  end, { desc = "Use the web page title as the Markdown link label" })
 end
 
 function M.setup()

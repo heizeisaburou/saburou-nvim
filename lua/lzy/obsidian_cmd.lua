@@ -19,7 +19,7 @@ local COMMANDS = {
     fn = "frontmatter",
     desc = "Regenerate note frontmatter (forced)",
   },
-  { cmd = "NyabsidianInit", fn = "nyabsidian_init", desc = "New .nyabsidian template buffer" },
+  { cmd = "NyabsidianMake", fn = "nyabsidian_make", desc = "New .nyabsidian template buffer" },
 }
 
 function M.setup()
