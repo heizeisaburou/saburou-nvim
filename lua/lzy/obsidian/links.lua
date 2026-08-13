@@ -576,6 +576,44 @@ local function patch_definition()
     return original(link, callback, opts)
   end
   definition.__nyabsidian_links = true
+
+  local handlers = require "obsidian.lsp.handlers"
+  if not handlers.__nyabsidian_reference_declaration then
+    local original_handler = handlers["textDocument/definition"]
+    handlers["textDocument/definition"] = function(params, callback, dispatchers)
+      local bufnr = params.textDocument and vim.uri_to_bufnr(params.textDocument.uri)
+        or vim.api.nvim_get_current_buf()
+      local row, col
+      if params.position then
+        row, col = params.position.line, params.position.character
+      else
+        local cursor_row
+        cursor_row, col = unpack(vim.api.nvim_win_get_cursor(0))
+        row = cursor_row - 1
+      end
+      local ref = ref_at(bufnr, row, col)
+      if ref and ref.kind == "reference_link" and ref.definition then
+        local declared = ref.definition
+        return callback(nil, {
+          {
+            uri = vim.uri_from_bufnr(bufnr),
+            range = {
+              start = {
+                line = declared.range.start_row,
+                character = declared.label_range.start_col,
+              },
+              ["end"] = {
+                line = declared.range.end_row,
+                character = declared.label_range.end_col,
+              },
+            },
+          },
+        })
+      end
+      return original_handler(params, callback, dispatchers)
+    end
+    handlers.__nyabsidian_reference_declaration = true
+  end
 end
 
 local function patch_action_follow()

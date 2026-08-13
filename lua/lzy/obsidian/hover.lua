@@ -37,43 +37,23 @@ local function excerpt(note)
   while result[#result] and result[#result]:match "^%s*$" do
     table.remove(result)
   end
-  return #result > 0 and table.concat(result, "\n") or "_Nota sin contenido visible._"
-end
-
----@param ref table
----@return string|nil
-local function definition_text(ref)
-  local definition = ref.definition or (ref.kind == "reference" and ref or nil)
-  if not definition then
-    return nil
-  end
-  local value = ("[%s]: %s"):format(definition.label, definition.raw_target)
-  if definition.title then
-    local opening = definition.title_delimiter or '"'
-    local closing = opening == "(" and ")" or opening
-    value = value .. " " .. opening .. definition.title .. closing
-  end
-  return value
+  return #result > 0 and table.concat(result, "\n") or nil
 end
 
 ---@param note obsidian.Note
 ---@param ref table
----@return lsp.Hover
+---@return lsp.Hover|nil
 local function hover_result(note, ref)
-  local sections = { assert(excerpt(note)) }
-  local metadata = {}
-  local definition = definition_text(ref)
-  if definition then
-    metadata[#metadata + 1] = "**Definición:** `" .. definition .. "`"
+  local preview = excerpt(note)
+  if not preview then
+    return nil
   end
-  metadata[#metadata + 1] = ("**Ruta:** `%s`"):format(note.path)
-  sections[#sections + 1] = "---\n" .. table.concat(metadata, "  \n")
   local end_col = ref.range.end_col
   if ref.title_range then
     end_col = math.max(end_col, ref.title_range.end_col)
   end
   return {
-    contents = { kind = "markdown", value = table.concat(sections, "\n") },
+    contents = { kind = "markdown", value = preview },
     range = {
       start = { line = ref.range.start_row, character = ref.range.start_col },
       ["end"] = { line = ref.range.end_row, character = end_col },
@@ -130,7 +110,11 @@ function M.setup()
       if #notes == 0 then
         return fallback(original, params, callback, dispatchers)
       end
-      callback(nil, hover_result(notes[1], ref))
+      local result = hover_result(notes[1], ref)
+      if not result then
+        return fallback(original, params, callback, dispatchers)
+      end
+      callback(nil, result)
     end)
   end
   handlers.__nyabsidian_hover = true

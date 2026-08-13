@@ -785,15 +785,76 @@ describe("Nyabsidian structured links and attachments", function()
       local result = hover(unpack(position))
       assert.are.equal("markdown", result.contents.kind)
       assert.matches("^# Other A", result.contents.value)
-      assert.matches("other_a%.md", result.contents.value)
       assert.matches("Brief body%.", result.contents.value)
+      assert.not_matches("%*%*Ruta:%*%*", result.contents.value)
+      assert.not_matches("%*%*Definición:%*%*", result.contents.value)
     end
-    local reference_hover = hover(3, 4)
-    assert.matches(
-      '%*%*Definición:%*%* `%[algoa%]: other_a%.md "Description"`',
-      reference_hover.contents.value
-    )
     assert.is_nil(hover(4, 5))
+  end)
+
+  it("returns no fabricated hover for a frontmatter-only note", function()
+    write("empty.md", { "---", "id: empty", "---" })
+    write("source.md", { "[empty](empty.md)" })
+    vim.cmd.edit(root .. "/source.md")
+
+    local done, result = false
+    require("obsidian.lsp.handlers")["textDocument/hover"]({
+      textDocument = { uri = vim.uri_from_bufnr(0) },
+      position = { line = 0, character = 3 },
+    }, function(err, value)
+      assert.is_nil(err)
+      result, done = value, true
+    end, {})
+    assert(vim.wait(3000, function()
+      return done
+    end, 10), "hover did not finish")
+    assert.is_nil(result)
+  end)
+
+  it("goes from reference usages to their declaration, not through it to the note", function()
+    write("other_a.md", { "# Other A" })
+    write("source.md", {
+      '[definition]: other_a.md "Description"',
+      "[Visible text][definition]",
+      "[definition][]",
+      "[definition]",
+    })
+    vim.cmd.edit(root .. "/source.md")
+
+    local handler = require("obsidian.lsp.handlers")["textDocument/definition"]
+    local function definition_at(row, character)
+      vim.api.nvim_win_set_cursor(0, { row + 1, character })
+      local done, result = false
+      handler({
+        textDocument = { uri = vim.uri_from_bufnr(0) },
+        position = { line = row, character = character },
+      }, function(err, value)
+        assert.is_nil(err)
+        result, done = value, true
+      end, {})
+      assert(vim.wait(3000, function()
+        return done
+      end, 10), "definition did not finish")
+      return result
+    end
+
+    for _, position in ipairs { { 1, 4 }, { 2, 4 }, { 3, 4 } } do
+      local locations = definition_at(unpack(position))
+      assert.are.equal(1, #locations)
+      assert.are.equal(root .. "/source.md", vim.uri_to_fname(locations[1].uri))
+      assert.are.equal(0, locations[1].range.start.line)
+      assert.are.same(
+        { 1, 11 },
+        {
+          locations[1].range.start.character,
+          locations[1].range["end"].character,
+        }
+      )
+    end
+
+    local note_locations = definition_at(0, 18)
+    assert.are.equal(1, #note_locations)
+    assert.are.equal(root .. "/other_a.md", vim.uri_to_fname(note_locations[1].uri))
   end)
 
   it("does not resolve an explicit .md target to a legacy .md.md note", function()
