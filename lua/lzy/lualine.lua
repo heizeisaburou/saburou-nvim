@@ -105,7 +105,9 @@ local function filename()
   local root = ""
 
   if path:match "^%a:[/\\]" then
-    root = path:sub(1, 3)
+    -- Neovim puede entregar `C:/...` aunque Windows use `\`. No conservar
+    -- ese primer separador: toda la ruta visible debe usar el mismo estilo.
+    root = path:sub(1, 2) .. sep
   elseif path:sub(1, 1) == "/" then
     root = sep
   end
