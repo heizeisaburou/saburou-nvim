@@ -6,6 +6,217 @@ local line_length = 97
 local scalafmt_fallback_dialect = "scala3"
 local scalafmt_fallback_version = "3.10.6"
 local indent = require "sabunv.indent"
+local spoiler_format_state = {}
+
+---@param line string
+---@return string? indent
+---@return string? marker
+---@return string? info
+local function markdown_fence(line)
+  local indent, marker, info = line:match "^( *)(`+)(.*)$"
+  if not marker then
+    indent, marker, info = line:match "^( *)(~+)(.*)$"
+  end
+  if not marker or #indent > 3 or #marker < 3 then
+    return nil
+  end
+  return indent, marker, vim.trim(info)
+end
+
+---@param lines string[]
+---@param prepare boolean
+---@return string[]
+local function transform_spoiler_fences(lines, prepare)
+  local out = {}
+  local active_char, active_length
+
+  for _, line in ipairs(lines) do
+    local indent, marker, info = markdown_fence(line)
+    if active_char then
+      out[#out + 1] = line
+      if marker and marker:sub(1, 1) == active_char and #marker >= active_length and info == "" then
+        active_char, active_length = nil, nil
+      end
+    elseif marker then
+      local replacement
+      if prepare and info == "spoiler" then
+        replacement = "markdown hzsr-internal-spoiler-fence"
+      elseif not prepare and info == "markdown hzsr-internal-spoiler-fence" then
+        replacement = "spoiler"
+      end
+      out[#out + 1] = replacement and (indent .. marker .. replacement) or line
+      active_char, active_length = marker:sub(1, 1), #marker
+    else
+      out[#out + 1] = line
+    end
+  end
+  return out
+end
+
+---@param line string
+---@param state { token: string, values: string[] }
+---@return string
+local function protect_inline_spoilers(line, state)
+  local out = {}
+  local cursor = 1
+  local search = 1
+  local link_ranges = {}
+
+  local bracket = 1
+  while bracket <= #line do
+    local open = line:find("[", bracket, true)
+    if not open then
+      break
+    end
+    local close
+    if line:sub(open, open + 1) == "[[" then
+      close = line:find("]]", open + 2, true)
+      close = close and close + 1 or nil
+    else
+      local label_end = line:find("]", open + 1, true)
+      if label_end then
+        if line:sub(label_end + 1, label_end + 1) == "(" then
+          close = line:find(")", label_end + 2, true)
+        elseif line:sub(label_end + 1, label_end + 1) == "[" then
+          close = line:find("]", label_end + 2, true)
+        else
+          close = label_end
+        end
+      end
+    end
+    if close then
+      link_ranges[#link_ranges + 1] = { open, close }
+      bracket = close + 1
+    else
+      bracket = open + 1
+    end
+  end
+
+  local function link_end(index)
+    for _, range in ipairs(link_ranges) do
+      if index >= range[1] and index <= range[2] then
+        return range[2]
+      end
+    end
+  end
+
+  local function escaped(index)
+    local count = 0
+    index = index - 1
+    while index > 0 and line:sub(index, index) == "\\" do
+      count = count + 1
+      index = index - 1
+    end
+    return count % 2 == 1
+  end
+
+  while search <= #line do
+    local code = line:find("`", search, true)
+    local open = line:find("||", search, true)
+    if code and (not open or code < open) then
+      local close = line:find("`", code + 1, true)
+      search = close and close + 1 or #line + 1
+    elseif open then
+      local protected_end = link_end(open)
+      if protected_end then
+        search = protected_end + 1
+      elseif escaped(open) then
+        local literal_close = line:find("||", open + 2, true)
+        search = literal_close and literal_close + 2 or open + 2
+      else
+        local close = line:find("||", open + 2, true)
+        while close and escaped(close) do
+          close = line:find("||", close + 2, true)
+        end
+        if close and close > open + 2 then
+          out[#out + 1] = line:sub(cursor, open - 1)
+          state.values[#state.values + 1] = line:sub(open, close + 1)
+          out[#out + 1] = state.token
+          cursor = close + 2
+          search = cursor
+        else
+          search = open + 2
+        end
+      end
+    else
+      break
+    end
+  end
+
+  out[#out + 1] = line:sub(cursor)
+  return table.concat(out)
+end
+
+---@param lines string[]
+---@return table<integer, true>
+local function markdown_table_rows(lines)
+  local rows = {}
+  for index = 1, #lines - 1 do
+    local header, delimiter = lines[index], lines[index + 1]
+    if header:find("|", 1, true) and delimiter:match "^%s*|?%s*:?-+" then
+      local row = index
+      while row <= #lines and lines[row]:find("|", 1, true) do
+        rows[row] = true
+        row = row + 1
+      end
+    end
+  end
+  return rows
+end
+
+---@param lines string[]
+---@param bufnr integer
+---@return string[]
+local function prepare_spoilers(lines, bufnr)
+  local transformed = transform_spoiler_fences(lines, true)
+  local source = table.concat(lines, "\n")
+  local seed = tonumber(vim.fn.sha256(source):sub(1, 8), 16) % 100000
+  local token
+  repeat
+    token = ("`S%05dS`"):format(seed)
+    seed = (seed + 1) % 100000
+  until not source:find(token, 1, true)
+  local state = { token = token, values = {} }
+  local tables = markdown_table_rows(transformed)
+  local active_char, active_length, markdown_body
+
+  for index, line in ipairs(transformed) do
+    local _, marker, info = markdown_fence(line)
+    if active_char then
+      if marker and marker:sub(1, 1) == active_char and #marker >= active_length and info == "" then
+        active_char, active_length, markdown_body = nil, nil, nil
+      elseif markdown_body and not tables[index] then
+        transformed[index] = protect_inline_spoilers(line, state)
+      end
+    elseif marker then
+      active_char, active_length = marker:sub(1, 1), #marker
+      markdown_body = info == "markdown hzsr-internal-spoiler-fence"
+    elseif not tables[index] then
+      transformed[index] = protect_inline_spoilers(line, state)
+    end
+  end
+
+  spoiler_format_state[bufnr] = state
+  return transformed
+end
+
+---@param lines string[]
+---@param bufnr integer
+---@return string[]
+local function restore_spoilers(lines, bufnr)
+  local state = spoiler_format_state[bufnr]
+  spoiler_format_state[bufnr] = nil
+  if state then
+    local value = 0
+    for index, line in ipairs(lines) do
+      lines[index] = line:gsub(vim.pesc(state.token), function()
+        value = value + 1
+        return state.values[value] or state.token
+      end)
+    end
+  end
+  return transform_spoiler_fences(lines, false)
+end
 
 local function indent_for(ctx)
   if ctx and ctx.buf then
@@ -82,7 +293,9 @@ local formatters_by_ft = {
   lua = { "stylua" },
   markdown = {
     "markdown_callouts",
+    "markdown_spoilers_prepare",
     "prettier",
+    "markdown_spoilers_restore",
     "markdown_reference_definitions",
     "markdown_wrap",
     "markdown_tabs",
@@ -589,6 +802,22 @@ local formatters = {
       end
 
       callback(nil, out)
+    end,
+  },
+
+  -- Prettier solo formatea el interior de un fence cuando reconoce su
+  -- lenguaje. `spoiler` es una semántica nuestra, así que antes de Prettier
+  -- se presenta temporalmente como Markdown embebido y se restaura justo
+  -- después. La marca queda reservada para esta transformación interna.
+  markdown_spoilers_prepare = {
+    format = function(_, ctx, lines, callback)
+      callback(nil, prepare_spoilers(lines, ctx and ctx.buf or 0))
+    end,
+  },
+
+  markdown_spoilers_restore = {
+    format = function(_, ctx, lines, callback)
+      callback(nil, restore_spoilers(lines, ctx and ctx.buf or 0))
     end,
   },
 

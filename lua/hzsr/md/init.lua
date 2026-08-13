@@ -17,6 +17,7 @@
 --   **x** / *x* / __x__  -> x
 --   \x                   -> x
 --   [[dest|display]]     -> icono + display
+--   ||spoiler||          -> indicador compacto de spoiler
 --
 -- Los enlaces son atómicos: no se parten nunca, y el tokenizer tampoco los
 -- parte aunque su destino o título contengan espacios.
@@ -282,6 +283,23 @@ local function parse_code_span(s, i)
   return nil
 end
 
+-- Un spoiler es una unidad atómica aunque contenga espacios. Su medida es la
+-- del indicador estable que se muestra cuando el cursor está fuera.
+---@param s string
+---@param i integer
+---@return integer? display_width
+---@return integer? end_index
+local function parse_spoiler(s, i)
+  if s:sub(i, i + 1) ~= "||" then
+    return nil
+  end
+  local close = s:find("||", i + 2, true)
+  if not close or close == i + 2 then
+    return nil
+  end
+  return require("lzy.render-markdown.spoilers").inline_width(), close + 1
+end
+
 -- Intenta parsear un autolink `<url>` (sin espacios internos) en `s[i] == "<"`.
 --
 ---@param s string
@@ -391,6 +409,15 @@ function M.visible_width(s, opts)
         width = width + 1
         i = i + 1
       end
+    elseif c == "|" then
+      local spoiler, stop = parse_spoiler(s, i)
+      if spoiler then
+        width = width + spoiler
+        i = stop + 1
+      else
+        width = width + 1
+        i = i + 1
+      end
     elseif c == "<" then
       local inner, stop = parse_autolink(s, i, opts)
       if inner then
@@ -477,6 +504,9 @@ local function next_word(s, pos)
       pos = (stop and stop + 1) or pos + 1
     elseif c == "<" then
       local _, stop = parse_autolink(s, pos, { icons = false })
+      pos = (stop and stop + 1) or pos + 1
+    elseif c == "|" then
+      local _, stop = parse_spoiler(s, pos)
       pos = (stop and stop + 1) or pos + 1
     else
       pos = pos + 1

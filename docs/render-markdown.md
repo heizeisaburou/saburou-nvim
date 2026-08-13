@@ -19,10 +19,38 @@ lua/lzy/render-markdown/
 ├── init.lua    # opciones, setup, tema y keymaps
 ├── cursor.lua  # cursor contextual de H1
 ├── inline.lua  # extensiones del handler markdown_inline
-└── links.lua   # definiciones, referencias, iconos y ancho de icono
+├── links.lua   # definiciones, referencias, iconos y ancho de icono
+└── spoilers.lua # spoilers inline, bloques e inyección Markdown
 ```
 
 `require("lzy.render-markdown")` conserva la misma API pública.
+
+## Spoilers
+
+Se admiten dos formas:
+
+```markdown
+Texto ||oculto hasta entrar con el cursor||.
+```
+
+````markdown
+```spoiler
+# Markdown oculto
+
+También se renderizan **énfasis**, enlaces y el resto del cuerpo.
+```
+````
+
+Fuera del cursor, el inline se sustituye por `󰈉 SPOILER` y el bloque por
+`󰈉 SPOILER · N líneas`. Al entrar en el inline desaparece el indicador y queda su contenido sin
+delimitadores. En un bloque, el indicador permanece como cabecera y al entrar en una línea de su
+cuerpo aparece debajo el Markdown revelado; al salir vuelve a quedar una sola línea. El bloque
+registra `spoiler` como una inyección del parser Markdown: al revelarlo no se presenta como código,
+sino con headings, énfasis y enlaces renderizados.
+
+La detección inline es deliberadamente conservadora: no admite saltos de línea, contenido vacío,
+anidamiento ni delimitadores incompletos. Tampoco actúa dentro de código inline, enlaces, imágenes,
+autolinks, texto escapado o tablas. Los fences normales permanecen como código.
 
 ## Contrato visual
 
@@ -77,14 +105,27 @@ o colapsadas que tengan definición. `markdown_wrap` pasa su buffer a esta funci
 La cadena actual sigue siendo:
 
 ```text
-markdown_callouts → prettier → markdown_reference_definitions → markdown_wrap → markdown_tabs
+markdown_callouts → markdown_spoilers_prepare → prettier → markdown_spoilers_restore
+→ markdown_reference_definitions → markdown_wrap → markdown_tabs
 ```
 
 `markdown_callouts` protege la sintaxis antes de Prettier. Después,
+`markdown_spoilers_prepare` cambia temporalmente solo los fences estructurales `spoiler` por una
+inyección Markdown marcada; así Prettier formatea su cuerpo. También sustituye cada spoiler inline
+por un token atómico de nueve celdas —el ancho exacto de `󰈉 SPOILER`— para impedir que Prettier
+parta su contenido oculto por el ancho bruto. La
+pasada inmediatamente posterior restaura tanto los fences como el texto inline exacto. El escáner
+respeta fences exteriores, código inline, escapes y tablas, por lo que los ejemplos literales no se
+transforman.
 `markdown_reference_definitions` vuelve a una sola línea las definiciones que Prettier expande por
 su ancho bruto: no se admite una gramática propia multilínea. `markdown_wrap` corrige el cálculo
 de ancho de la prosa y `markdown_tabs` normaliza la sangría al final. La pasada de definiciones es
 idempotente y no modifica las que ya estaban en una línea.
+
+`hzsr.md.visible_width()` mide `||contenido||` como el ancho en celdas de `󰈉 SPOILER`, y el
+tokenizador lo conserva como una unidad aunque contenga espacios. Esta medida es estable: no cambia
+cuando el cursor revela temporalmente el contenido. Los bloques `spoiler` quedan fuera del wrapping
+exterior y su cuerpo se formatea independientemente como Markdown embebido.
 
 ## Pruebas
 
@@ -94,4 +135,6 @@ lo compara con `hzsr.md.visible_width()`. También verifica una decisión de sal
 contar solo la label produciría un resultado distinto.
 
 `spec/conform_markdown_spec.lua` fija el orden semántico de la cadena y comprueba que la salida
-multilínea de Prettier se colapsa de forma idempotente.
+multilínea de Prettier se colapsa de forma idempotente. `spec/spoilers_spec.lua` cubre extmarks,
+revelado contextual, falsos positivos, inyección Markdown, ancho exacto y wrapping; el spec de
+Conform comprueba además la transformación reversible de los fences.
