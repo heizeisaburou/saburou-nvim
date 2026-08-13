@@ -3,6 +3,7 @@ local config = "/home/saburou/.config/hzsr12"
 
 vim.opt.runtimepath:prepend(config)
 vim.opt.runtimepath:prepend(plugin)
+package.path = config .. "/lua/?.lua;" .. config .. "/lua/?/init.lua;" .. package.path
 
 describe("Nyabsidian structured links and attachments", function()
   local uv = vim.uv or vim.loop
@@ -537,18 +538,304 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal("<https://githuba.com>", vim.api.nvim_get_current_line())
   end)
 
+  it("prepares and renames reference-definition identifiers and URLs independently", function()
+    write("source.md", {
+      '[gh]: <https://github.com> "GitHub"',
+      "[GitHub][gh]",
+      "[gh][]",
+      "[gh]",
+    })
+    vim.cmd.edit(root .. "/source.md")
+    local handler = require("obsidian.lsp.handlers")["textDocument/prepareRename"]
+    local function prepared_at(col)
+      vim.api.nvim_win_set_cursor(0, { 1, col })
+      local result
+      handler({}, function(err, value)
+        assert.is_nil(err)
+        result = value
+      end, {})
+      return result
+    end
+
+    local label = prepared_at(2)
+    assert.are.equal("gh", label.placeholder)
+    assert.are.same({ 1, 3 }, { label.range.start.character, label.range["end"].character })
+
+    local url = prepared_at(12)
+    assert.are.equal("https://github.com", url.placeholder)
+    assert.are.same({ 7, 25 }, { url.range.start.character, url.range["end"].character })
+
+    require("obsidian.lsp.handlers")["textDocument/rename"](
+      { newName = "https://githuba.com" },
+      function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+      end,
+      {}
+    )
+    assert.are.equal('[gh]: <https://githuba.com> "GitHub"', vim.api.nvim_get_current_line())
+
+    vim.api.nvim_win_set_cursor(0, { 1, 2 })
+    require("obsidian.lsp.handlers")["textDocument/rename"](
+      { newName = "GitHub" },
+      function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+      end,
+      {}
+    )
+    assert.are.same({
+      '[GitHub]: <https://githuba.com> "GitHub"',
+      "[GitHub][GitHub]",
+      "[GitHub][]",
+      "[GitHub]",
+    }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+  end)
+
+  it("does not duplicate .md when renaming a reference-definition note target", function()
+    write("other_a.md", { "# Other A" })
+    write("source.md", { '[algoa]: other_a.md "Descripción opcional"' })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 12 })
+
+    local renamed = false
+    require("obsidian.lsp.handlers")["textDocument/rename"](
+      { newName = "other_aaa.md" },
+      function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+        renamed = true
+      end,
+      {}
+    )
+    assert(vim.wait(1000, function()
+      return renamed
+    end, 10), "note rename did not finish")
+    vim.cmd "silent! wall"
+
+    assert.are.equal(
+      '[algoa]: other_aaa.md "Descripción opcional"',
+      vim.fn.readfile(root .. "/source.md")[1]
+    )
+    assert.is_not_nil((vim.uv or vim.loop).fs_stat(root .. "/other_aaa.md"))
+    assert.is_nil((vim.uv or vim.loop).fs_stat(root .. "/other_aaa.md.md"))
+  end)
+
+  it("prepares and renames each reference description without changing its delimiters", function()
+    write("other_a.md", { "# Other A" })
+    write("source.md", {
+      '[double]: other_a.md "Double description"',
+      "[single]: other_a.md 'Single description'",
+      "[paren]: other_a.md (Paren description)",
+    })
+    vim.cmd.edit(root .. "/source.md")
+
+    local cases = {
+      { row = 1, search = "Double description", replacement = "Renamed double" },
+      { row = 2, search = "Single description", replacement = "Renamed single" },
+      { row = 3, search = "Paren description", replacement = "Renamed paren" },
+    }
+    local prepare = require("obsidian.lsp.handlers")["textDocument/prepareRename"]
+    local rename = require("obsidian.lsp.handlers")["textDocument/rename"]
+    for _, case in ipairs(cases) do
+      local line = vim.api.nvim_buf_get_lines(0, case.row - 1, case.row, false)[1]
+      local start_col = assert(line:find(case.search, 1, true)) - 1
+      vim.api.nvim_win_set_cursor(0, { case.row, start_col + 2 })
+
+      local prepared
+      prepare({}, function(err, value)
+        assert.is_nil(err)
+        prepared = value
+      end, {})
+      assert.are.equal(case.search, prepared.placeholder)
+      assert.are.same(
+        { start_col, start_col + #case.search },
+        { prepared.range.start.character, prepared.range["end"].character }
+      )
+
+      rename({ newName = case.replacement }, function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+      end, {})
+    end
+
+    assert.are.same({
+      '[double]: other_a.md "Renamed double"',
+      "[single]: other_a.md 'Renamed single'",
+      "[paren]: other_a.md (Renamed paren)",
+    }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+  end)
+
+  it("completes local definition targets and existing reference identifiers", function()
+    write("other_a.md", { "# Other A" })
+    write("folder/other_b.md", { "# Other B" })
+    write("source.md", {
+      '[algoa]: oth "Description"',
+      "[Text][alg",
+      '[angle]: <oth#Header> "Description"',
+    })
+    vim.cmd.edit(root .. "/source.md")
+
+    local handler = require("obsidian.lsp.handlers")["textDocument/completion"]
+    local function complete(row, character)
+      local result
+      handler({
+        textDocument = { uri = vim.uri_from_bufnr(0) },
+        position = { line = row, character = character },
+      }, function(err, value)
+        assert.is_nil(err)
+        result = value
+      end, {})
+      assert(vim.wait(3000, function()
+        return result ~= nil
+      end, 10), "completion did not finish")
+      return result.items
+    end
+
+    local definition_line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+    local target_start = assert(definition_line:find("oth", 1, true)) - 1
+    local target_items = complete(0, target_start + 3)
+    local target_item = vim.iter(target_items):find(function(item)
+      return item.textEdit and item.textEdit.newText == "other_a.md"
+    end)
+    assert.is_not_nil(target_item)
+    assert.are.same(
+      { target_start, target_start + 3 },
+      {
+        target_item.textEdit.range.start.character,
+        target_item.textEdit.range["end"].character,
+      }
+    )
+    vim.lsp.util.apply_text_edits(
+      { target_item.textEdit },
+      vim.api.nvim_get_current_buf(),
+      "utf-8"
+    )
+    assert.are.equal(
+      '[algoa]: other_a.md "Description"',
+      vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+    )
+
+    local usage_line = vim.api.nvim_buf_get_lines(0, 1, 2, false)[1]
+    local reference_items = complete(1, #usage_line)
+    local reference_item = vim.iter(reference_items):find(function(item)
+      return item.textEdit and item.textEdit.newText == "algoa"
+    end)
+    assert.is_not_nil(reference_item)
+    assert.are.same(
+      { #usage_line - 3, #usage_line },
+      {
+        reference_item.textEdit.range.start.character,
+        reference_item.textEdit.range["end"].character,
+      }
+    )
+
+    local angle_line = vim.api.nvim_buf_get_lines(0, 2, 3, false)[1]
+    local angle_start = assert(angle_line:find("oth", 1, true)) - 1
+    local angle_items = complete(2, angle_start + 3)
+    local angle_item = vim.iter(angle_items):find(function(item)
+      return item.textEdit and item.textEdit.newText == "other_a.md"
+    end)
+    assert.is_not_nil(angle_item)
+    vim.lsp.util.apply_text_edits(
+      { angle_item.textEdit },
+      vim.api.nvim_get_current_buf(),
+      "utf-8"
+    )
+    assert.are.equal(
+      '[angle]: <other_a.md#Header> "Description"',
+      vim.api.nvim_buf_get_lines(0, 2, 3, false)[1]
+    )
+  end)
+
+  it("hovers every local note link form and leaves attachments alone", function()
+    write("other_a.md", { "---", "aliases: [Other]", "---", "# Other A", "", "Brief body." })
+    write_binary "image.png"
+    write("source.md", {
+      "[[other_a]]",
+      "[Other](other_a.md)",
+      '[algoa]: other_a.md "Description"',
+      "[Text][algoa]",
+      "![[image.png]]",
+    })
+    vim.cmd.edit(root .. "/source.md")
+
+    local handler = require("obsidian.lsp.handlers")["textDocument/hover"]
+    local function hover(row, character)
+      local done, result = false
+      handler({
+        textDocument = { uri = vim.uri_from_bufnr(0) },
+        position = { line = row, character = character },
+      }, function(err, value)
+        assert.is_nil(err)
+        result, done = value, true
+      end, {})
+      assert(vim.wait(3000, function()
+        return done
+      end, 10), "hover did not finish")
+      return result
+    end
+
+    for _, position in ipairs {
+      { 0, 3 },
+      { 1, 3 },
+      { 2, 24 },
+      { 3, 4 },
+    } do
+      local result = hover(unpack(position))
+      assert.are.equal("markdown", result.contents.kind)
+      assert.matches("^# Other A", result.contents.value)
+      assert.matches("other_a%.md", result.contents.value)
+      assert.matches("Brief body%.", result.contents.value)
+    end
+    local reference_hover = hover(3, 4)
+    assert.matches(
+      '%*%*Definición:%*%* `%[algoa%]: other_a%.md "Description"`',
+      reference_hover.contents.value
+    )
+    assert.is_nil(hover(4, 5))
+  end)
+
+  it("does not resolve an explicit .md target to a legacy .md.md note", function()
+    write("wrong.md.md", { "---", "id: wrong.md", "---", "# Wrong legacy note" })
+    write("source.md", { "[wrong]: wrong.md", "[wrong]" })
+    vim.cmd.edit(root .. "/source.md")
+
+    local done, result = false
+    require("obsidian.lsp.handlers")["textDocument/hover"]({
+      textDocument = { uri = vim.uri_from_bufnr(0) },
+      position = { line = 1, character = 2 },
+    }, function(err, value)
+      assert.is_nil(err)
+      result, done = value, true
+    end, {})
+    assert(vim.wait(3000, function()
+      return done
+    end, 10), "hover did not finish")
+    assert.is_nil(result)
+  end)
+
+  it("advertises note hover through obsidian-ls", function()
+    local result
+    require("obsidian.lsp.handlers").initialize({}, function(err, value)
+      assert.is_nil(err)
+      result = value
+    end, { notification = function() end })
+    assert.is_true(result.capabilities.hoverProvider)
+  end)
+
   it("fills a Markdown label from the page title", function()
     write("source.md", { "[gh](https://github.com)" })
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 10 })
 
-    require("lzy.obsidian.link_actions").fetch_web_title {
+    require("lzy.obsidian.link_actions").fetch_web_title({
       notify = function() end,
       request = function(url, callback)
         assert.are.equal("https://github.com", url)
-        callback("<html><head><title>GitHub &amp; friends [home]</title></head></html>")
+        callback "<html><head><title>GitHub &amp; friends [home]</title></head></html>"
       end,
-    }
+    })
 
     assert.are.equal(
       "[GitHub & friends \\[home\\]](https://github.com)",
@@ -561,14 +848,67 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 10 })
 
-    require("lzy.obsidian.link_actions").fetch_web_title {
+    require("lzy.obsidian.link_actions").fetch_web_title({
       notify = function() end,
       request = function(_, callback)
-        callback("<TITLE> GitHub \n Home </TITLE>")
+        callback "<TITLE> GitHub \n Home </TITLE>"
       end,
-    }
+    })
 
     assert.are.equal("See [GitHub Home](https://github.com)", vim.api.nvim_get_current_line())
+  end)
+
+  it("fills a reference-definition identifier from the page title", function()
+    write("source.md", { '[gh]: https://github.com "GitHub"', "[site][gh]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 12 })
+
+    require("lzy.obsidian.link_actions").fetch_web_title({
+      notify = function() end,
+      request = function(url, callback)
+        assert.are.equal("https://github.com", url)
+        callback "<title>GitHub home</title>"
+      end,
+    })
+
+    assert.are.same({
+      '[GitHub home]: https://github.com "GitHub"',
+      "[site][GitHub home]",
+    }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+  end)
+
+  it("resolves a full reference link and opens its definition URL with gx", function()
+    write("source.md", { "[gh]: https://github.com", "[GitHub][gh]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 2, 4 })
+
+    local opened
+    local original_open = vim.ui.open
+    vim.ui.open = function(target)
+      opened = target
+    end
+    assert.is_true(require("lzy.obsidian.attachments").open_under_cursor(0))
+    vim.ui.open = original_open
+
+    assert.are.equal("https://github.com", opened)
+  end)
+
+  it("fills a full-reference display label without renaming its identifier", function()
+    write("source.md", { "[gh]: https://github.com", "[site][gh]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 2, 3 })
+
+    require("lzy.obsidian.link_actions").fetch_web_title({
+      notify = function() end,
+      request = function(_, callback)
+        callback "<title>GitHub</title>"
+      end,
+    })
+
+    assert.are.same(
+      { "[gh]: https://github.com", "[GitHub][gh]" },
+      vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    )
   end)
 
   it("rejects names that cannot preserve a literal heading and a valid anchor", function()
@@ -655,10 +995,7 @@ describe("Nyabsidian structured links and attachments", function()
       { "# Header", "", "## From declaration", "", "### Child" },
       vim.fn.readfile(root .. "/nota.md")
     )
-    assert.are.equal(
-      "[[nota#header#from-declaration]]",
-      vim.fn.readfile(root .. "/source.md")[1]
-    )
+    assert.are.equal("[[nota#header#from-declaration]]", vim.fn.readfile(root .. "/source.md")[1])
   end)
 
   it("resolves and renames the shortest unambiguous ancestor suffix", function()
@@ -738,6 +1075,7 @@ describe("Nyabsidian structured links and attachments", function()
       '![alt](one/a.png "caption")',
       "[page](one/a.png#page=3)",
       '![angle](<one/a.png> "caption")',
+      '[download]: <one/a.png> "caption"',
     })
     write("board.canvas", { '{"nodes":[{"type":"file","file":"one/a.png"}]}' })
     vim.cmd.edit(root .. "/source.md")
@@ -747,10 +1085,7 @@ describe("Nyabsidian structured links and attachments", function()
     assert.is_nil((vim.uv or vim.loop).fs_stat(root .. "/one/a.png"))
     assert.is_not_nil((vim.uv or vim.loop).fs_stat(root .. "/archive/deep/My Image.png"))
     assert.are.equal("![[My Image.png|300]]", vim.fn.readfile(root .. "/one/local.md")[1])
-    assert.are.equal(
-      "![[My Image.png#page=3|Page]]",
-      vim.fn.readfile(root .. "/one/local.md")[2]
-    )
+    assert.are.equal("![[My Image.png#page=3|Page]]", vim.fn.readfile(root .. "/one/local.md")[2])
     assert.are.equal("![[a.png]]", vim.fn.readfile(root .. "/two/local.md")[1])
     assert.are.equal("![[archive/deep/My Image.png]]", vim.fn.readfile(root .. "/source.md")[1])
     assert.are.equal(
@@ -764,6 +1099,10 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal(
       '![angle](<archive/deep/My%20Image.png> "caption")',
       vim.fn.readfile(root .. "/markdown.md")[3]
+    )
+    assert.are.equal(
+      '[download]: <archive/deep/My%20Image.png> "caption"',
+      vim.fn.readfile(root .. "/markdown.md")[4]
     )
     assert.are.equal(
       '{"nodes":[{"type":"file","file":"archive/deep/My Image.png"}]}',
@@ -962,7 +1301,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 10 })
 
     local seen
-    require("lzy.obsidian.link_actions").convert_link {
+    require("lzy.obsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         seen = vim.tbl_map(function(item)
@@ -972,7 +1311,7 @@ describe("Nyabsidian structured links and attachments", function()
           return item.id == "relative"
         end))
       end,
-    }
+    })
 
     assert.are.same({ "shortest", "vault", "relative", "absolute", "file_uri" }, seen)
     assert.are.equal("![[../assets/a.png#page=3|Preview]]", vim.api.nvim_get_current_line())
@@ -986,7 +1325,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local seen
-    require("lzy.obsidian.link_actions").convert_link {
+    require("lzy.obsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         seen = vim.tbl_map(function(item)
@@ -996,7 +1335,7 @@ describe("Nyabsidian structured links and attachments", function()
           return item.id == "shortest"
         end))
       end,
-    }
+    })
     vim.wait(1000, function()
       return vim.api.nvim_get_current_line() == "[[one/a#One|A]]"
     end, 10)
@@ -1010,7 +1349,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 2, 5 })
 
-    require("lzy.obsidian.link_actions").convert_link {
+    require("lzy.obsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         local choice = vim.iter(items):find(function(item)
@@ -1020,7 +1359,7 @@ describe("Nyabsidian structured links and attachments", function()
         assert.are.equal("", choice.target)
         callback(choice)
       end,
-    }
+    })
 
     vim.wait(1000, function()
       return vim.api.nvim_get_current_line() == "[[#local]]"
@@ -1039,7 +1378,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local seen
-    require("lzy.obsidian.link_actions").convert_link {
+    require("lzy.obsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         seen = vim.tbl_map(function(item)
@@ -1047,7 +1386,7 @@ describe("Nyabsidian structured links and attachments", function()
         end, items)
         callback(items[1])
       end,
-    }
+    })
 
     assert.are.same({ "relative", "absolute" }, seen)
     assert.are.equal(
@@ -1062,17 +1401,38 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/notes/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 15 })
 
-    require("lzy.obsidian.link_actions").convert_link {
+    require("lzy.obsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         callback(vim.iter(items):find(function(item)
           return item.id == "relative"
         end))
       end,
-    }
+    })
 
     assert.are.equal(
       '![alt](../assets/My%20Image.png#page=3 "caption")',
+      vim.api.nvim_get_current_line()
+    )
+  end)
+
+  it("preserves reference-definition syntax while converting its destination", function()
+    write("assets/My Image.png", { "image" })
+    write("notes/source.md", { '[asset]: <assets/My%20Image.png#page=3> "caption"' })
+    vim.cmd.edit(root .. "/notes/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 20 })
+
+    require("lzy.obsidian.link_actions").convert_link({
+      notify = function() end,
+      select = function(items, _, callback)
+        callback(vim.iter(items):find(function(item)
+          return item.id == "relative"
+        end))
+      end,
+    })
+
+    assert.are.equal(
+      '[asset]: <../assets/My%20Image.png#page=3> "caption"',
       vim.api.nvim_get_current_line()
     )
   end)
@@ -1084,12 +1444,12 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local copied
-    require("lzy.obsidian.link_actions").copy_path {
+    require("lzy.obsidian.link_actions").copy_path({
       copy = function(path)
         copied = path
       end,
       notify = function() end,
-    }
+    })
 
     assert.are.equal(root .. "/assets/data.bin", copied)
   end)
@@ -1101,9 +1461,9 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
     vim.o.clipboard = ""
 
-    require("lzy.obsidian.link_actions").copy_path {
+    require("lzy.obsidian.link_actions").copy_path({
       notify = function() end,
-    }
+    })
 
     assert.are.equal(root .. "/assets/data.bin", vim.fn.getreg '"')
     assert.are.equal(root .. "/assets/data.bin", vim.fn.getreg "0")
@@ -1118,12 +1478,12 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local copied
-    require("lzy.obsidian.link_actions").copy_path {
+    require("lzy.obsidian.link_actions").copy_path({
       copy = function(path)
         copied = path
       end,
       notify = function() end,
-    }
+    })
 
     assert.are.equal(root .. "/docs/target.md", copied)
   end)
@@ -1135,13 +1495,13 @@ describe("Nyabsidian structured links and attachments", function()
       picked[#picked + 1] = { items = items, title = opts.prompt_title }
     end
 
-    backlinks.open {
+    backlinks.open({
       references = function(callback)
         callback(nil, {})
       end,
       pick = pick,
-    }
-    backlinks.open {
+    })
+    backlinks.open({
       references = function(callback)
         callback(nil, {
           {
@@ -1154,7 +1514,7 @@ describe("Nyabsidian structured links and attachments", function()
         })
       end,
       pick = pick,
-    }
+    })
 
     assert.are.equal(2, #picked)
     assert.are.equal(0, #picked[1].items)

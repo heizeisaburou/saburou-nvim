@@ -162,7 +162,9 @@ end
 function M.ref_parts(ref)
   local raw = ref.raw
   local target_offset
-  if ref.kind == "wiki" then
+  if ref.target_range then
+    target_offset = ref.target_range.start_col - ref.range.start_col
+  elseif ref.kind == "wiki" then
     target_offset = ref.embed and 3 or 2 -- ![[ / [[
   else
     local _, close = raw:find("](", 1, true)

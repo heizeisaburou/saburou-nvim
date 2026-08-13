@@ -44,6 +44,11 @@ tienes:
 - **Sesiones restauradas**: después de `rs`, todas las notas cargadas recuperan sus autocmds,
   obsidian-ls, footer y Tree-sitter aunque su `FileType` ocurriera antes de cargar el plugin.
 
+El archivo `.nyabsidian` es Lua y devuelve un fragmento de opciones. Se valida con la
+configuración de obsidian.nvim y se fusiona por clave con los defaults; funciones como
+`frontmatter.func`, `note_id_func` o `callbacks` son valores válidos. Un error de sintaxis,
+ejecución o un resultado que no sea una tabla produce un aviso y usa los defaults.
+
 ## Empezar
 
 1. `:NyabsidianMake` — abre un archivo nuevo con la plantilla.
@@ -55,17 +60,17 @@ tienes:
 
 Edita su `.nyabsidian` y descomenta o añade lo que quieras:
 
-| Clave                                    | Qué hace                                                     | Ejemplo                                         |
-| ---------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
-| `frontmatter.enabled`                    | Genera `id`/`aliases`/`tags` al guardar                      | `frontmatter = { enabled = true }`              |
-| `frontmatter.func`                       | Construye el frontmatter a medida (función por nota)         | la función de ejemplo de la plantilla           |
-| `link.style`                             | Enlaces `wiki` (`[[nota]]`) o `markdown` (`[nota](nota.md)`) | `link = { style = "markdown" }`                 |
-| `templates.folder`                       | Carpeta de plantillas del vault                              | `templates = { folder = "Templates" }`          |
-| `daily_notes.folder`                     | Carpeta de las notas diarias                                 | `daily_notes = { folder = "Diario" }`           |
-| `daily_notes.default_tags`               | Tags que llevan las notas diarias                            | `daily_notes = { default_tags = { "diario" } }` |
-| `attachments.folder`                     | Carpeta para adjuntos e imágenes                             | `attachments = { folder = "Adjuntos" }`         |
-| `nyabsidian.attachment_paths.vault`      | Reescritura de adjuntos internos (propia)                    | `"preserve"` o `"simplify"`                    |
-| `nyabsidian.attachment_paths.external`   | Reescritura de adjuntos externos (propia)                    | `"preserve"` o `"absolute"`                    |
+| Clave                                  | Qué hace                                                     | Ejemplo                                         |
+| -------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------- |
+| `frontmatter.enabled`                  | Genera `id`/`aliases`/`tags` al guardar                      | `frontmatter = { enabled = true }`              |
+| `frontmatter.func`                     | Construye el frontmatter a medida (función por nota)         | la función de ejemplo de la plantilla           |
+| `link.style`                           | Enlaces `wiki` (`[[nota]]`) o `markdown` (`[nota](nota.md)`) | `link = { style = "markdown" }`                 |
+| `templates.folder`                     | Carpeta de plantillas del vault                              | `templates = { folder = "Templates" }`          |
+| `daily_notes.folder`                   | Carpeta de las notas diarias                                 | `daily_notes = { folder = "Diario" }`           |
+| `daily_notes.default_tags`             | Tags que llevan las notas diarias                            | `daily_notes = { default_tags = { "diario" } }` |
+| `attachments.folder`                   | Carpeta para adjuntos e imágenes                             | `attachments = { folder = "Adjuntos" }`         |
+| `nyabsidian.attachment_paths.vault`    | Reescritura de adjuntos internos (propia)                    | `"preserve"` o `"simplify"`                     |
+| `nyabsidian.attachment_paths.external` | Reescritura de adjuntos externos (propia)                    | `"preserve"` o `"absolute"`                     |
 
 ## Comandos
 
@@ -79,7 +84,8 @@ Comandos de Nyabsidian:
 | `:NyabsidianFrontmatter` | Regenera el frontmatter de la nota actual (forzado) |
 | `:NyabsidianDebug`       | Diagnóstico del LSP                                 |
 | `:NyabsidianCopyPath`    | Copia el path absoluto de la nota o enlace          |
-| `:NyabsidianConvertLink` | Cambia el formato del enlace bajo el cursor          |
+| `:NyabsidianConvertLink` | Cambia el formato del enlace bajo el cursor         |
+| `:NyabsidianFetchTitle`  | Usa el título de una web como label Markdown        |
 
 Y los del propio obsidian.nvim, disponibles dentro de cualquier nota:
 
@@ -122,9 +128,11 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 | `<leader>np` | Pegar imagen del portapapeles                                                   |
 | `<leader>nc` | Copiar el path absoluto de la nota o del enlace bajo el cursor                  |
 | `<leader>nC` | Elegir el formato del enlace bajo el cursor                                     |
+| `<leader>nu` | Usar el título de una web como label del enlace                                 |
 | `gd`         | Ir a una nota/heading o abrir el adjunto bajo el cursor                         |
-| `gx`         | Abrir un adjunto con Neovim o con la aplicación del sistema                    |
-| `<C-A-r>`    | Rename LSP del componente bajo el cursor: nota, heading o adjunto               |
+| `gx`         | Abrir una URL o un adjunto con Neovim o con la aplicación del sistema           |
+| `K`          | Hover con metadatos y un extracto breve de la nota enlazada                     |
+| `<C-A-r>`    | Rename LSP del componente exacto del enlace bajo el cursor                      |
 
 > [!NOTE]
 >
@@ -140,6 +148,37 @@ desambigua `Child`; solo se anteponen más headings cuando todavía quedan vario
 El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto se aplica
 literalmente al heading, mientras los enlaces se escriben con su anchor canónico
 (`My Father A` → `my-father-a`).
+
+También se manejan las referencias Markdown `[texto][id]`, `[id][]` y `[id]` con una definición
+`[id]: destino "description"`. La definición pertenece a la nota actual y sus tres componentes
+son independientes:
+
+- `id` tiene rename global sobre la definición y todos sus usos, y se ofrece en completion al
+  escribir una referencia;
+- un destino local completa notas del vault y conserva `<...>` y cualquier fragment al reemplazar
+  únicamente el path; navegación y rename usan Nyabsidian;
+- una URL externa se delega en obsidian.nvim;
+- `description` tiene prepareRename/rename local sobre el texto interior y conserva sus
+  delimitadores originales: `"..."`, `'...'` o `(...)`.
+
+`K` devuelve la misma hoverview para enlaces wiki, Markdown, definiciones y sus usos: metadatos y
+un extracto acotado de la nota. Los adjuntos se delegan y por ahora no fabrican una preview propia.
+Los handlers propios se fusionan o delegan con los de obsidian.nvim, de modo que una futura
+implementación upstream puede convivir con ellos sin duplicar resultados.
+
+### Contrato consolidado para referencias CommonMark
+
+El ejemplo canónico es:
+
+```markdown
+[algoa]: other_a.md "Descripción opcional"
+```
+
+Nyabsidian debe tratar identificador, destino y descripción como rangos LSP independientes;
+completar notas solo en destinos locales; completar identificadores ya definidos en los usos;
+mantener intactas las URLs externas; mostrar hover de la nota desde cualquier forma de enlace; y
+no asumir una preview para adjuntos. La gramática propia se limita deliberadamente a definiciones
+de una línea. Conform debe neutralizar cualquier expansión multilínea introducida por Prettier.
 
 `<leader>nb` abre siempre el selector de backlinks: no salta directamente al destino cuando solo
 hay uno y también muestra el selector vacío cuando no existe ninguno. Así la acción conserva el
@@ -216,17 +255,23 @@ la sincronización global de Neovim o `<leader>cs` se ocupan de ello cuando inte
 `<leader>nC` (`:NyabsidianConvertLink`) cambia únicamente la referencia bajo el cursor. No modifica
 otros enlaces de la nota ni del vault. El selector ofrece solo representaciones válidas:
 
-| Destino          | Formatos disponibles                                                    |
-| ---------------- | ----------------------------------------------------------------------- |
-| Nota interna     | más corto seguro, desde la raíz del vault, relativo a la nota          |
-| Nota externa     | absoluto del sistema, relativo a la nota                                |
-| Adjunto interno  | los tres anteriores, absoluto del sistema y URI `file://`               |
-| Adjunto externo  | absoluto del sistema, relativo a la nota y URI `file://`                |
+| Destino         | Formatos disponibles                                          |
+| --------------- | ------------------------------------------------------------- |
+| Nota interna    | más corto seguro, desde la raíz del vault, relativo a la nota |
+| Nota externa    | absoluto del sistema, relativo a la nota                      |
+| Adjunto interno | los tres anteriores, absoluto del sistema y URI `file://`     |
+| Adjunto externo | absoluto del sistema, relativo a la nota y URI `file://`      |
 
 "Más corto" usa el basename solo si sigue identificando inequívocamente el destino; también
 considera las colisiones de nombres y aliases entre notas. La conversión conserva el estilo wiki
 o Markdown, embeds, labels, headings/fragments, dimensiones, títulos y URL encoding. Un relativo
 en la misma carpeta se escribe explícitamente como `./archivo`.
+
+## Frontera con Markdown general
+
+Dentro de `.obsidian/` o `.nyabsidian` manda siempre la semántica del vault descrita aquí. Fuera
+del vault no se reutilizan su búsqueda por basename ni sus paths desde la raíz: ese contrato se
+está diseñando por separado en [Marksman](marksman.md).
 
 ## Notas
 

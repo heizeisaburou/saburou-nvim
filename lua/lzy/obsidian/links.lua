@@ -44,14 +44,176 @@ local function angle_ref_at(line, row, col)
   end
 end
 
----@param bufnr integer|?
+---@param value string
+---@return string
+local function normalize_reference_id(value)
+  value = require("obsidian.util").unescape_single_backslash(value)
+  return vim.trim(value):gsub("%s+", " "):lower()
+end
+
+---@param line string
+---@param row integer
+---@return table[]
+local function reference_usages(line, row)
+  local refs, search = {}, 1
+  local function inside_inline_code(start_col)
+    local prefix = line:sub(1, start_col - 1)
+    return #prefix:gsub("[^`]", "") % 2 == 1
+  end
+
+  while search <= #line do
+    local start_col, end_col, label, id = line:find("!?%[([^%[%]]+)%]%[([^%[%]]*)%]", search)
+    if not start_col then
+      break
+    end
+    if not inside_inline_code(start_col) then
+      local opening = line:sub(start_col, start_col) == "!" and start_col + 1 or start_col
+      local label_range = { start_col = opening, end_col = opening + #label }
+      local id_range
+      if id == "" then
+        id = label
+        id_range = label_range
+      else
+        local id_opening = opening + #label + 2
+        id_range = { start_col = id_opening, end_col = id_opening + #id }
+      end
+      refs[#refs + 1] = {
+        kind = "reference_link",
+        raw = line:sub(start_col, end_col),
+        range = { start_row = row, start_col = start_col - 1, end_row = row, end_col = end_col },
+        label = label,
+        label_range = label_range,
+        reference_id = id,
+        reference_id_range = id_range,
+        embed = line:sub(start_col, start_col) == "!",
+      }
+    end
+    search = end_col + 1
+  end
+  search = 1
+  while search <= #line do
+    local start_col, end_col, label = line:find("!?%[([^%[%]]+)%]", search)
+    if not start_col then
+      break
+    end
+    local before = line:sub(start_col - 1, start_col - 1)
+    local after = line:sub(end_col + 1, end_col + 1)
+    local prefix = line:sub(1, start_col - 1)
+    local task = (label == " " or label:lower() == "x")
+      and (
+        prefix:match("^%s*[%-%*+]%s*$")
+        or prefix:match("^%s*%d+[%.%)]%s*$")
+      )
+    local overlaps = false
+    for _, ref in ipairs(refs) do
+      if ref.range.start_col < end_col and start_col - 1 < ref.range.end_col then
+        overlaps = true
+        break
+      end
+    end
+    if
+      not overlaps
+      and not task
+      and label:sub(1, 1) ~= "^"
+      and before ~= "["
+      and before ~= "]"
+      and after ~= "("
+      and after ~= "["
+      and after ~= ":"
+      and not inside_inline_code(start_col)
+    then
+      local opening = line:sub(start_col, start_col) == "!" and start_col + 1 or start_col
+      local range = { start_col = opening, end_col = opening + #label }
+      refs[#refs + 1] = {
+        kind = "reference_link",
+        raw = line:sub(start_col, end_col),
+        range = { start_row = row, start_col = start_col - 1, end_row = row, end_col = end_col },
+        label = label,
+        label_range = range,
+        reference_id = label,
+        reference_id_range = range,
+        shortcut = true,
+        embed = line:sub(start_col, start_col) == "!",
+      }
+    end
+    search = end_col + 1
+  end
+  table.sort(refs, function(a, b)
+    return a.range.start_col < b.range.start_col
+  end)
+  return refs
+end
+
+---@param id string
+---@param bufnr integer
+---@return table|?
+local function reference_definition(id, bufnr)
+  local wanted = normalize_reference_id(id)
+  for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+    for _, ref in ipairs(require("lzy.obsidian.attachments").parse_refs(line, row - 1)) do
+      if ref.kind == "reference" and normalize_reference_id(ref.label) == wanted then
+        return ref
+      end
+    end
+  end
+end
+
+---@param ref table
+---@return table
+local function split_reference_target(ref)
+  local target = ref.raw_target
+  local hash = target and target:find("#", 1, true) or nil
+  if hash then
+    local fragment = target:sub(hash + 1)
+    ref.target = target:sub(1, hash - 1)
+    if fragment:sub(1, 1) == "^" then
+      ref.block = fragment:sub(2)
+    else
+      ref.anchor = fragment
+    end
+  else
+    ref.target = target
+  end
+  return ref
+end
+
+---@param bufnr integer
+---@param row integer 0-based
+---@param col integer 0-based byte column
 ---@return obsidian.parse.Ref|table|?
-local function cursor_ref(bufnr)
-  bufnr = bufnr or vim.api.nvim_get_current_buf()
-  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
-  local parsed_refs = require("obsidian.parse.refs").extract(line, { row = row - 1 })
-  local ranged_refs = require("lzy.obsidian.attachments").parse_refs(line, row - 1)
+local function ref_at(bufnr, row, col)
+  local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
+  local parsed_refs = require("obsidian.parse.refs").extract(line, { row = row })
+  local ranged_refs = require("lzy.obsidian.attachments").parse_refs(line, row)
+  for _, usage in ipairs(reference_usages(line, row)) do
+    if usage.range.start_col <= col and col < usage.range.end_col then
+      local definition = reference_definition(usage.reference_id, bufnr)
+      if definition then
+        usage.raw_target = definition.raw_target
+        usage.definition = definition
+        return split_reference_target(usage)
+      end
+      if not usage.shortcut then
+        return usage
+      end
+    end
+  end
+  for _, ref in ipairs(ranged_refs) do
+    if
+      ref.kind == "reference"
+      and (
+        ref.label_range.start_col <= col
+        and col < ref.label_range.end_col
+        or ref.target_range.start_col <= col
+          and col < ref.target_range.end_col
+        or ref.title_range
+          and ref.title_range.start_col <= col
+          and col < ref.title_range.end_col
+      )
+    then
+      return split_reference_target(ref)
+    end
+  end
   for _, ref in ipairs(parsed_refs) do
     if ref.range.start_col <= col and col < ref.range.end_col then
       for _, ranged in ipairs(ranged_refs) do
@@ -68,7 +230,15 @@ local function cursor_ref(bufnr)
       return ref
     end
   end
-  return angle_ref_at(line, row - 1, col)
+  return angle_ref_at(line, row, col)
+end
+
+---@param bufnr integer|?
+---@return obsidian.parse.Ref|table|?
+local function cursor_ref(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local cursor_row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  return ref_at(bufnr, cursor_row - 1, col)
 end
 
 ---@param ref table
@@ -80,6 +250,22 @@ local function label_component(ref)
   local offset
   if ref.kind == "markdown" then
     offset = ref.embed and 2 or 1
+  elseif ref.kind == "reference" then
+    return {
+      kind = "reference_id",
+      text = ref.label,
+      start_col = ref.label_range.start_col,
+      end_col = ref.label_range.end_col,
+    }
+  elseif ref.kind == "reference_link" then
+    local collapsed = ref.label_range.start_col == ref.reference_id_range.start_col
+      and ref.label_range.end_col == ref.reference_id_range.end_col
+    return {
+      kind = collapsed and "reference_id" or "label",
+      text = ref.label,
+      start_col = ref.label_range.start_col,
+      end_col = ref.label_range.end_col,
+    }
   elseif ref.kind == "wiki" then
     local pipe = ref.raw:find("|", 1, true)
     if not pipe then
@@ -108,6 +294,41 @@ local function cursor_context()
   local label = label_component(ref)
   if label and label.start_col <= col and col < label.end_col then
     return { ref = ref, component = label, label = label }
+  end
+
+  if ref.kind == "reference_link" then
+    local id = ref.reference_id_range
+    if id.start_col <= col and col < id.end_col then
+      return {
+        ref = ref,
+        label = label,
+        component = {
+          kind = "reference_id",
+          text = ref.reference_id,
+          start_col = id.start_col,
+          end_col = id.end_col,
+        },
+      }
+    end
+    return nil
+  end
+
+  if
+    ref.kind == "reference"
+    and ref.title_range
+    and ref.title_range.start_col <= col
+    and col < ref.title_range.end_col
+  then
+    return {
+      ref = ref,
+      label = label,
+      component = {
+        kind = "description",
+        text = ref.title,
+        start_col = ref.title_range.start_col,
+        end_col = ref.title_range.end_col,
+      },
+    }
   end
 
   local raw_target = ref.raw_target or ref.target
@@ -170,7 +391,7 @@ local function resolve_notes(location, bufnr, callback)
     return callback(note and { headings.load_note(note) } or {})
   end
 
-  require("obsidian.search").resolve_note_async(location, function(notes)
+  require("lzy.obsidian.notes").resolve_async(location, function(notes)
     callback(vim.tbl_map(function(note)
       return headings.load_note(note)
     end, notes))
@@ -266,6 +487,17 @@ local function patch_cursor_autolink()
 
     local line = vim.api.nvim_get_current_line()
     local _, cur_col = unpack(vim.api.nvim_win_get_cursor(0))
+    local structured = cursor_ref()
+    if
+      structured
+      and (structured.kind == "reference" or structured.kind == "reference_link")
+      and structured.raw_target
+    then
+      return ("[%s](%s)"):format(structured.label, structured.raw_target), "markdown", {
+        structured.range.start_col,
+        structured.range.end_col,
+      }
+    end
     local ref = angle_ref_at(line, 0, cur_col)
     if ref then
       return ("[%s](%s)"):format(ref.target, ref.target), "markdown", {
@@ -275,6 +507,59 @@ local function patch_cursor_autolink()
     end
   end
   api.__nyabsidian_cursor_link = true
+end
+
+---@param old_id string
+---@param new_id string
+---@param bufnr integer|?
+---@return lsp.WorkspaceEdit|?
+---@return string|? err
+local function reference_id_edit(old_id, new_id, bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  if new_id == "" or vim.trim(new_id) == "" then
+    return nil, "El identificador de referencia no puede estar vacío"
+  elseif new_id:find("[%[%]\r\n]") then
+    return nil, "El identificador de referencia no puede contener corchetes ni saltos de línea"
+  end
+
+  local wanted = normalize_reference_id(old_id)
+  local edits, seen = {}, {}
+  local function add(row, range)
+    local key = table.concat({ row, range.start_col, range.end_col }, ":")
+    if not seen[key] then
+      seen[key] = true
+      edits[#edits + 1] = {
+        range = {
+          start = { line = row, character = range.start_col },
+          ["end"] = { line = row, character = range.end_col },
+        },
+        newText = new_id,
+      }
+    end
+  end
+
+  for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+    for _, ref in ipairs(require("lzy.obsidian.attachments").parse_refs(line, row - 1)) do
+      if ref.kind == "reference" and normalize_reference_id(ref.label) == wanted then
+        add(row - 1, ref.label_range)
+      end
+    end
+    for _, ref in ipairs(reference_usages(line, row - 1)) do
+      if normalize_reference_id(ref.reference_id) == wanted then
+        add(row - 1, ref.reference_id_range)
+      end
+    end
+  end
+  if #edits == 0 then
+    return nil, "No se encontró la referencia que se quería renombrar"
+  end
+  table.sort(edits, function(a, b)
+    if a.range.start.line == b.range.start.line then
+      return a.range.start.character > b.range.start.character
+    end
+    return a.range.start.line > b.range.start.line
+  end)
+  return { changes = { [vim.uri_from_bufnr(bufnr)] = edits } }
 end
 
 local function patch_definition()
@@ -496,6 +781,51 @@ local function rename_link_heading(context, new_name, callback)
   end)
 end
 
+---@param edit lsp.WorkspaceEdit|nil
+---@param context table
+---@param new_name string Nombre base que espera el rename de Obsidian.
+---@return lsp.WorkspaceEdit
+local function add_reference_note_edit(edit, context, new_name)
+  edit = edit or {}
+  edit.documentChanges = edit.documentChanges or {}
+
+  local uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf())
+  local row = context.ref.range.start_row
+  local start_col, end_col = context.component.start_col, context.component.end_col
+  for _, change in ipairs(edit.documentChanges) do
+    if change.textDocument and change.textDocument.uri == uri then
+      for _, text_edit in ipairs(change.edits or {}) do
+        local range = text_edit.range
+        if
+          range.start.line == row
+          and range.start.character <= start_col
+          and range["end"].character >= end_col
+        then
+          return edit
+        end
+      end
+    end
+  end
+
+  local replacement = new_name
+  if context.component.text:lower():sub(-3) == ".md" then
+    replacement = replacement .. ".md"
+  end
+  table.insert(edit.documentChanges, 1, {
+    textDocument = { uri = uri, version = vim.NIL },
+    edits = {
+      {
+        range = {
+          start = { line = row, character = start_col },
+          ["end"] = { line = row, character = end_col },
+        },
+        newText = replacement,
+      },
+    },
+  })
+  return edit
+end
+
 local function patch_rename()
   local handlers = require "obsidian.lsp.handlers"
   if handlers.__nyabsidian_rename then
@@ -513,7 +843,24 @@ local function patch_rename()
     local context = cursor_context()
     if context then
       local attachments = require "lzy.obsidian.attachments"
-      if context.component.kind == "label" or context.component.kind == "url" then
+      if context.component.kind == "reference_id" then
+        prepared_heading = nil
+        prepared_attachment = nil
+        local edit, err = reference_id_edit(
+          context.component.text,
+          params.newName,
+          vim.api.nvim_get_current_buf()
+        )
+        if not edit then
+          notify(err, vim.log.levels.ERROR)
+          return callback(nil, {})
+        end
+        return callback(nil, edit)
+      elseif
+        context.component.kind == "label"
+        or context.component.kind == "url"
+        or context.component.kind == "description"
+      then
         prepared_heading = nil
         prepared_attachment = nil
         local row = context.ref.range.start_row
@@ -569,6 +916,24 @@ local function patch_rename()
       elseif context.component.kind == "heading" then
         prepared_attachment = nil
         return rename_link_heading(context, params.newName, callback)
+      elseif context.component.kind == "note" then
+        prepared_heading = nil
+        prepared_attachment = nil
+        local upstream_params = params
+        local new_name = params.newName
+        if #new_name > 3 and new_name:lower():sub(-3) == ".md" then
+          new_name = new_name:sub(1, -4)
+          upstream_params = vim.tbl_extend("force", {}, params, { newName = new_name })
+        end
+        if context.ref.kind == "reference" then
+          return original(upstream_params, function(err, edit)
+            if err then
+              return callback(err, edit)
+            end
+            callback(nil, add_reference_note_edit(edit, context, new_name))
+          end, dispatchers)
+        end
+        return original(upstream_params, callback, dispatchers)
       end
       prepared_heading = nil
       prepared_attachment = nil
@@ -611,6 +976,8 @@ function M.setup(opts)
   patch_action_follow()
   patch_prepare_rename()
   patch_rename()
+  require("lzy.obsidian.completion").setup()
+  require("lzy.obsidian.hover").setup()
   installed = true
 end
 
@@ -620,7 +987,9 @@ end
 
 -- API pequeña para pruebas y diagnóstico.
 M.cursor_ref = cursor_ref
+M.ref_at = ref_at
 M.cursor_context = cursor_context
 M.label_component = label_component
+M.reference_id_edit = reference_id_edit
 
 return M

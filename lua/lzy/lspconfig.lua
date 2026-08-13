@@ -455,15 +455,18 @@ end
 -- On attach mappings
 -- =============================================================================
 
----@param _client vim.lsp.Client
+---@param client vim.lsp.Client
 ---@param bufnr integer
-local function setup_on_attach_mappings(_client, bufnr)
+local function setup_on_attach_mappings(client, bufnr)
   local map = vim.keymap.set
   local opts = make_lsp_buffer_opts(bufnr)
 
   map("n", "<leader>lt", vim.lsp.buf.type_definition, opts "Go to type definition")
   map("n", "gD", vim.lsp.buf.declaration, opts "Go to declaration")
   map("n", "gd", vim.lsp.buf.definition, opts "Go to definition")
+  if client:supports_method "textDocument/hover" then
+    map("n", "K", vim.lsp.buf.hover, opts "Hover documentation")
+  end
 
   map("n", "<leader>ld", function()
     vim.notify("  Showing line diagnostics ...", vim.log.levels.INFO)

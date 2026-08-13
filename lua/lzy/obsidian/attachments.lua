@@ -506,6 +506,134 @@ end
 function M.parse_refs(line, row)
   row = row or 0
   local refs = {}
+
+  -- CommonMark reference definition: `[id]: destination "optional title"`.
+  -- obsidian.nvim no la incluye en parse.refs, aunque Tree-sitter sí la
+  -- reconoce. Conservamos rangos separados para que rename, follow y las
+  -- reescrituras de adjuntos no confundan el identificador con el destino.
+  local indent = line:match "^( *)" or ""
+  if #indent <= 3 and line:sub(#indent + 1, #indent + 1) == "[" then
+    local opening = #indent + 1
+    local closing, escaped = nil, false
+    for idx = opening + 1, #line do
+      local char = line:sub(idx, idx)
+      if char == "]" and not escaped then
+        closing = idx
+        break
+      end
+      if char == "\\" and not escaped then
+        escaped = true
+      else
+        escaped = false
+      end
+    end
+
+    local label = closing and line:sub(opening + 1, closing - 1) or ""
+    if
+      closing
+      and label ~= ""
+      and vim.trim(label) ~= ""
+      and label:sub(1, 1) ~= "^"
+      and line:sub(closing + 1, closing + 1) == ":"
+    then
+      local token_start = closing + 2
+      while line:sub(token_start, token_start):match "[ \t]" do
+        token_start = token_start + 1
+      end
+
+      local target_start, target_end, token_end
+      if line:sub(token_start, token_start) == "<" then
+        escaped = false
+        for idx = token_start + 1, #line do
+          local char = line:sub(idx, idx)
+          if char == ">" and not escaped then
+            target_start, target_end, token_end = token_start + 1, idx - 1, idx
+            break
+          end
+          if char == "\\" and not escaped then
+            escaped = true
+          else
+            escaped = false
+          end
+        end
+      elseif token_start <= #line then
+        local depth, idx = 0, token_start
+        escaped = false
+        while idx <= #line do
+          local char = line:sub(idx, idx)
+          if not escaped and char:match "[ \t]" and depth == 0 then
+            break
+          elseif not escaped and char == "(" then
+            depth = depth + 1
+          elseif not escaped and char == ")" then
+            if depth == 0 then
+              break
+            end
+            depth = depth - 1
+          end
+          if char == "\\" and not escaped then
+            escaped = true
+          else
+            escaped = false
+          end
+          idx = idx + 1
+        end
+        if idx > token_start and depth == 0 then
+          target_start, target_end, token_end = token_start, idx - 1, idx - 1
+        end
+      end
+
+      if target_start and target_end and target_start <= target_end then
+        local target = line:sub(target_start, target_end)
+        local title, title_range, title_delimiter
+        local title_start = token_end + 1
+        while line:sub(title_start, title_start):match "[ \t]" do
+          title_start = title_start + 1
+        end
+        local title_opening = line:sub(title_start, title_start)
+        local closing_delimiter = title_opening == "(" and ")" or title_opening
+        if title_opening == '"' or title_opening == "'" or title_opening == "(" then
+          local escaped_title = false
+          for idx = title_start + 1, #line do
+            local char = line:sub(idx, idx)
+            if char == closing_delimiter and not escaped_title then
+              if line:sub(idx + 1):match "^%s*$" then
+                title = line:sub(title_start + 1, idx - 1)
+                title_range = { start_col = title_start, end_col = idx - 1 }
+                title_delimiter = title_opening
+              end
+              break
+            end
+            if char == "\\" and not escaped_title then
+              escaped_title = true
+            else
+              escaped_title = false
+            end
+          end
+        end
+        refs[#refs + 1] = {
+          kind = "reference",
+          raw = line:sub(opening, token_end),
+          range = {
+            start_row = row,
+            start_col = opening - 1,
+            end_row = row,
+            end_col = token_end,
+          },
+          label = label,
+          label_range = { start_col = opening, end_col = closing - 1 },
+          target = target,
+          raw_target = target,
+          target_range = { start_col = target_start - 1, end_col = target_end },
+          title = title,
+          title_range = title_range,
+          title_delimiter = title_delimiter,
+          embed = false,
+        }
+      end
+    end
+  end
+
   for _, parsed in ipairs(require("obsidian.parse.refs").extract(line, { row = row })) do
     local raw = parsed.raw
     local target, target_start
@@ -651,9 +779,10 @@ function M.open_under_cursor(bufnr)
   if not M.in_vault(bufnr) then
     return false
   end
-  local ref = M.cursor_ref(bufnr)
-  if ref then
-    return M.follow(ref.target, { bufnr = bufnr })
+  local ref = M.cursor_ref(bufnr) or require("lzy.obsidian.links").cursor_ref(bufnr)
+  local target = ref and (ref.raw_target or ref.target) or nil
+  if target and M.is_target(target, { bufnr = bufnr }) then
+    return M.follow(target, { bufnr = bufnr })
   end
 
   -- `gx` también conserva el flujo de URLs del vault sin caer en el módulo
@@ -853,7 +982,7 @@ end
 ---@param kind string
 ---@return string
 local function encode_target(target, kind)
-  if kind == "markdown" then
+  if kind == "markdown" or kind == "reference" then
     -- `vim.uri_from_fname()` ya devuelve una URI codificada. Volver a pasarla
     -- por urlencode convertiría `file:///...` en `file%3A///...` y `%20` en
     -- `%2520`.

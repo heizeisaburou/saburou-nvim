@@ -293,7 +293,7 @@ end
 ---@param uri boolean|?
 ---@return string
 local function render_target(target, kind, uri)
-  if kind == "markdown" and not uri then
+  if (kind == "markdown" or kind == "reference") and not uri then
     return require("obsidian.util").urlencode(target, { keep_path_sep = true })
   end
   return target
@@ -482,7 +482,12 @@ function M.fetch_web_title(opts)
   local url = ref and (ref.raw_target or ref.target) or nil
   if
     not ref
-    or (ref.kind ~= "markdown" and ref.kind ~= "autolink")
+    or (
+      ref.kind ~= "markdown"
+      and ref.kind ~= "reference"
+      and ref.kind ~= "reference_link"
+      and ref.kind ~= "autolink"
+    )
     or not url
     or not url:match "^https?://"
   then
@@ -533,21 +538,30 @@ function M.fetch_web_title(opts)
         { ("[%s](%s)"):format(title, url) }
       )
     else
-      local label = require("lzy.obsidian.links").label_component(ref)
+      local links = require "lzy.obsidian.links"
+      local label = links.label_component(ref)
       if not label then
         return notify_user(
           "El enlace Markdown no contiene una etiqueta editable",
           vim.log.levels.ERROR
         )
       end
-      vim.api.nvim_buf_set_text(
-        bufnr,
-        row,
-        label.start_col,
-        row,
-        label.end_col,
-        { title }
-      )
+      if ref.kind == "reference" or label.kind == "reference_id" then
+        local edit, rename_err = links.reference_id_edit(ref.label, title, bufnr)
+        if not edit then
+          return notify_user(rename_err, vim.log.levels.ERROR)
+        end
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+      else
+        vim.api.nvim_buf_set_text(
+          bufnr,
+          row,
+          label.start_col,
+          row,
+          label.end_col,
+          { title }
+        )
+      end
     end
     notify_user("Etiqueta actualizada desde el título web")
   end)
