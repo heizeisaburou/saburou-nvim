@@ -10,18 +10,22 @@
 -- que una URL larga arrastra el enlace a su propia línea aunque el texto que
 -- se ve sea corto. Aquí cada palabra se mide con el markup inline descontado:
 --
---   [label](url "title") -> label
---   [label][ref]         -> label
+--   [label](url "title") -> icono + label
+--   [label][ref]         -> icono + label
 --   `codigo`             -> codigo
---   <url>                -> url
+--   <url>                -> icono + url
 --   **x** / *x* / __x__  -> x
 --   \x                   -> x
---   [[dest|display]]     -> display
+--   [[dest|display]]     -> icono + display
 --
 -- Los enlaces son atómicos: no se parten nunca, y el tokenizer tampoco los
 -- parte aunque su destino o título contengan espacios.
 
 local M = {}
+
+---@class hzsr.md.WidthOpts
+---@field bufnr? integer Buffer del que obtener la configuración y definiciones.
+---@field icons? boolean Incluye los iconos virtuales de render-markdown (default true).
 
 -- -----------------------------------------------------------------------------
 -- Parsing inline
@@ -54,6 +58,25 @@ local function char_len(s, i)
   return 1
 end
 
+---@param s string
+---@param i integer
+---@return integer
+local function char_width(s, i)
+  local length = char_len(s, i)
+  return vim.fn.strdisplaywidth(s:sub(i, i + length - 1))
+end
+
+---@param kind "wiki"|"link"|"image"|"email"
+---@param opts hzsr.md.WidthOpts|nil
+---@param destination string|nil
+---@return integer
+local function icon_width(kind, opts, destination)
+  if opts and opts.icons == false then
+    return 0
+  end
+  return require("lzy.render-markdown.links").icon_width(kind, opts and opts.bufnr, destination)
+end
+
 -- Intenta parsear un enlace inline empezando en `s[i] == "["`.
 --
 -- Soporta: [label](dest), [label](dest "title"), [label][ref], [label][] y
@@ -61,9 +84,12 @@ end
 --
 ---@param s string
 ---@param i integer Posición del `[` de apertura.
+---@param opts hzsr.md.WidthOpts|nil
 ---@return integer? label_width Ancho visible del label.
 ---@return integer? end_index Índice del último carácter consumido.
-local function parse_link(s, i)
+---@return "inline"|"full_reference"|"collapsed_reference"|"shortcut_reference"|nil kind
+---@return string? destination_or_id
+local function parse_link(s, i, opts)
   local n = #s
   local j = i + 1
   local label_width = 0
@@ -73,7 +99,7 @@ local function parse_link(s, i)
 
     if c == "\\" and j < n then
       -- Escapado: `\[`, `\]`... cuenta como un carácter visible.
-      label_width = label_width + 1
+      label_width = label_width + char_width(s, j + 1)
       j = j + 1 + char_len(s, j + 1)
     elseif c == "]" then
       local after = s:sub(j + 1, j + 1)
@@ -81,7 +107,9 @@ local function parse_link(s, i)
       if after == "(" then
         local close = s:find(")", j + 2, true)
         if close then
-          return label_width, close
+          local body = vim.trim(s:sub(j + 2, close - 1))
+          local destination = body:match "^<([^>]*)>" or body:match "^([^%s]+)"
+          return label_width + icon_width("link", opts, destination), close, "inline", destination
         end
         return nil
       end
@@ -89,29 +117,115 @@ local function parse_link(s, i)
       if after == "[" then
         local ref_end = s:find("]", j + 2, true)
         if ref_end then
-          return label_width, ref_end
+          local id = s:sub(j + 2, ref_end - 1)
+          local kind = id == "" and "collapsed_reference" or "full_reference"
+          if id == "" then
+            id = s:sub(i + 1, j - 1)
+          end
+          local has_icon = kind == "full_reference"
+            or not opts
+            or not opts.bufnr
+            or require("lzy.render-markdown.links").has_definition(opts.bufnr, id)
+          return label_width + (has_icon and icon_width("link", opts) or 0), ref_end, kind, id
         end
         return nil
       end
 
       if after == "]" then
         -- [label][] (referencia colapsada)
-        return label_width, j + 1
+        local id = s:sub(i + 1, j - 1)
+        local has_icon = not opts
+          or not opts.bufnr
+          or require("lzy.render-markdown.links").has_definition(opts.bufnr, id)
+        return label_width + (has_icon and icon_width("link", opts) or 0),
+          j + 1,
+          "collapsed_reference",
+          id
       end
 
       if after == "" or after:match "^%s$" then
         -- [label] suelto; en prosa se trata como referencia.
-        return label_width, j
+        local id = s:sub(i + 1, j - 1)
+        local has_icon = not opts
+          or not opts.bufnr
+          or require("lzy.render-markdown.links").has_definition(opts.bufnr, id)
+        return label_width + (has_icon and icon_width("link", opts) or 0),
+          j,
+          "shortcut_reference",
+          id
       end
 
       return nil
     else
-      label_width = label_width + 1
+      label_width = label_width + char_width(s, j)
       j = j + char_len(s, j)
     end
   end
 
   return nil
+end
+
+-- Una definición se renderiza como `icono + label + (title)`: el destino es
+-- operativo, pero no forma parte de la vista. Este parser pequeño replica ese
+-- contrato para que el formateador mida lo mismo que Neovim.
+--
+---@param s string
+---@param opts hzsr.md.WidthOpts|nil
+---@return integer|nil
+local function definition_width(s, opts)
+  if s:sub(1, 1) ~= "[" then
+    return nil
+  end
+
+  local label_width = 0
+  local close = 2
+  while close <= #s do
+    local char = s:sub(close, close)
+    if char == "\\" and close < #s then
+      label_width = label_width + char_width(s, close + 1)
+      close = close + 1 + char_len(s, close + 1)
+    elseif char == "]" then
+      break
+    else
+      label_width = label_width + char_width(s, close)
+      close = close + char_len(s, close)
+    end
+  end
+  if close > #s or s:sub(close + 1, close + 1) ~= ":" then
+    return nil
+  end
+
+  local rest = vim.trim(s:sub(close + 2))
+  local destination
+  if rest:sub(1, 1) == "<" then
+    local destination_end = rest:find(">", 2, true)
+    if not destination_end then
+      return nil
+    end
+    destination = rest:sub(2, destination_end - 1)
+    rest = vim.trim(rest:sub(destination_end + 1))
+  else
+    destination, rest = rest:match("^(%S+)%s*(.*)$")
+    if not destination then
+      return nil
+    end
+  end
+
+  local width = icon_width("link", opts, destination) + label_width
+  if rest == "" then
+    return width
+  end
+
+  local opening, closing = rest:sub(1, 1), rest:sub(-1)
+  if not (
+    (opening == '"' and closing == '"')
+    or (opening == "'" and closing == "'")
+    or (opening == "(" and closing == ")")
+  ) then
+    return nil
+  end
+  local title = vim.trim(rest:sub(2, -2)):gsub("%s+", " "):gsub("\\([%p])", "%1")
+  return width + (title ~= "" and vim.fn.strdisplaywidth(" (" .. title .. ")") or 0)
 end
 
 -- Intenta parsear un wiki-link `[[dest|display]]` empezando en `s[i..i+1] ==
@@ -124,7 +238,7 @@ end
 ---@param i integer Posición del `[[` de apertura.
 ---@return integer? display_width Ancho visible del display.
 ---@return integer? end_index Índice del último carácter consumido.
-local function parse_wiki_link(s, i)
+local function parse_wiki_link(s, i, opts)
   local close = s:find("]]", i + 2, true)
 
   if not close then
@@ -137,11 +251,11 @@ local function parse_wiki_link(s, i)
   local j = 1
 
   while j <= #display do
-    width = width + 1
+    width = width + char_width(display, j)
     j = j + char_len(display, j)
   end
 
-  return width, close + 1
+  return width + icon_width("wiki", opts, inner:match "^[^|]*"), close + 1
 end
 
 -- Intenta parsear un code span `` `code` `` empezando en `s[i] == "`"`.
@@ -158,7 +272,7 @@ local function parse_code_span(s, i)
     local j = i + 1
 
     while j < close do
-      width = width + 1
+      width = width + char_width(s, j)
       j = j + char_len(s, j)
     end
 
@@ -174,7 +288,7 @@ end
 ---@param i integer Posición de la apertura.
 ---@return integer? inner_width Ancho visible del contenido.
 ---@return integer? end_index Índice del último carácter consumido.
-local function parse_autolink(s, i)
+local function parse_autolink(s, i, opts)
   local n = #s
   local j = i + 1
   local width = 0
@@ -183,14 +297,17 @@ local function parse_autolink(s, i)
     local c = s:sub(j, j)
 
     if c == ">" then
-      return width, j
+      local destination = s:sub(i + 1, j - 1)
+      local kind = destination:find("@", 1, true) and not destination:find(":", 1, true) and "email"
+        or "link"
+      return width + icon_width(kind, opts, destination), j
     end
 
     if c:match "%s" then
       return nil
     end
 
-    width = width + 1
+    width = width + char_width(s, j)
     j = j + char_len(s, j)
   end
 
@@ -205,9 +322,15 @@ end
 -- spans, autolinks, énfasis/negrita, escapes) manteniendo el resto.
 --
 ---@param s string
+---@param opts hzsr.md.WidthOpts|nil
 ---@return integer
-function M.visible_width(s)
+function M.visible_width(s, opts)
   vim.validate("s", s, "string")
+
+  local rendered_definition = definition_width(s, opts)
+  if rendered_definition then
+    return rendered_definition
+  end
 
   local n = #s
   local i = 1
@@ -218,17 +341,38 @@ function M.visible_width(s)
 
     if c == "\\" then
       -- Escapado: `\*`, `\[`... cuenta como un carácter visible.
-      i = i + 1 + char_len(s, i + 1)
-      width = width + 1
+      local escaped = i + 1
+      width = width + char_width(s, escaped)
+      i = escaped + char_len(s, escaped)
+    elseif c == "!" and s:sub(i + 1, i + 1) == "[" then
+      local label, stop
+      if s:sub(i + 1, i + 2) == "[[" then
+        label, stop = parse_wiki_link(s, i + 1, opts)
+      else
+        label, stop = parse_link(s, i + 1, {
+          bufnr = opts and opts.bufnr,
+          icons = false,
+        })
+        if label then
+          label = label + icon_width("image", opts)
+        end
+      end
+      if label then
+        width = width + label
+        i = stop + 1
+      else
+        width = width + 1
+        i = i + 1
+      end
     elseif c == "[" then
       local label, stop
 
       if s:sub(i, i + 1) == "[[" then
-        label, stop = parse_wiki_link(s, i)
+        label, stop = parse_wiki_link(s, i, opts)
       end
 
       if not label then
-        label, stop = parse_link(s, i)
+        label, stop = parse_link(s, i, opts)
       end
 
       if label then
@@ -248,7 +392,7 @@ function M.visible_width(s)
         i = i + 1
       end
     elseif c == "<" then
-      local inner, stop = parse_autolink(s, i)
+      local inner, stop = parse_autolink(s, i, opts)
       if inner then
         width = width + inner
         i = stop + 1
@@ -257,7 +401,7 @@ function M.visible_width(s)
         i = i + 1
       end
     else
-      width = width + 1
+      width = width + char_width(s, i)
       i = i + char_len(s, i)
     end
   end
@@ -320,11 +464,11 @@ local function next_word(s, pos)
       local _, stop
 
       if s:sub(pos, pos + 1) == "[[" then
-        _, stop = parse_wiki_link(s, pos)
+        _, stop = parse_wiki_link(s, pos, { icons = false })
       end
 
       if not stop then
-        _, stop = parse_link(s, pos)
+        _, stop = parse_link(s, pos, { icons = false })
       end
 
       pos = (stop and stop + 1) or pos + 1
@@ -332,7 +476,7 @@ local function next_word(s, pos)
       local _, stop = parse_code_span(s, pos)
       pos = (stop and stop + 1) or pos + 1
     elseif c == "<" then
-      local _, stop = parse_autolink(s, pos)
+      local _, stop = parse_autolink(s, pos, { icons = false })
       pos = (stop and stop + 1) or pos + 1
     else
       pos = pos + 1
@@ -354,7 +498,7 @@ end
 ---@param text string
 ---@param width integer
 ---@return string[]
-local function wrap_segment(text, width)
+local function wrap_segment(text, width, opts)
   local lines = {}
   local cur = ""
   local cur_width = 0
@@ -367,7 +511,7 @@ local function wrap_segment(text, width)
       break
     end
 
-    local word_width = M.visible_width(word)
+    local word_width = M.visible_width(word, opts)
 
     if cur ~= "" and cur_width + 1 + word_width <= width then
       cur = cur .. " " .. word
@@ -399,8 +543,9 @@ end
 --
 ---@param text string
 ---@param width integer
+---@param opts hzsr.md.WidthOpts|nil
 ---@return string Párrafo envuelto, con `\n` entre líneas.
-function M.wrap_paragraph(text, width)
+function M.wrap_paragraph(text, width, opts)
   vim.validate("text", text, "string")
   vim.validate("width", width, "number")
 
@@ -410,7 +555,7 @@ function M.wrap_paragraph(text, width)
   for index, segment in ipairs(segments) do
     -- Un `\` final de segmento es el marcador del salto duro que ya añadió
     -- el llamante; se descarta aquí para no duplicarlo al re-emitir.
-    local wrapped = wrap_segment(segment:gsub("\\$", ""), width)
+    local wrapped = wrap_segment(segment:gsub("\\$", ""), width, opts)
 
     for _, line in ipairs(wrapped) do
       out[#out + 1] = line

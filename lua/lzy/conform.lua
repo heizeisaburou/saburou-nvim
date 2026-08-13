@@ -80,7 +80,13 @@ end
 --   - zsh: `shfmt` no funciona correctamente en este setup
 local formatters_by_ft = {
   lua = { "stylua" },
-  markdown = { "markdown_callouts", "prettier", "markdown_wrap", "markdown_tabs" }, -- mdformat (bug con tablas grandes)
+  markdown = {
+    "markdown_callouts",
+    "prettier",
+    "markdown_reference_definitions",
+    "markdown_wrap",
+    "markdown_tabs",
+  }, -- mdformat (bug con tablas grandes)
   --
   --
   --
@@ -586,6 +592,79 @@ local formatters = {
     end,
   },
 
+  -- Prettier divide una definición cuando su ancho bruto supera print-width:
+  --
+  --   [id]:
+  --     destino
+  --     "description"
+  --
+  -- Nyabsidian trata deliberadamente la definición como una construcción de
+  -- una sola línea y su vista es mucho más corta porque oculta el destino.
+  -- Esta pasada deshace únicamente esa expansión estructural de Prettier.
+  markdown_reference_definitions = {
+    format = function(_, _, lines, callback)
+      local out = {}
+      local index = 1
+
+      local function header(line)
+        local indent = line:match "^( *)" or ""
+        if #indent > 3 or line:sub(#indent + 1, #indent + 1) ~= "[" then
+          return nil
+        end
+        local escaped = false
+        for col = #indent + 2, #line do
+          local char = line:sub(col, col)
+          if char == "]" and not escaped then
+            if line:sub(col + 1):match "^:%s*$" then
+              return line:sub(1, col + 1)
+            end
+            return nil
+          end
+          if char == "\\" and not escaped then
+            escaped = true
+          else
+            escaped = false
+          end
+        end
+      end
+
+      local function title(line)
+        local value = line and line:match "^%s+(.+)%s*$"
+        if not value then
+          return nil
+        end
+        local opening, closing = value:sub(1, 1), value:sub(-1)
+        if
+          opening == '"' and closing == '"'
+          or opening == "'" and closing == "'"
+          or opening == "(" and closing == ")"
+        then
+          return value
+        end
+      end
+
+      while index <= #lines do
+        local definition = header(lines[index])
+        local destination = definition and lines[index + 1]
+          and lines[index + 1]:match "^%s+([^%s].*)$"
+        if definition and destination then
+          local collapsed = definition .. " " .. destination
+          local description = title(lines[index + 2])
+          if description then
+            collapsed = collapsed .. " " .. description
+            index = index + 1
+          end
+          out[#out + 1] = collapsed
+          index = index + 2
+        else
+          out[#out + 1] = lines[index]
+          index = index + 1
+        end
+      end
+      callback(nil, out)
+    end,
+  },
+
   -- Re-envuelve la prosa midiendo el ancho *visible* en lugar del bruto.
   --
   -- Prettier (--prose-wrap always) cuenta TODO el markup de un enlace
@@ -593,8 +672,8 @@ local formatters = {
   -- arrastra el enlace a su propia línea aunque el texto visible sea corto
   -- (issue prettier/prettier#9232; mdformat#521 hacen lo mismo). Esta pasada
   -- vuelve a envolver los párrafos descontando el markup inline:
-  -- los enlaces cuentan como su label y los code spans/autolinks como su
-  -- contenido. Los enlaces son atómicos: nunca se parten.
+  -- los enlaces cuentan como icono + label y los code spans/autolinks como su
+  -- contenido renderizado. Los enlaces son atómicos: nunca se parten.
   --
   -- Sólo toca bloques de prosa de nivel superior; el resto (fences de código,
   -- cabeceras, listas, blockquotes, tablas, reglas, definiciones de enlace,
@@ -762,7 +841,9 @@ local formatters = {
               end
 
               if is_prose then
-                local wrapped = hzsr.md.wrap_paragraph(join_paragraph(block), width)
+                local wrapped = hzsr.md.wrap_paragraph(join_paragraph(block), width, {
+                  bufnr = ctx.buf,
+                })
                 for _, l in ipairs(vim.split(wrapped, "\n", { plain = true })) do
                   out[#out + 1] = l
                 end
