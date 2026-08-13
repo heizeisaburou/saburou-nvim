@@ -6,8 +6,11 @@ local function common()
   local col = sabunv.moonfly.colors
   local update = sabunv.moonfly.hl.update
 
-  -- Archivos sucios
-  update("NvimTreeGitDirty", { fg = col.red })
+  -- Archivos traqueados con cambios sin preparar. Definir los grupos modernos
+  -- evita depender de los aliases legacy de nvim-tree.
+  update("NvimTreeGitDirtyIcon", { fg = col.git_dirty })
+  update("NvimTreeGitFileDirtyHL", { fg = col.git_dirty })
+  update("NvimTreeGitFolderDirtyHL", { fg = col.git_dirty })
 
   -- New / renamed
   update("NvimTreeGitNewIcon", { fg = col.yellow })
