@@ -792,23 +792,38 @@ describe("Nyabsidian structured links and attachments", function()
     assert.is_nil(hover(4, 5))
   end)
 
-  it("returns no fabricated hover for a frontmatter-only note", function()
+  it("renders a minimal note card for all frontmatter-only link forms", function()
     write("empty.md", { "---", "id: empty", "---" })
-    write("source.md", { "[empty](empty.md)" })
+    write("source.md", {
+      '[definition]: empty.md "Description"',
+      "[[empty]]",
+      "[empty](empty)",
+    })
     vim.cmd.edit(root .. "/source.md")
 
-    local done, result = false
-    require("obsidian.lsp.handlers")["textDocument/hover"]({
-      textDocument = { uri = vim.uri_from_bufnr(0) },
-      position = { line = 0, character = 3 },
-    }, function(err, value)
-      assert.is_nil(err)
-      result, done = value, true
-    end, {})
-    assert(vim.wait(3000, function()
-      return done
-    end, 10), "hover did not finish")
-    assert.is_nil(result)
+    local function hover(row, character)
+      local done, result = false
+      require("obsidian.lsp.handlers")["textDocument/hover"]({
+        textDocument = { uri = vim.uri_from_bufnr(0) },
+        position = { line = row, character = character },
+      }, function(err, value)
+        assert.is_nil(err)
+        result, done = value, true
+      end, {})
+      assert(vim.wait(3000, function()
+        return done
+      end, 10), "hover did not finish")
+      return result
+    end
+
+    for _, position in ipairs { { 0, 18 }, { 1, 3 }, { 2, 3 } } do
+      local result = hover(unpack(position))
+      assert.are.equal("markdown", result.contents.kind)
+      assert.are.equal(
+        "> **Nota vacía**\n>\n> `empty` no tiene contenido fuera del frontmatter.",
+        result.contents.value
+      )
+    end
   end)
 
   it("goes from reference usages to their declaration, not through it to the note", function()

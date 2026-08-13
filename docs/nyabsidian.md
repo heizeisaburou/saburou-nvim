@@ -164,11 +164,12 @@ son independientes:
 `gd` sobre `[texto][id]`, `[id][]` o `[id]` salta a su declaración `[id]: destino`, no atraviesa
 esa declaración hasta la nota. `gd` sobre el destino de la declaración sí salta a la nota.
 
-`K` devuelve únicamente un extracto Markdown renderizable de la nota, sin ruta, ID, definición ni
-mensajes auxiliares. Si la nota solo contiene frontmatter, no existe cuerpo que previsualizar y no
-se abre ningún hover. Un destino que declara `.md` exige una nota cuyo archivo termine exactamente
-en `.md`: nunca se acepta por similitud un archivo residual `.md.md`. Los adjuntos se delegan y por
-ahora no fabrican una preview propia.
+`K` devuelve únicamente Markdown renderizable de la nota, sin ruta, sintaxis de definición ni
+mensajes técnicos. Si existe cuerpo, muestra su extracto. Si la nota solo contiene frontmatter,
+muestra un aviso visual de nota vacía con su nombre y las propiedades no vacías, nunca un encabezado
+que pueda confundirse con contenido real. Un destino que declara `.md`
+exige una nota cuyo archivo termine exactamente en `.md`: nunca se acepta por similitud un archivo
+residual `.md.md`. Los adjuntos se delegan y por ahora no fabrican una preview propia.
 Los handlers propios se fusionan o delegan con los de obsidian.nvim, de modo que una futura
 implementación upstream puede convivir con ellos sin duplicar resultados.
 

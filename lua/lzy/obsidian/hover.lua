@@ -4,7 +4,7 @@ local M = {}
 
 ---@param note obsidian.Note
 ---@return string|nil
-local function excerpt(note)
+local function body(note)
   if not note.path then
     return nil
   end
@@ -41,11 +41,41 @@ local function excerpt(note)
 end
 
 ---@param note obsidian.Note
+---@return string
+local function empty_note_card(note)
+  local title = note:display_name()
+  title = title ~= "" and title or "Nota"
+  local lines = {
+    "> **Nota vacía**",
+    ">",
+    "> `" .. title .. "` no tiene contenido fuera del frontmatter.",
+  }
+  if note.aliases and #note.aliases > 0 then
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "**Aliases:** " .. table.concat(note.aliases, ", ")
+  end
+  if note.tags and #note.tags > 0 then
+    lines[#lines + 1] = ""
+    lines[#lines + 1] = "**Tags:** #" .. table.concat(note.tags, " #")
+  end
+  return table.concat(lines, "\n")
+end
+
+---@param note obsidian.Note
+---@return string|nil
+local function preview(note)
+  if not note.path then
+    return nil
+  end
+  return body(note) or empty_note_card(note)
+end
+
+---@param note obsidian.Note
 ---@param ref table
 ---@return lsp.Hover|nil
 local function hover_result(note, ref)
-  local preview = excerpt(note)
-  if not preview then
+  local rendered = preview(note)
+  if not rendered then
     return nil
   end
   local end_col = ref.range.end_col
@@ -53,7 +83,7 @@ local function hover_result(note, ref)
     end_col = math.max(end_col, ref.title_range.end_col)
   end
   return {
-    contents = { kind = "markdown", value = preview },
+    contents = { kind = "markdown", value = rendered },
     range = {
       start = { line = ref.range.start_row, character = ref.range.start_col },
       ["end"] = { line = ref.range.end_row, character = end_col },
@@ -120,7 +150,8 @@ function M.setup()
   handlers.__nyabsidian_hover = true
 end
 
-M.excerpt = excerpt
+M.body = body
+M.preview = preview
 M.hover_result = hover_result
 
 return M
