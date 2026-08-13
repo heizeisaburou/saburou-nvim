@@ -4,6 +4,31 @@ local M = {}
 
 local telescope = require "telescope"
 local actions = require "telescope.actions"
+local action_state = require "telescope.actions.state"
+
+local function scroll_preview(columns)
+  return function(prompt_bufnr)
+    local picker = action_state.get_current_picker(prompt_bufnr)
+    local previewer = picker and picker.previewer
+
+    if type(previewer) == "table" and previewer.scroll_horizontal_fn then
+      previewer:scroll_horizontal_fn(columns)
+    end
+  end
+end
+
+local preview_left = scroll_preview(-1)
+local preview_right = scroll_preview(1)
+local preview_left_fast = scroll_preview(-10)
+local preview_right_fast = scroll_preview(10)
+
+local function horizontal_preview_mappings(mappings)
+  mappings["<A-H>"] = preview_left
+  mappings["<A-L>"] = preview_right
+  mappings["<A-h>"] = preview_left_fast
+  mappings["<A-l>"] = preview_right_fast
+  return mappings
+end
 
 ---@type table
 M.config = {
@@ -21,11 +46,11 @@ M.config = {
       height = 0.80,
     },
     mappings = {
-      i = {
+      i = horizontal_preview_mappings {
         ["<C-p>"] = actions.cycle_history_prev,
         ["<C-n>"] = actions.cycle_history_next,
       },
-      n = {
+      n = horizontal_preview_mappings {
         ["q"] = actions.close,
       },
     },
