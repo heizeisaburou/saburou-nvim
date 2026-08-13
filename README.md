@@ -158,6 +158,40 @@ estado con otra instalación de Neovim.
    restaura el valor anterior de `NVIM_APPNAME` al cerrar Neovim, incluso si la ejecución termina
    con un error.
 
+#### Shell de la terminal integrada
+
+Las terminales horizontal, vertical y flotante eligen su shell de Windows mediante
+[`lua/user/terminal.lua`](lua/user/terminal.lua):
+
+```lua
+return {
+  windows_shell = "auto",
+}
+```
+
+Los valores admitidos son:
+
+- `"auto"` (predeterminado): prueba PowerShell 7 (`pwsh`), Windows PowerShell 5.1
+  (`powershell`) y `cmd.exe`, en ese orden.
+- `"pwsh"`: solicita PowerShell 7 explícitamente.
+- `"powershell"`: solicita Windows PowerShell 5.1 explícitamente.
+- `"cmd"`: utiliza siempre `cmd.exe`.
+
+PowerShell 7 es opcional y puede instalarse desde PowerShell o `cmd.exe` con:
+
+```powershell
+winget install --id Microsoft.PowerShell --source winget
+```
+
+Si una preferencia explícita no está instalada, se muestra un aviso y se utiliza `cmd.exe` para
+que la terminal siga funcionando. La selección automática prioriza la versión moderna, conserva
+Windows PowerShell 5.1 como fallback disponible de fábrica y sólo termina en `cmd.exe` si no
+encuentra ninguna de las dos. `:TerminalInfo` muestra la preferencia, la shell resuelta y el
+ejecutable usado.
+
+Esta selección sólo afecta a las terminales integradas. No cambia `vim.o.shell`, por lo que
+comandos como `:!` y `:make` conservan la shell configurada por Neovim.
+
 ### Linux y macOS
 
 1. Instala Neovim 0.12+ con un binario fijo (recomendado: `nvim12`).
