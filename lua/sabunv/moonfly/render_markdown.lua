@@ -172,6 +172,14 @@ local function heading_highlights(state)
   set_heading(5, palette.h5)
   set_heading(6, palette.h6)
 
+  set("RenderMarkdownSpoiler", {
+    fg = palette.h3.fg,
+    bg = palette.h3.bg,
+    ctermfg = palette.h3.ctermfg,
+    ctermbg = palette.h3.ctermbg,
+    bold = true,
+  })
+
   -- Fallbacks
   set("@markup.heading.markdown", {
     fg = palette.h1.fg,

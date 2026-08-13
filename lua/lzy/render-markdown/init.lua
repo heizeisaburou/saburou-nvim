@@ -22,8 +22,7 @@ M.opts = {
 
   custom_handlers = {
     markdown = {
-      extends = true,
-      parse = require("lzy.render-markdown.links").parse_markdown,
+      parse = require("lzy.render-markdown.spoilers").parse_markdown,
     },
     markdown_inline = {
       extends = true,
@@ -55,6 +54,7 @@ local function build_opts()
 end
 
 local function setup_plugin()
+  require("lzy.render-markdown.spoilers").setup()
   require("render-markdown").setup(build_opts())
 
   local ok, render_markdown = pcall(require, "render-markdown")

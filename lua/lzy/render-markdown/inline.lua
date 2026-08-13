@@ -158,6 +158,7 @@ function M.parse(ctx)
   -- por ejemplo `_v1_`, cuando el contenido termina en un dígito.
   render_unparsed_underscore_emphasis(ctx, marks)
   require("lzy.render-markdown.links").render_inline(ctx, marks)
+  require("lzy.render-markdown.spoilers").render_inline(ctx, marks)
 
   for id, node in code_query:iter_captures(ctx.root, ctx.buf) do
     if code_query.captures[id] == "code" then
