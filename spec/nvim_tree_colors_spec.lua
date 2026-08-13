@@ -18,7 +18,7 @@ describe("Sabunv nvim-tree Git colors", function()
           light_blue = "#00ffff",
           pink = "#ff00ff",
           yellow = "#ffff00",
-          git_dirty = "#771717",
+          git_dirty = "#bc3a3a",
         },
         unified_colors = {
           solid = { light_line_bg = "#111111" },

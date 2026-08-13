@@ -45,7 +45,7 @@ M.colors = {
   pink = "#F094C5",
 
   -- nvim-tree: archivos ya traqueados con cambios sin preparar.
-  git_dirty = "#771717",
+  git_dirty = "#bc3a3a",
 
   light_green = "#36C692",
   green = "#24b37e",
@@ -272,7 +272,7 @@ end
 ---@param style sabunv.moonfly.style
 ---@return sabunv.moonfly.state
 function M.set_style(style)
-  return M.apply({ style = style })
+  return M.apply { style = style }
 end
 
 ---@return sabunv.moonfly.state
