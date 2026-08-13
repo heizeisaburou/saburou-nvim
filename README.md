@@ -97,41 +97,105 @@ formatters, linters, depuradores) no funcionará correctamente.
 
 ## Inicio rápido
 
+### Windows (PowerShell)
+
+La instalación aislada bajo el nombre `srnv` evita mezclar esta configuración, sus plugins y su
+estado con otra instalación de Neovim.
+
+1. Instala los [requisitos](#requisitos), abre PowerShell y clona el repositorio en la ruta que
+   Neovim asocia con `NVIM_APPNAME=srnv`:
+
+   ```powershell
+   git clone https://github.com/heizeisaburou/saburou-nvim "$env:LOCALAPPDATA\srnv"
+   ```
+
+2. Para iniciarlo durante la sesión actual de PowerShell:
+
+   ```powershell
+   $env:NVIM_APPNAME = "srnv"
+   nvim
+   ```
+
+   La misma operación en una sola línea:
+
+   ```powershell
+   $env:NVIM_APPNAME="srnv"; nvim
+   ```
+
+3. Para disponer del comando `srnv` en todas las sesiones sin dejar modificado
+   `NVIM_APPNAME`, crea el perfil si todavía no existe y ábrelo:
+
+   ```powershell
+   New-Item -ItemType Directory -Path (Split-Path $PROFILE) -Force | Out-Null
+   New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+   notepad $PROFILE
+   ```
+
+   Añade esta función al perfil:
+
+   ```powershell
+   function srnv {
+       $hadNvimAppName = Test-Path Env:NVIM_APPNAME
+       $oldNvimAppName = $env:NVIM_APPNAME
+
+       try {
+           $env:NVIM_APPNAME = "srnv"
+           nvim @args
+       }
+       finally {
+           if ($hadNvimAppName) {
+               $env:NVIM_APPNAME = $oldNvimAppName
+           }
+           else {
+               Remove-Item Env:NVIM_APPNAME -ErrorAction SilentlyContinue
+           }
+       }
+   }
+   ```
+
+   Guarda el archivo y ejecuta `. $PROFILE` para cargarlo sin reiniciar PowerShell. A partir de
+   entonces puedes ejecutar `srnv` o pasarle argumentos, por ejemplo `srnv README.md`. La función
+   restaura el valor anterior de `NVIM_APPNAME` al cerrar Neovim, incluso si la ejecución termina
+   con un error.
+
+### Linux y macOS
+
 1. Instala Neovim 0.12+ con un binario fijo (recomendado: `nvim12`).
 2. Clona el repositorio en `~/.config/nvim` (la ruta por defecto de Neovim) o en
    `~/.config/$NVIM_APPNAME` si prefieres mantener la configuración aislada.
 
-	Configuración por defecto:
+   Configuración por defecto:
 
-	```bash
-	git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim
-	```
+   ```bash
+   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim
+   ```
 
-	Configuración aislada (recomendado, usando `nvim12` como ejemplo de `NVIM_APPNAME`):
+   Configuración aislada (recomendado, usando `nvim12` como ejemplo de `NVIM_APPNAME`):
 
-	```bash
-	git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
-	```
+   ```bash
+   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
+   ```
 
 3. Abre Neovim por primera vez:
-	- Con la configuración por defecto: `nvim`.
-	- Con la configuración aislada: `NVIM_APPNAME=nvim12 nvim12`.
 
-	`lazy.nvim` instalará los plugins automáticamente.
+   - Con la configuración por defecto: `nvim`.
+   - Con la configuración aislada: `NVIM_APPNAME=nvim12 nvim12`.
 
-4. Ejecuta dentro de Neovim:
+### Primer inicio
 
-	```vim
-	:Lazy sync
-	:MasonInstallAll
-	:TSInstallAll
-	```
+`lazy.nvim` instalará los plugins automáticamente. Después, ejecuta dentro de Neovim:
 
-	En Windows, `TSInstallAll` comprueba primero una de las descargas exactas de los parsers. Si
-	Schannel devuelve `CRYPT_E_NO_REVOCATION_CHECK`, ofrece reintentar interactivamente con
-	`--ssl-revoke-best-effort`. La excepción solo se aplica a los archivos de parsers fijados por
-	commit durante esa ejecución: no modifica `.curlrc`, no desactiva la validación del
-	certificado y cualquier otro error de TLS detiene la instalación.
+```vim
+:Lazy sync
+:MasonInstallAll
+:TSInstallAll
+```
+
+En Windows, `TSInstallAll` comprueba primero una de las descargas exactas de los parsers. Si
+Schannel devuelve `CRYPT_E_NO_REVOCATION_CHECK`, ofrece reintentar interactivamente con
+`--ssl-revoke-best-effort`. La excepción solo se aplica a los archivos de parsers fijados por
+commit durante esa ejecución: no modifica `.curlrc`, no desactiva la validación del certificado y
+cualquier otro error de TLS detiene la instalación.
 
 ### Configuración de LuaLS
 
