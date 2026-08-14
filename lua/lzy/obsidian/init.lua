@@ -144,6 +144,19 @@ local function install_note_keymaps(bufnr)
   end
 end
 
+---Elimina únicamente mappings propiedad de Obsidian/Nyabsidian. Es
+---importante hacerlo por `desc`: fuera de un vault, Marksman reutiliza parte
+---del namespace `<leader>n*` y no debemos borrar sus mappings buffer-locales.
+---@param bufnr integer
+local function uninstall_note_keymaps(bufnr)
+  for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
+    local desc = map.desc or ""
+    if desc:find("^Obsidian") or desc:find("^Nyabsidian") then
+      pcall(vim.api.nvim_buf_del_keymap, bufnr, map.lhs)
+    end
+  end
+end
+
 ---@param name string
 ---@return boolean
 local function is_note(name)
@@ -561,7 +574,12 @@ local function leave_vault(bufnr)
     return
   end
 
-  if #vim.lsp.get_clients { bufnr = bufnr, name = "marksman" } > 0 then
+  local marksman_clients = vim.lsp.get_clients { bufnr = bufnr, name = "marksman" }
+  if #marksman_clients > 0 then
+    -- Si Obsidian había pisado `<leader>nb`/`<leader>nf` antes de descubrir
+    -- que este buffer está fuera del vault, el LSP ya adjunto no volverá a
+    -- disparar LspAttach. Reinstalar es idempotente y repara el buffer ahora.
+    require("lzy.marksman").on_attach(marksman_clients[1], bufnr)
     return
   end
 
@@ -663,13 +681,10 @@ local function reset_obsidian_buffer(bufnr)
     vim.bo[bufnr].readonly = false
   end
 
-  for _, lhs in ipairs { "<CR>", "]o", "[o" } do
-    for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, "n")) do
-      if map.lhs == lhs and (map.desc or ""):find "^Obsidian" then
-        pcall(vim.keymap.del, "n", lhs, { buffer = bufnr })
-      end
-    end
-  end
+  -- Obsidian puede haber instalado tanto su `<CR>` como todo `<leader>n*`
+  -- durante FileType/BufEnter. Si permanecen fuera del vault, pisan los
+  -- backlinks/follow de Marksman y ejecutan comandos contra el dummy vault.
+  uninstall_note_keymaps(bufnr)
 
   -- Fuera del vault: obsidian-ls se desconecta y marksman toma el relevo.
   leave_vault(bufnr)
@@ -1177,10 +1192,9 @@ local function install_workspace_switch()
         return
       end
 
-      install_note_keymaps(ev.buf)
-
       local ws = require("obsidian").api.find_workspace(ev.file)
       if ws then
+        install_note_keymaps(ev.buf)
         set_workspace(ws)
         enter_vault(ev.buf, ws.root)
         -- Este callback puede ejecutarse antes que el BufEnter buffer-local de

@@ -1015,6 +1015,57 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd "silent! wall"
   end
 
+  it("renames tag trees consistently with the tag picker", function()
+    write("tag-source.md", {
+      "Tags #project and #project/child; keep #other",
+      "```",
+      "Hidden #project",
+      "```",
+    })
+    write("tag-frontmatter.md", {
+      "---",
+      "tags:",
+      "  - project",
+      "  - project/deep",
+      "---",
+      "Body #project/deep/leaf",
+    })
+    vim.cmd.edit(vim.fs.joinpath(root, "tag-source.md"))
+    rename_at(7, "work")
+
+    assert.are.same({
+      "Tags #work and #work/child; keep #other",
+      "```",
+      "Hidden #project",
+      "```",
+    }, vim.fn.readfile(root .. "/tag-source.md"))
+    assert.are.same({
+      "---",
+      "tags:",
+      "  - work",
+      "  - work/deep",
+      "---",
+      "Body #work/deep/leaf",
+    }, vim.fn.readfile(root .. "/tag-frontmatter.md"))
+  end)
+
+  it("keeps Enter normal on headings unless Markdown folding is active", function()
+    write("source.md", { "## Heading", "Body" })
+    vim.cmd.edit(vim.fs.joinpath(root, "source.md"))
+    vim.api.nvim_win_set_cursor(0, { 1, 3 })
+    local old_foldmethod = vim.wo.foldmethod
+    local old_markdown_folding = vim.g.markdown_folding
+
+    vim.g.markdown_folding = nil
+    vim.wo.foldmethod = "manual"
+    assert.are.equal("<CR>", require("obsidian.actions").smart_action())
+    vim.wo.foldmethod = "expr"
+    assert.are.equal("za", require("obsidian.actions").smart_action())
+
+    vim.wo.foldmethod = old_foldmethod
+    vim.g.markdown_folding = old_markdown_folding
+  end)
+
   it("renames a parent heading without touching standalone child anchors", function()
     rename_at(8, "Renamed")
 

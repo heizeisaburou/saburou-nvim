@@ -640,6 +640,26 @@ local function patch_action_follow()
   actions.__nyabsidian_attachments = true
 end
 
+local function patch_smart_action()
+  local actions = require "obsidian.actions"
+  if actions.__nyabsidian_heading_enter then
+    return
+  end
+  local original = actions.smart_action
+
+  actions.smart_action = function()
+    local api = require "obsidian.api"
+    local folding = vim.g.markdown_folding == 1 or vim.wo.foldmethod == "expr"
+    if not folding and (api.cursor_heading() or api.cursor_frontmatter()) then
+      -- Upstream cae aquí en `checkbox.create_new` y puede convertir un
+      -- heading en tarea. Sin folding, el comportamiento seguro es Enter.
+      return "<CR>"
+    end
+    return original()
+  end
+  actions.__nyabsidian_heading_enter = true
+end
+
 ---@param result table
 ---@param callback function
 local function prepare_result(result, callback)
@@ -701,6 +721,16 @@ local function patch_prepare_rename()
   handlers["textDocument/prepareRename"] = function(params, callback, dispatchers)
     prepared_heading = nil
     prepared_attachment = nil
+    local tag = require("sabunv.nvim.tags").at(vim.api.nvim_get_current_buf())
+    if tag then
+      return prepare_result({
+        text = tag.tag,
+        range = {
+          start = { line = tag.value_range.start_row, character = tag.value_range.start_col },
+          ["end"] = { line = tag.value_range.end_row, character = tag.value_range.end_col },
+        },
+      }, callback)
+    end
     local context = cursor_context()
     if context then
       local component = context.component
@@ -878,6 +908,27 @@ local function patch_rename()
       return callback(nil, {})
     end
 
+    local bufnr = vim.api.nvim_get_current_buf()
+    local tag = require("sabunv.nvim.tags").at(bufnr)
+    if tag then
+      prepared_heading = nil
+      prepared_attachment = nil
+      local root = tostring(require("obsidian.api").resolve_workspace_dir(vim.api.nvim_buf_get_name(bufnr)))
+      local edit, err, count = require("sabunv.nvim.tags").rename_edit(tag.tag, params.newName, root)
+      if not edit then
+        notify(err, vim.log.levels.ERROR)
+        return callback(nil, {})
+      elseif count == 0 then
+        notify("No se encontraron apariciones del tag", vim.log.levels.INFO)
+        return callback(nil, {})
+      end
+      vim.schedule(function()
+        vim.cmd "silent! wall"
+      end)
+      notify(("Tag renombrado en %d apariciones"):format(count), vim.log.levels.INFO)
+      return callback(nil, edit)
+    end
+
     local context = cursor_context()
     if context then
       local attachments = require "lzy.obsidian.attachments"
@@ -1004,6 +1055,8 @@ function M.setup(opts)
     opts.state.follow_link_patched = true
     opts.state.attachment_rename_patched = true
     opts.state.heading_links_patched = true
+    opts.state.tag_rename_patched = true
+    opts.state.smart_heading_patched = true
   end
   if installed then
     return
@@ -1012,6 +1065,7 @@ function M.setup(opts)
   patch_cursor_autolink()
   patch_definition()
   patch_action_follow()
+  patch_smart_action()
   patch_prepare_rename()
   patch_rename()
   require("lzy.obsidian.completion").setup()

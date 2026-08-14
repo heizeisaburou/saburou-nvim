@@ -132,7 +132,7 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 | `gd`         | Ir a una nota/heading o abrir el adjunto bajo el cursor                         |
 | `gx`         | Abrir una URL o un adjunto con Neovim o con la aplicación del sistema           |
 | `K`          | Hover con metadatos y un extracto breve de la nota enlazada                     |
-| `<C-A-r>`    | Rename LSP del componente exacto del enlace bajo el cursor                      |
+| `<C-A-r>`    | Rename LSP del componente exacto del enlace o tag bajo el cursor                |
 
 > [!NOTE]
 >
@@ -148,6 +148,14 @@ desambigua `Child`; solo se anteponen más headings cuando todavía quedan vario
 El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto se aplica
 literalmente al heading, mientras los enlaces se escriben con su anchor canónico
 (`My Father A` → `my-father-a`).
+
+Sobre un tag, `<C-A-r>` renombra la rama completa en cuerpo y frontmatter. Por ejemplo, cambiar
+`#proyecto` a `#trabajo` convierte `#proyecto/urgente` en `#trabajo/urgente`; los bloques de código
+quedan fuera. Es la misma jerarquía que usa la búsqueda de tags de Obsidian.
+
+La acción inteligente solo devuelve `za` sobre headings y frontmatter cuando el folding Markdown
+está activo. Sin folding devuelve Enter normal, evitando que `checkbox.create_new` convierta un
+heading en una tarea.
 
 También se manejan las referencias Markdown `[texto][id]`, `[id][]` y `[id]` con una definición
 `[id]: destino "description"`. La definición pertenece a la nota actual y sus tres componentes
@@ -197,6 +205,10 @@ mismo significado de revisión con cero, uno o varios resultados.
 de Neovim; imágenes, PDF, audio, vídeo y demás binarios se abren con la aplicación del sistema.
 La decisión se toma por el contenido, no mediante una lista cerrada de extensiones: un `.mp4`
 textual entra en Neovim y cualquier formato no textual se delega al opener/MIME del sistema.
+Marksman usa el mismo clasificador y opener. En sistemas sin el ejecutable `file`, como una
+instalación normal de Windows, el fallback inspecciona firmas binarias, BOM, NUL y bytes de
+control; la delegación final sigue siendo `vim.ui.open()` para conservar `xdg-open`, `open` o la
+asociación de Windows según la plataforma.
 `attachments.folder` solo decide dónde se añaden o pegan archivos nuevos: nunca altera la
 resolución de un enlace existente.
 

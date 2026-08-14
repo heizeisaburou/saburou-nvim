@@ -704,46 +704,14 @@ end
 ---@param path string
 ---@return boolean
 function M.is_text(path)
-  local stat = uv.fs_stat(path)
-  if stat and stat.size == 0 then
-    return true
-  end
-  if vim.fn.executable "file" == 1 then
-    local result = vim
-      .system({ "file", "--brief", "--mime-encoding", "--", path }, { text = true })
-      :wait(1500)
-    local encoding = result.code == 0 and vim.trim(result.stdout or "") or ""
-    if encoding ~= "" then
-      return encoding ~= "binary"
-    end
-  end
-
-  local fd = uv.fs_open(path, "r", 438)
-  if not fd then
-    return false
-  end
-  stat = uv.fs_fstat(fd)
-  local sample = uv.fs_read(fd, math.min(stat and stat.size or 4096, 4096), 0) or ""
-  uv.fs_close(fd)
-  return not sample:find "%z"
+  return require("sabunv.nvim.file_opener").is_text(path)
 end
 
 ---@param path string
 ---@param opts { schedule?: boolean }|?
 function M.open_path(path, opts)
-  opts = opts or {}
-  local function open()
-    if M.is_text(path) then
-      vim.cmd.edit(vim.fn.fnameescape(path))
-    else
-      vim.ui.open(path)
-    end
-  end
-  if opts.schedule == false then
-    open()
-  else
-    vim.schedule(open)
-  end
+  opts = vim.tbl_extend("keep", opts or {}, { title = "Nyabsidian" })
+  return require("sabunv.nvim.file_opener").open_path(path, opts)
 end
 
 ---@param location string
