@@ -9,6 +9,79 @@ local indent = require "sabunv.indent"
 local spoiler_format_state = {}
 local frontmatter_format_state = {}
 
+-- ----------------------------------------------------------------------------
+-- Formateadores por filetype
+-- ----------------------------------------------------------------------------
+-- Reglas especiales:
+--   - zsh: `shfmt` no funciona correctamente en este setup
+local formatters_by_ft = {
+  lua = { "stylua" },
+  markdown = {
+    "markdown_callouts",
+    "markdown_frontmatter_prepare",
+    "markdown_spoilers_prepare",
+    "prettier",
+    "markdown_spoilers_restore",
+    "markdown_frontmatter_restore",
+    "markdown_reference_definitions",
+    "markdown_wrap",
+    "markdown_tabs",
+  }, -- mdformat (bug con tablas grandes)
+  --
+  --
+  --
+  bash = { "shfmt" },
+  c = { "clang_format" },
+  clojure = { "zprint" }, -- activa edn también
+  cpp = { "clang_format" },
+  cs = { "csharpier" }, -- C#
+  css = { "prettier" },
+  dart = { "dart_format" }, -- externo
+  edn = { "zprint" }, -- .edn de Clojure
+  eelixir = { "mix" },
+  elixir = { "mix" },
+  fsharp = { "fantomas" }, -- F#
+  gleam = { "gleam" },
+  go = { "gofmt" },
+  gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
+  handlebars = { "prettier_handlebars" },
+  haskell = { "fourmolu" },
+  heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
+  html = { "prettier" },
+  htmldjango = { "djlint" },
+  java = { "google-java-format" },
+  javascript = { "prettier" },
+  javascriptreact = { "prettier" },
+  jinja = { "prettier_jinja" },
+  json = { "biome" },
+  kotlin = { "ktlint" },
+  lhaskell = { "fourmolu" }, -- .lhs
+  liquid = { "prettier_liquid" },
+  ocaml = { "ocamlformat" }, -- camellito
+  ocamlinterface = { "ocamlformat" }, -- camellitox2
+  php = { "php_cs_fixer" },
+  plaintex = { "latexindent" }, -- Latex
+  pug = { "prettier_pug" }, -- Pug (Jade)
+  python = { "ruff_format" },
+  qml = { "qmlformat" }, -- externo
+  ruby = { "rubocop", timeout_ms = 10000 },
+  rust = { "rustfmt" },
+  scala = { "scalafmt", timeout_ms = 10000 },
+  scss = { "prettier" },
+  surface = { "mix" }, -- Elixir/Phoenix
+  svelte = { "prettier_svelte" },
+  swift = { "swiftformat" },
+  tex = { "latexindent" }, -- latex
+  toml = { "taplo" }, -- toml
+  twig = { "prettier_twig" }, -- twig
+  typescript = { "prettier" },
+  typescriptreact = { "prettier" },
+  typst = { "typstyle" }, -- Typst
+  vue = { "prettier" }, -- Vue (framework de javascript)
+  yaml = { "yamlfmt" },
+  zig = { "zigfmt" },
+}
+
 ---@param line string
 ---@return string? indent
 ---@return string? marker
@@ -35,7 +108,12 @@ local function transform_spoiler_fences(lines, prepare)
     local indent, marker, info = markdown_fence(line)
     if active_char then
       out[#out + 1] = line
-      if marker and marker:sub(1, 1) == active_char and #marker >= active_length and info == "" then
+      if
+        marker
+        and marker:sub(1, 1) == active_char
+        and #marker >= active_length
+        and info == ""
+      then
         active_char, active_length = nil, nil
       end
     elseif marker then
@@ -184,7 +262,12 @@ local function prepare_spoilers(lines, bufnr)
   for index, line in ipairs(transformed) do
     local _, marker, info = markdown_fence(line)
     if active_char then
-      if marker and marker:sub(1, 1) == active_char and #marker >= active_length and info == "" then
+      if
+        marker
+        and marker:sub(1, 1) == active_char
+        and #marker >= active_length
+        and info == ""
+      then
         active_char, active_length, markdown_body = nil, nil, nil
       elseif markdown_body and not tables[index] then
         transformed[index] = protect_inline_spoilers(line, state)
@@ -251,8 +334,7 @@ local function prepare_frontmatter(lines, bufnr)
   end
   frontmatter_format_state[bufnr] = { token = token, lines = original }
 
-  local placeholder = delimiter == "---"
-      and ("hzsr-internal-frontmatter: %s"):format(token)
+  local placeholder = delimiter == "---" and ("hzsr-internal-frontmatter: %s"):format(token)
     or ("hzsr_internal_frontmatter = %q"):format(token)
   local result = { delimiter, placeholder, delimiter }
   for index = closing + 1, #lines do
@@ -358,79 +440,6 @@ local function cached_config(name, contents, extension)
 
   return path
 end
-
--- ----------------------------------------------------------------------------
--- Formateadores por filetype
--- ----------------------------------------------------------------------------
--- Reglas especiales:
---   - zsh: `shfmt` no funciona correctamente en este setup
-local formatters_by_ft = {
-  lua = { "stylua" },
-  markdown = {
-    "markdown_callouts",
-    "markdown_frontmatter_prepare",
-    "markdown_spoilers_prepare",
-    "prettier",
-    "markdown_spoilers_restore",
-    "markdown_frontmatter_restore",
-    "markdown_reference_definitions",
-    "markdown_wrap",
-    "markdown_tabs",
-  }, -- mdformat (bug con tablas grandes)
-  --
-  --
-  --
-  -- bash = { "shfmt" },
-  -- c = { "clang_format" },
-  -- clojure = { "zprint" }, -- activa edn también
-  -- cpp = { "clang_format" },
-  -- cs = { "csharpier" }, -- C#
-  -- css = { "prettier" },
-  -- dart = { "dart_format" }, -- externo
-  -- edn = { "zprint" }, -- .edn de Clojure
-  -- eelixir = { "mix" },
-  -- elixir = { "mix" },
-  -- fsharp = { "fantomas" }, -- F#
-  -- gleam = { "gleam" },
-  go = { "gofmt" },
-  -- gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
-  -- handlebars = { "prettier_handlebars" },
-  -- haskell = { "fourmolu" },
-  -- heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
-  -- html = { "prettier" },
-  -- htmldjango = { "djlint" },
-  -- java = { "google-java-format" },
-  -- javascript = { "prettier" },
-  -- javascriptreact = { "prettier" },
-  -- jinja = { "prettier_jinja" },
-  -- json = { "biome" },
-  -- kotlin = { "ktlint" },
-  -- lhaskell = { "fourmolu" }, -- .lhs
-  -- liquid = { "prettier_liquid" },
-  -- ocaml = { "ocamlformat" }, -- camellito
-  -- ocamlinterface = { "ocamlformat" }, -- camellitox2
-  -- php = { "php_cs_fixer" },
-  -- plaintex = { "latexindent" }, -- Latex
-  -- pug = { "prettier_pug" }, -- Pug (Jade)
-  -- python = { "ruff_format" },
-  -- qml = { "qmlformat" }, -- externo
-  -- ruby = { "rubocop", timeout_ms = 10000 },
-  -- rust = { "rustfmt" },
-  -- scala = { "scalafmt", timeout_ms = 10000 },
-  -- scss = { "prettier" },
-  -- surface = { "mix" }, -- Elixir/Phoenix
-  -- svelte = { "prettier_svelte" },
-  -- swift = { "swiftformat" },
-  -- tex = { "latexindent" }, -- latex
-  -- toml = { "taplo" }, -- toml
-  -- twig = { "prettier_twig" }, -- twig
-  -- typescript = { "prettier" },
-  -- typescriptreact = { "prettier" },
-  -- typst = { "typstyle" }, -- Typst
-  -- vue = { "prettier" }, -- Vue (framework de javascript)
-  -- yaml = { "yamlfmt" },
-  -- zig = { "zigfmt" },
-}
 
 -- ----------------------------------------------------------------------------
 -- Definiciones de formateadores
@@ -851,14 +860,15 @@ local formatters = {
         end
 
         local rest = line:sub(#marker + 1)
-        return rest ~= "" and rest:match("^%s+$") == nil
+        return rest ~= "" and rest:match "^%s+$" == nil
       end
 
       -- `true` si la línea es texto plano que prettier fusionaría al header
       -- por lazy continuation (ver comentario del formatter).
       local function is_lazy_continuation(line)
-        return line:match("^%s*>") == nil and line:match("^%s*$") == nil
-          and line:match("^%s*[#%*%+%-%d%`%~]") == nil
+        return line:match "^%s*>" == nil
+          and line:match "^%s*$" == nil
+          and line:match "^%s*[#%*%+%-%d%`%~]" == nil
       end
 
       for index, line in ipairs(lines) do
@@ -868,7 +878,11 @@ local formatters = {
         local next_line = lines[index + 1]
 
         if prefix and next_line then
-          if callout_prefix(next_line) or has_body(next_line) or is_lazy_continuation(next_line) then
+          if
+            callout_prefix(next_line)
+            or has_body(next_line)
+            or is_lazy_continuation(next_line)
+          then
             out[#out + 1] = prefix
           end
         elseif has_body(line) and next_line and callout_prefix(next_line) then
@@ -967,7 +981,8 @@ local formatters = {
 
       while index <= #lines do
         local definition = header(lines[index])
-        local destination = definition and lines[index + 1]
+        local destination = definition
+          and lines[index + 1]
           and lines[index + 1]:match "^%s+([^%s].*)$"
         if definition and destination then
           local collapsed = definition .. " " .. destination
