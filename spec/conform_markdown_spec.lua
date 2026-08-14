@@ -27,13 +27,49 @@ describe("Conform Markdown pipeline", function()
   it("keeps the semantic formatter order", function()
     assert.are.same({
       "markdown_callouts",
+      "markdown_frontmatter_prepare",
       "markdown_spoilers_prepare",
       "prettier",
       "markdown_spoilers_restore",
+      "markdown_frontmatter_restore",
       "markdown_reference_definitions",
       "markdown_wrap",
       "markdown_tabs",
     }, conform.formatters_by_ft.markdown)
+  end)
+
+  it("preserves frontmatter indentation while formatting the Markdown body", function()
+    local source = {
+      "---",
+      "title: Solo propiedades",
+      "aliases:",
+      "  - sin cuerpo",
+      "tags:",
+      "  - vacia",
+      "---",
+      "",
+      "Body      still handled by Prettier.",
+    }
+    local prepared = run("markdown_frontmatter_prepare", source)
+    assert.are.equal("---", prepared[1])
+    assert.matches("^hzsr%-internal%-frontmatter:", prepared[2])
+    assert.are.equal("---", prepared[3])
+    assert.are.equal("Body      still handled by Prettier.", prepared[5])
+
+    -- Salida representativa de Prettier: el cuerpo cambia, el marcador queda.
+    prepared[5] = "Body still handled by Prettier."
+    local restored = run("markdown_frontmatter_restore", prepared)
+    assert.are.same({
+      "---",
+      "title: Solo propiedades",
+      "aliases:",
+      "  - sin cuerpo",
+      "tags:",
+      "  - vacia",
+      "---",
+      "",
+      "Body still handled by Prettier.",
+    }, restored)
   end)
 
   it("round-trips spoiler fences through Prettier's embedded Markdown parser", function()

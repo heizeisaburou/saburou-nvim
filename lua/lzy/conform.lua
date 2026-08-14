@@ -7,6 +7,7 @@ local scalafmt_fallback_dialect = "scala3"
 local scalafmt_fallback_version = "3.10.6"
 local indent = require "sabunv.indent"
 local spoiler_format_state = {}
+local frontmatter_format_state = {}
 
 ---@param line string
 ---@return string? indent
@@ -218,6 +219,80 @@ local function restore_spoilers(lines, bufnr)
   return transform_spoiler_fences(lines, false)
 end
 
+---@param lines string[]
+---@param bufnr integer
+---@return string[]
+local function prepare_frontmatter(lines, bufnr)
+  frontmatter_format_state[bufnr] = nil
+  local delimiter = lines[1]
+  if delimiter ~= "---" and delimiter ~= "+++" then
+    return lines
+  end
+
+  local closing
+  for index = 2, #lines do
+    if lines[index] == delimiter then
+      closing = index
+      break
+    end
+  end
+  if not closing then
+    return lines
+  end
+
+  local source = table.concat(lines, "\n")
+  local token = "hzsr-internal-frontmatter-" .. vim.fn.sha256(source):sub(1, 12)
+  while source:find(token, 1, true) do
+    token = token .. "x"
+  end
+  local original = {}
+  for index = 1, closing do
+    original[#original + 1] = lines[index]
+  end
+  frontmatter_format_state[bufnr] = { token = token, lines = original }
+
+  local placeholder = delimiter == "---"
+      and ("hzsr-internal-frontmatter: %s"):format(token)
+    or ("hzsr_internal_frontmatter = %q"):format(token)
+  local result = { delimiter, placeholder, delimiter }
+  for index = closing + 1, #lines do
+    result[#result + 1] = lines[index]
+  end
+  return result
+end
+
+---@param lines string[]
+---@param bufnr integer
+---@return string[]
+local function restore_frontmatter(lines, bufnr)
+  local state = frontmatter_format_state[bufnr]
+  frontmatter_format_state[bufnr] = nil
+  if not state then
+    return lines
+  end
+
+  local delimiter = lines[1]
+  if delimiter ~= "---" and delimiter ~= "+++" then
+    return lines
+  end
+  local closing
+  for index = 2, #lines do
+    if lines[index] == delimiter then
+      closing = index
+      break
+    end
+  end
+  if not closing or not table.concat(lines, "\n", 1, closing):find(state.token, 1, true) then
+    return lines
+  end
+
+  local result = vim.deepcopy(state.lines)
+  for index = closing + 1, #lines do
+    result[#result + 1] = lines[index]
+  end
+  return result
+end
+
 local function indent_for(ctx)
   if ctx and ctx.buf then
     return indent.for_buffer(ctx.buf)
@@ -293,9 +368,11 @@ local formatters_by_ft = {
   lua = { "stylua" },
   markdown = {
     "markdown_callouts",
+    "markdown_frontmatter_prepare",
     "markdown_spoilers_prepare",
     "prettier",
     "markdown_spoilers_restore",
+    "markdown_frontmatter_restore",
     "markdown_reference_definitions",
     "markdown_wrap",
     "markdown_tabs",
@@ -802,6 +879,22 @@ local formatters = {
       end
 
       callback(nil, out)
+    end,
+  },
+
+  -- Prettier usa el ancho de indentación de Markdown también dentro del YAML
+  -- y puede cambiar listas de frontmatter que ya estaban bien. Se sustituye
+  -- temporalmente el bloque completo por un marcador válido y se restaura
+  -- byte por byte después; el cuerpo de la nota sí continúa formateándose.
+  markdown_frontmatter_prepare = {
+    format = function(_, ctx, lines, callback)
+      callback(nil, prepare_frontmatter(lines, ctx and ctx.buf or 0))
+    end,
+  },
+
+  markdown_frontmatter_restore = {
+    format = function(_, ctx, lines, callback)
+      callback(nil, restore_frontmatter(lines, ctx and ctx.buf or 0))
     end,
   },
 

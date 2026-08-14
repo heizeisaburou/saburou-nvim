@@ -105,11 +105,14 @@ o colapsadas que tengan definición. `markdown_wrap` pasa su buffer a esta funci
 La cadena actual sigue siendo:
 
 ```text
-markdown_callouts → markdown_spoilers_prepare → prettier → markdown_spoilers_restore
-→ markdown_reference_definitions → markdown_wrap → markdown_tabs
+markdown_callouts → markdown_frontmatter_prepare → markdown_spoilers_prepare → prettier
+→ markdown_spoilers_restore → markdown_frontmatter_restore → markdown_reference_definitions
+→ markdown_wrap → markdown_tabs
 ```
 
-`markdown_callouts` protege la sintaxis antes de Prettier. Después,
+`markdown_callouts` protege la sintaxis antes de Prettier. El par de pasadas de frontmatter
+sustituye temporalmente un bloque YAML/TOML inicial por un marcador válido y lo restaura byte por
+byte, de modo que Prettier formatea el cuerpo sin reescribir la sangría de las propiedades. Después,
 `markdown_spoilers_prepare` cambia temporalmente solo los fences estructurales `spoiler` por una
 inyección Markdown marcada; así Prettier formatea su cuerpo. También sustituye cada spoiler inline
 por un token atómico de nueve celdas —el ancho exacto de `󰈉 SPOILER`— para impedir que Prettier
