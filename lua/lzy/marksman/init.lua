@@ -1,0 +1,327 @@
+local M = {}
+
+local function is_external(path)
+	return path:match("^[%a][%w+.-]*:") and not path:match("^%a:[/\\]")
+end
+
+local function context(bufnr)
+	local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local ref = require("lzy.marksman.parser").at(lines, row - 1, col)
+	return ref, ref and require("lzy.marksman.parser").component(ref, col) or nil
+end
+
+local function definition(ref)
+	return ref.kind == "reference_use" and ref.definition or ref
+end
+
+local function resolved_paths(ref, bufnr)
+	local declared = definition(ref)
+	if not declared or not declared.path then
+		return {}, nil, nil
+	end
+	local workspace = require("lzy.marksman.workspace")
+	local root = workspace.root(bufnr)
+	local source_path = vim.api.nvim_buf_get_name(bufnr)
+	if not root or source_path == "" then
+		return {}, nil, nil
+	end
+	return workspace.resolve(declared.path, { source_path = source_path, root = root }), declared, root
+end
+
+local function choose(paths, prompt, callback)
+	if #paths == 1 then
+		callback(paths[1])
+	elseif #paths > 1 then
+		vim.ui.select(paths, { prompt = prompt }, callback)
+	else
+		vim.notify("No se encontró la nota enlazada", vim.log.levels.INFO, { title = "Marksman" })
+	end
+end
+
+local function open_resolved(path, declared)
+	local workspace = require("lzy.marksman.workspace")
+	if not workspace.is_markdown(path) then
+		return require("sabunv.nvim.file_opener").open_path(path, { title = "Marksman" })
+	end
+	local location = workspace.location(path, declared.fragment)
+	if not location and declared.fragment then
+		vim.notify(
+			("No existe el heading '%s'; abriendo la nota"):format(declared.fragment),
+			vim.log.levels.ERROR,
+			{ title = "Marksman" }
+		)
+		location = workspace.location(path)
+	end
+	if location then
+		vim.lsp.util.show_document(location, "utf-8", { focus = true })
+		return true
+	end
+	return false
+end
+
+function M.hover()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local ref = context(bufnr)
+	-- Marksman devuelve `"\n"` como hover de una nota vacía. Neovim 0.12 lo
+	-- acepta antes de normalizarlo, termina con un preview de ancho cero y
+	-- `nvim_open_win()` falla. Todas las formas de nota local pasan por el
+	-- mismo renderer, no solo las referencias CommonMark.
+	if ref then
+		local paths, declared = resolved_paths(ref, bufnr)
+		if declared and declared.path and not is_external(declared.path) then
+			choose(paths, "Elige la nota para el hover", function(path)
+				if not path then
+					return
+				end
+				if not require("lzy.marksman.workspace").is_markdown(path) then
+					vim.notify("Los adjuntos no tienen preview; usa gx", vim.log.levels.INFO, {
+						title = "Marksman",
+					})
+					return
+				end
+				local rendered = require("lzy.marksman.preview").render(path, declared.fragment)
+				if rendered then
+					require("lzy.marksman.preview").open(rendered)
+				end
+			end)
+			return
+		end
+	end
+	vim.lsp.buf.hover()
+end
+
+function M.definition()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local ref, component = context(bufnr)
+	if ref and ref.kind ~= "reference_use" and component then
+		-- En un uso, `gd` conserva la semántica de Marksman y salta a la
+		-- declaración. Ya dentro de la declaración, cualquiera de sus partes de
+		-- identidad (id, destino o fragmento) sigue el destino de la definición.
+		if component.kind == "reference_id" or component.kind == "note" or component.kind == "heading" then
+			local paths, declared = resolved_paths(ref, bufnr)
+			local has_attachment = false
+			for _, path in ipairs(paths) do
+				if not require("lzy.marksman.workspace").is_markdown(path) then
+					has_attachment = true
+					break
+				end
+			end
+			-- Para notas inline/wiki conservamos la navegación nativa de Marksman.
+			-- Las definiciones CommonMark las completamos nosotros; cualquier
+			-- adjunto, venga de la forma que venga, usa el opener común.
+			if declared and (ref.kind == "reference_definition" or has_attachment) then
+				choose(paths, "Elige la definición", function(path)
+					if not path then
+						return
+					end
+					open_resolved(path, declared)
+				end)
+				return
+			end
+		end
+	end
+	vim.lsp.buf.definition()
+end
+
+---Sigue siempre el destino final: los usos CommonMark atraviesan su
+---declaración, las notas respetan headings y los adjuntos usan el mismo opener
+---content-aware que gx/gd.
+function M.follow()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local ref = context(bufnr)
+	if ref then
+		local declared = definition(ref)
+		if declared and declared.raw_target and is_external(declared.raw_target) then
+			return require("sabunv.nvim.file_opener").open_external(declared.raw_target, { title = "Marksman" })
+		end
+		local paths
+		paths, declared = resolved_paths(ref, bufnr)
+		if declared then
+			choose(paths, "Elige el destino", function(path)
+				if path then
+					open_resolved(path, declared)
+				end
+			end)
+			return true
+		end
+	end
+
+	-- Completa el único caso que no representa nuestro parser estructural:
+	-- autolinks como <https://example.com>.
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	local markdown = require("sabunv.nvim.markdown")
+	local target = markdown.ref_target(bufnr, cursor[1], cursor[2])
+	if target and markdown.open(target, { bufnr = bufnr }) then
+		return true
+	end
+	vim.notify("No hay ningún enlace bajo el cursor", vim.log.levels.INFO, { title = "Marksman" })
+	return false
+end
+
+local CHECKBOX_STATES = { " ", "~", "!", ">", "x" }
+
+local function next_checkbox_state(current)
+	for idx, state in ipairs(CHECKBOX_STATES) do
+		if state == current then
+			return CHECKBOX_STATES[idx % #CHECKBOX_STATES + 1]
+		end
+	end
+	return CHECKBOX_STATES[1]
+end
+
+local function list_prefix(line)
+	local indent, bullet, spaces, rest = line:match("^(%s*)([-+*])(%s+)(.*)$")
+	if bullet then
+		return indent .. bullet .. spaces, rest
+	end
+	local numbered_indent, number, delimiter, numbered_spaces, numbered_rest =
+		line:match("^(%s*)(%d+)([.%)])(%s+)(.*)$")
+	if number then
+		return numbered_indent .. number .. delimiter .. numbered_spaces, numbered_rest
+	end
+end
+
+function M.toggle_checkbox()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local row = vim.api.nvim_win_get_cursor(0)[1]
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	if require("lzy.marksman.parser").excluded_rows(lines)[row - 1] then
+		return
+	end
+	local line = lines[row] or ""
+	local prefix, rest = list_prefix(line)
+	if prefix then
+		local state, spaces, body = rest:match("^%[(.)%](%s*)(.*)$")
+		if state then
+			spaces = spaces == "" and body ~= "" and " " or spaces
+			line = prefix .. "[" .. next_checkbox_state(state) .. "]" .. spaces .. body
+		else
+			line = prefix .. "[ ] " .. rest
+		end
+	else
+		local indent = line:match("^(%s*)") or ""
+		line = indent .. "- [ ] " .. line:sub(#indent + 1)
+	end
+	vim.api.nvim_buf_set_lines(bufnr, row - 1, row, true, { line })
+end
+
+local function frontmatter_row(lines, row)
+	local delimiter = lines[1] == "---" and "---" or lines[1] == "+++" and "+++" or nil
+	if not delimiter then
+		return false
+	end
+	for idx = 2, #lines do
+		if lines[idx] == delimiter then
+			return row < idx
+		end
+	end
+	return false
+end
+
+local function heading_row(lines, row)
+	for _, heading in ipairs(require("lzy.marksman.workspace").headings(lines)) do
+		if heading.row == row then
+			return true
+		end
+	end
+	return false
+end
+
+---Paridad funcional con `obsidian.actions.smart_action`: enlace, tag, fold,
+---checkbox/lista/párrafo y, si nada aplica, Enter normal.
+function M.smart_action()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	local row, col = cursor[1] - 1, cursor[2]
+	local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+	local parser = require("lzy.marksman.parser")
+	local excluded = parser.excluded_rows(lines)
+	local ref = not excluded[row] and parser.at(lines, row, col) or nil
+	local followable_ref = ref and (ref.kind ~= "reference_use" or ref.definition ~= nil)
+	local autolink = not excluded[row] and require("sabunv.nvim.markdown").ref_target(bufnr, row + 1, col)
+	if followable_ref or autolink then
+		return "<cmd>lua require('lzy.marksman').follow()<CR>"
+	elseif require("lzy.marksman.tags").at(bufnr, row, col) then
+		return "<cmd>lua require('lzy.marksman.tags').open()<CR>"
+	elseif heading_row(lines, row) or frontmatter_row(lines, row) then
+		-- El folding Markdown es opt-in. Sin él, Enter conserva su acción
+		-- normal y nunca convierte accidentalmente un heading en checkbox.
+		if vim.g.markdown_folding == 1 or vim.wo.foldmethod == "expr" then
+			return "za"
+		end
+		return "<CR>"
+	elseif not excluded[row] then
+		return "<cmd>lua require('lzy.marksman').toggle_checkbox()<CR>"
+	end
+	return "<CR>"
+end
+
+function M.backlinks()
+	require("lzy.marksman.backlinks").open()
+end
+
+function M.rename()
+	local bufnr = vim.api.nvim_get_current_buf()
+	if require("lzy.marksman.tags").rename_at(bufnr) then
+		return
+	end
+	local ref, component = context(bufnr)
+	local rename = require("lzy.marksman.rename")
+	if ref and component and rename.link(ref, component, bufnr) then
+		return
+	end
+	if rename.heading_declaration(bufnr) then
+		return
+	end
+	-- Paridad con obsidian-ls: fuera de un símbolo concreto, rename actúa sobre
+	-- la nota actual y no sobre una palabra arbitraria de prosa.
+	if rename.current_note(bufnr) then
+		return
+	end
+	vim.lsp.buf.rename(nil, { name = "marksman", bufnr = bufnr })
+end
+
+---@param _ vim.lsp.Client
+---@param bufnr integer
+function M.on_attach(_, bufnr)
+	vim.keymap.set("n", "K", M.hover, {
+		buffer = bufnr,
+		desc = "Marksman: preview de la nota enlazada",
+	})
+	vim.keymap.set("n", "gd", M.definition, {
+		buffer = bufnr,
+		desc = "Marksman: ir a la definición",
+	})
+	vim.keymap.set("n", "<C-A-r>", M.rename, {
+		buffer = bufnr,
+		desc = "Marksman: renombrar componente",
+	})
+	vim.keymap.set("n", "<leader>nb", M.backlinks, {
+		buffer = bufnr,
+		desc = "Marksman: qué notas enlazan a esta",
+	})
+	vim.keymap.set("n", "<leader>nf", M.follow, {
+		buffer = bufnr,
+		desc = "Marksman: seguir el enlace bajo el cursor",
+	})
+	vim.keymap.set("n", "<leader>nx", M.toggle_checkbox, {
+		buffer = bufnr,
+		desc = "Marksman: toggle checkbox",
+	})
+	vim.keymap.set("n", "<CR>", M.smart_action, {
+		expr = true,
+		buffer = bufnr,
+		desc = "Marksman Smart Action",
+	})
+	vim.api.nvim_buf_create_user_command(bufnr, "MarksmanBacklinks", M.backlinks, {
+		desc = "Mostrar backlinks de la nota actual",
+		force = true,
+	})
+	vim.api.nvim_buf_create_user_command(bufnr, "MarksmanFollowLink", M.follow, {
+		desc = "Seguir el enlace bajo el cursor",
+		force = true,
+	})
+end
+
+return M

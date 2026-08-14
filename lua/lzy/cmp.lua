@@ -324,6 +324,7 @@ M.opts = {
 
   sources = {
     { name = "markdown_callouts" },
+    { name = "marksman_references" },
     { name = "nvim_lsp" },
     { name = "luasnip" },
     { name = "buffer" },
@@ -373,6 +374,7 @@ M.opts = {
 
 function M.setup()
   cmp.register_source("markdown_callouts", make_markdown_callout_source())
+  cmp.register_source("marksman_references", require("lzy.marksman.completion").source())
   cmp.setup(M.opts)
 end
 

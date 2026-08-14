@@ -540,6 +540,9 @@ M.on_attach = function(client, bufnr)
   require("lzy.lsp-lines").on_attach(client, bufnr)
 
   setup_on_attach_mappings(client, bufnr)
+  if client.name == "marksman" then
+    require("lzy.marksman").on_attach(client, bufnr)
+  end
 end
 
 ---@type fun(client: vim.lsp.Client, init_result: table?)

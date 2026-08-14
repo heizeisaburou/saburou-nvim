@@ -3,35 +3,11 @@
 -- Por qué existe: obsidian.nvim resuelve los adjuntos con una predicción
 -- `attachments.folder` (p.ej. "assets"), que falla con rutas reales del vault
 -- (subcarpetas, relativo con ../, nombres de carpeta distintos). Este módulo
--- resuelve la ruta real en el disco: relativa a la nota → relativa a la raíz →
--- búsqueda vault-wide por basename (como hace la app Obsidian). Es agnóstico
--- del plugin (sirve igual en buffers marksman o markdown.mdx).
+-- resuelve la ruta real en el disco. Fuera de un vault usa las coordenadas de
+-- Marksman (`/` raíz, `./` local, destino desnudo potencialmente ambiguo); el
+-- ftplugin delega los vaults al resolvedor específico de Nyabsidian.
 
 local M = {}
-
-local MEDIA_EXTENSIONS = {
-  "avif", "bmp", "gif", "jpg", "jpeg", "png", "svg", "webp",
-  "flac", "m4a", "mp3", "ogg", "wav", "webm", "3gp",
-  "mkv", "mov", "mp4", "ogv",
-  "pdf", "canvas",
-}
-local MEDIA_SET = {}
-for _, ext in ipairs(MEDIA_EXTENSIONS) do
-  MEDIA_SET[ext] = true
-end
-
---- ¿El target es un adjunto (no una nota ni una URL)?
---- Usa la lista del plugin cuando está cargado; si no, la propia.
----@param target string
----@return boolean
-local function is_attachment_path(target)
-  local ok, obsidian = pcall(require, "obsidian")
-  if ok and obsidian.api and obsidian.api.is_attachment_path then
-    return obsidian.api.is_attachment_path(target)
-  end
-  local ext = target:match "%.([^%.]+)$"
-  return ext ~= nil and MEDIA_SET[ext] ~= nil
-end
 
 --- ¿Es un vault (marker .obsidian o .nyabsidian) en este directorio?
 ---@param dir string
@@ -74,19 +50,18 @@ function M.root_of(bufnr)
 end
 
 --- Resuelve el target de un enlace a la ruta real en disco, o nil.
---- Devuelve como segundo valor la lista de candidatos cuando la búsqueda
---- vault-wide es ambigua (varias coincidencias de basename).
+--- Devuelve como segundo valor la lista de candidatos cuando un destino
+--- desnudo es ambiguo en el workspace.
 ---
 ---@param target string
----@param opts { bufnr?: integer, vault?: boolean }|? vault=false desactiva la
----  búsqueda vault-wide (útil cuando el llamador no quiere ambigüedad).
+---@param opts { bufnr?: integer }|?
 ---@return string|? path
 ---@return string[]|? candidates
 function M.resolve(target, opts)
   opts = opts or {}
   local bufnr = opts.bufnr or 0
 
-  target = vim.fn.expand(vim.trim(target))
+  target = vim.trim(target)
   if target == "" then
     return nil
   end
@@ -95,56 +70,28 @@ function M.resolve(target, opts)
   if target:match "^[%a][%w%+%.%-]*://" then
     return target
   end
-
-  -- Absoluto (o ya resuelto relativo al cwd).
-  if vim.fn.isabsolutepath(target) == 1 then
-    local s = vim.uv.fs_stat(target)
-    if s and s.type == "file" then
-      return target
-    end
+  local source_path = vim.api.nvim_buf_get_name(bufnr)
+  local root = M.root_of(bufnr)
+  if not root or source_path == "" then
     return nil
   end
 
-  local note_dir = vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
-  local root, is_vault = M.root_of(bufnr)
-
-  -- Relativo a la nota (permite ../ hacia niveles superiores).
-  local p = vim.fs.normalize(vim.fs.joinpath(note_dir, target))
-  local s = vim.uv.fs_stat(p)
-  if s and s.type == "file" then
-    return p
+  local matches = require("lzy.marksman.workspace").resolve(target, {
+    source_path = source_path,
+    root = root,
+    all_files = true,
+  })
+  if #matches == 1 then
+    return matches[1]
+  elseif #matches > 1 then
+    return nil, matches
   end
-
-  -- Relativo a la raíz del vault o del proyecto marksman.
-  if root then
-    p = vim.fs.normalize(vim.fs.joinpath(root, target))
-    s = vim.uv.fs_stat(p)
-    if s and s.type == "file" then
-      return p
-    end
-  end
-
-  -- Búsqueda vault-wide por basename, como la app Obsidian. Solo en vaults
-  -- reales (en un proyecto marksman toda la carpeta sería candidata).
-  if is_vault and opts.vault ~= false then
-    local base = target:gsub("/+$", ""):match "([^/\\]+)$"
-    if base then
-      -- limit = math.huge: el default de vim.fs.find es 1 (primera
-      -- coincidencia); aquí se necesitan todas para detectar ambigüedad.
-      local matches = vim.fs.find({ base }, { path = root, type = "file", limit = math.huge })
-      if #matches == 1 then
-        return matches[1]
-      elseif #matches > 1 then
-        return nil, matches
-      end
-    end
-  end
-
   return nil
 end
 
---- Abre un enlace/adjunto de forma fiel a Obsidian:
---- URI → vim.ui.open; adjunto resuelto → vim.ui.open; ambigüedad vault-wide →
+--- Abre un enlace/adjunto de Markdown general:
+--- URI → vim.ui.open; path textual → Neovim; binario → aplicación del sistema;
+--- ambigüedad de workspace →
 --- vim.ui.select con los candidatos.
 ---@param target string
 ---@param opts { bufnr?: integer }|?
@@ -152,15 +99,16 @@ end
 function M.open(target, opts)
   opts = opts or {}
   local bufnr = opts.bufnr or 0
+  local opener = require "sabunv.nvim.file_opener"
 
   if target:match "^[%a][%w%+%.%-]*://" then
-    vim.ui.open(target)
+    opener.open_external(target, { title = "Markdown" })
     return true
   end
 
   local resolved, candidates = M.resolve(target, { bufnr = bufnr })
   if resolved then
-    vim.ui.open(resolved)
+    opener.open_path(resolved, { title = "Markdown" })
     return true
   end
 
@@ -169,7 +117,7 @@ function M.open(target, opts)
       prompt = ("Abrir '%s': hay varias coincidencias"):format(vim.fs.basename(target)),
     }, function(choice)
       if choice then
-        vim.ui.open(choice)
+        opener.open_path(choice, { title = "Markdown" })
       end
     end)
     return true
@@ -447,6 +395,22 @@ function M.ref_target(bufnr, row, col)
   local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1]
   if not line then
     return nil
+  end
+
+  -- Referencias CommonMark: tanto la declaración como sus tres formas de uso
+  -- comparten el destino declarado. El parser mantiene id, path, fragment y
+  -- descripción como componentes separados.
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local ok_parser, parser = pcall(require, "lzy.marksman.parser")
+  if ok_parser then
+    local ref = parser.at(lines, row - 1, col)
+    if ref then
+      if ref.kind == "reference_definition" then
+        return ref.raw_target
+      elseif ref.kind == "reference_use" and ref.definition then
+        return ref.definition.raw_target
+      end
+    end
   end
 
   -- Wiki: [[Algo]] / ![[x.png]] / [[x|label]]
