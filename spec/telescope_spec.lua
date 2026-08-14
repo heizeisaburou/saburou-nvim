@@ -59,3 +59,35 @@ describe("Telescope horizontal preview scrolling", function()
     assert.are.same({ -1, 1, -10, 10, -1, 1, -10, 10 }, offsets)
   end)
 end)
+
+describe("Snacks horizontal preview scrolling", function()
+  it("uses the same 1 and 10 column mappings as Telescope", function()
+    local picker = require("lzy.snacks_picker").config
+    local input = picker.win.input.keys
+    local list = picker.win.list.keys
+
+    assert.are.equal("preview_scroll_left", input["<A-H>"][1])
+    assert.are.equal("preview_scroll_right", input["<A-L>"][1])
+    assert.are.equal("preview_scroll_left_fast", input["<A-h>"][1])
+    assert.are.equal("preview_scroll_right_fast", input["<A-l>"][1])
+    assert.are.same({ "i", "n" }, input["<A-h>"].mode)
+    assert.are.same({ "n" }, list["<A-l>"].mode)
+
+    local offsets = {}
+    local fake_picker = {
+      preview = {
+        win = {
+          valid = function()
+            return true
+          end,
+          hscroll = function(_, left)
+            offsets[#offsets + 1] = left and -1 or 1
+          end,
+        },
+      },
+    }
+    picker.actions.preview_scroll_left_fast(fake_picker)
+    picker.actions.preview_scroll_right_fast(fake_picker)
+    assert.are.same({ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }, offsets)
+  end)
+end)
