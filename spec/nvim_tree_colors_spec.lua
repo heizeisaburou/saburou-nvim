@@ -47,7 +47,19 @@ describe("Sabunv nvim-tree Git colors", function()
       "NvimTreeGitFileDirtyHL",
       "NvimTreeGitFolderDirtyHL",
     }) do
-      assert.are.equal("#771717", applied[group].fg)
+      assert.are.equal("#bc3a3a", applied[group].fg)
+    end
+  end)
+
+  it("uses the same dirty red for tracked files deleted without committing, folders included", function()
+    require("sabunv.moonfly.nvim_tree").setup({ style = "solid" })
+
+    for _, group in ipairs({
+      "NvimTreeGitDeletedIcon",
+      "NvimTreeGitFileDeletedHL",
+      "NvimTreeGitFolderDeletedHL",
+    }) do
+      assert.are.equal("#bc3a3a", applied[group].fg)
     end
   end)
 end)

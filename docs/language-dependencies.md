@@ -110,6 +110,13 @@ Hay tres casos especialmente importantes:
 Cuando algo no arranca, conviene comprobar en este orden: ejecutable disponible, filetype
 correcto, raíz de proyecto detectada y toolchain del proyecto instalado/restaurado.
 
+### Paquetes de AUR y Chaotic-AUR
+
+Si una dependencia requiere Yay, comprobar antes si el mismo paquete está disponible en
+Chaotic-AUR (CAUR). Documentar las dos vías: CAUR mediante `pacman` como opción preferida cuando el
+repositorio esté configurado y AUR mediante Yay como alternativa. Los comandos de Yay deben usar
+siempre `--sudoloop`.
+
 ## Notas por lenguaje
 
 ### Ansible
@@ -278,6 +285,29 @@ La configuración separa responsabilidades:
 - `ruff_format`: formateo mediante Conform.
 
 Esto permite usar Ruff sin convertirlo en sustituto del servidor de tipos.
+
+### PowerShell
+
+PowerShell 7 se ejecuta de forma nativa en Linux mediante `pwsh`; no es una emulación. Es suficiente
+para probar sintaxis, scripts multiplataforma, formato y PowerShell Editor Services. Los módulos,
+cmdlets y APIs exclusivos de Windows deben probarse en Windows.
+
+Mason instala `powershell-editor-services`, pero no el runtime `pwsh`. En Arch, instalar
+`powershell-bin` desde una de estas fuentes:
+
+```bash
+# Chaotic-AUR (preferida si el repositorio ya está configurado)
+sudo pacman -S --needed powershell-bin
+
+# AUR
+yay --sudoloop -S --needed powershell-bin
+```
+
+Comprobación:
+
+```bash
+pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion'
+```
 
 ### QML
 
@@ -530,6 +560,9 @@ máquina concreta.
 - [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
 - [Conform.nvim](https://github.com/stevearc/conform.nvim)
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
+- [PowerShell en distribuciones Linux mantenidas por la comunidad](https://learn.microsoft.com/es-es/powershell/scripting/install/community-support)
+- [PowerShell (`powershell-bin`) en AUR](https://aur.archlinux.org/packages/powershell-bin)
+- [PowerShell Editor Services](https://github.com/PowerShell/PowerShellEditorServices)
 - [CSharpier](https://csharpier.com/docs/Installation)
 - [Clojure en Arch Linux](https://archlinux.org/packages/extra/any/clojure/)
 - [GHCup](https://www.haskell.org/ghcup/)

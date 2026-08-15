@@ -149,6 +149,18 @@ El cuadro de rename parte del nombre real (`FatherA`, no `fathera`): ese texto s
 literalmente al heading, mientras los enlaces se escriben con su anchor canónico
 (`My Father A` → `my-father-a`).
 
+Si `<CR>`/`gd`/`:Obsidian follow_link` apuntan a una nota que no existe, Nyabsidian pregunta si
+crearla y, si aceptas, escribe el archivo con el nombre exacto que muestra el enlace
+(`[[NAME]]` → `NAME.md`, subcarpeta incluida si el enlace la lleva). No pasa por `note_id_func`
+ni reescribe el enlace bajo el cursor: los modos por defecto de obsidian-ls ("Yes"/"Yes as Unique
+Note") generan un id nuevo y solo actualizan esa ocurrencia, dejando desincronizado cualquier otro
+`[[NAME]]` del vault que apuntara a la misma nota. Al no tocar el id, cualquier enlace ya escrito
+sigue resolviendo en cuanto el archivo existe.
+
+Un enlace a una nota inexistente se marca con un diagnóstico (`vim.diagnostic`, severidad *warning*,
+fuente `nyabsidian`) sobre el propio nombre, para poder distinguir a simple vista qué está creado y
+qué no. Es deliberadamente solo texto: sin colores custom por ahora.
+
 Sobre un tag, `<C-A-r>` renombra la rama completa en cuerpo y frontmatter. Por ejemplo, cambiar
 `#proyecto` a `#trabajo` convierte `#proyecto/urgente` en `#trabajo/urgente`; los bloques de código
 quedan fuera. Es la misma jerarquía que usa la búsqueda de tags de Obsidian.

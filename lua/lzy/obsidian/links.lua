@@ -562,6 +562,61 @@ local function reference_id_edit(old_id, new_id, bufnr)
   return { changes = { [vim.uri_from_bufnr(bufnr)] = edits } }
 end
 
+--- Intercepta la creación de nota cuando `[[NAME]]`/`[label](NAME)` no
+--- resuelve a ninguna nota. Sustituye los modos "Yes"/"Yes as Unique Note"
+--- del upstream (ids generados + rename parcial del enlace, ver
+--- lzy.obsidian.new_note) por el modo único de Nyabsidian. Deja pasar
+--- attachments, URIs externas, anchors/blocks y referencias vacías: esos
+--- casos no crean nota nueva y el upstream ya los resuelve bien.
+---@param link string
+---@param callback function
+---@param opts table|?
+---@param original function
+---@return boolean handled
+local function try_create_note(link, callback, opts, original)
+  opts = opts or {}
+  local util = require "obsidian.util"
+  local attachments = require "lzy.obsidian.attachments"
+  local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
+
+  local location, _, link_type = util.parse_link(link)
+  if not location or (link_type ~= "wiki" and link_type ~= "markdown") then
+    return false
+  end
+
+  location = vim.uri_decode(location) or location
+  if location == "" or util.is_uri(location) then
+    return false
+  end
+
+  local without_block, block = util.strip_block_links(location)
+  if block then
+    return false
+  end
+  local note_target, anchor = util.strip_anchor_links(without_block)
+  if anchor then
+    return false
+  end
+
+  if note_target == "" or attachments.is_target(note_target, { bufnr = bufnr }) then
+    return false
+  end
+
+  resolve_notes(note_target, bufnr, function(notes)
+    if #notes > 0 then
+      -- Existe: que la resuelva el upstream como siempre (gd/picker/etc.).
+      return original(link, callback, opts)
+    end
+
+    require("lzy.obsidian.new_note").create(note_target, { notify = notify }, function(note)
+      if note then
+        callback(nil, { note:_location() })
+      end
+    end)
+  end)
+  return true
+end
+
 local function patch_definition()
   local definition = require "obsidian.lsp.handlers._definition"
   if definition.__nyabsidian_links then
@@ -571,6 +626,9 @@ local function patch_definition()
 
   definition.follow_link = function(link, callback, opts)
     if follow_structured(link, callback, opts, original) then
+      return
+    end
+    if try_create_note(link, callback, opts, original) then
       return
     end
     return original(link, callback, opts)

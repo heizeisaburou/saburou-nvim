@@ -12,6 +12,13 @@ local function common()
   update("NvimTreeGitFileDirtyHL", { fg = col.git_dirty })
   update("NvimTreeGitFolderDirtyHL", { fg = col.git_dirty })
 
+  -- Archivos traqueados que se borraron sin comitear: misma "modificación
+  -- pendiente" que dirty, mismo rojo. Sin esto caían en el fallback de
+  -- nvim-tree (Statement), que en moonfly es un rosa que no pega con nada.
+  update("NvimTreeGitDeletedIcon", { fg = col.git_dirty })
+  update("NvimTreeGitFileDeletedHL", { fg = col.git_dirty })
+  update("NvimTreeGitFolderDeletedHL", { fg = col.git_dirty })
+
   -- New / renamed
   update("NvimTreeGitNewIcon", { fg = col.yellow })
   update("NvimTreeGitRenamedIcon", { fg = col.yellow })

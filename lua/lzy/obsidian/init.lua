@@ -686,6 +686,11 @@ local function reset_obsidian_buffer(bufnr)
   -- backlinks/follow de Marksman y ejecutan comandos contra el dummy vault.
   uninstall_note_keymaps(bufnr)
 
+  -- Fuera del vault ya no aplica "esta nota no existe": lo limpia igual que
+  -- BufUnload, por si el buffer sigue cargado (p.ej. se borró .nyabsidian
+  -- sin cerrar el archivo).
+  require("lzy.obsidian.diagnostics").clear(bufnr)
+
   -- Fuera del vault: obsidian-ls se desconecta y marksman toma el relevo.
   leave_vault(bufnr)
 end
@@ -1465,6 +1470,7 @@ function M.setup()
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
   require("lzy.obsidian.links").setup { notify = notify, state = state }
   require("lzy.obsidian.backlinks").setup(state)
+  require("lzy.obsidian.diagnostics").setup()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()

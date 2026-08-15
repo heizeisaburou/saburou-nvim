@@ -75,6 +75,11 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd "silent! %bwipeout!"
     vim.fn.delete(root, "rf")
     vim.fn.delete(root .. "-external", "rf")
+    -- Algunos tests sustituyen el prompt de creación de nota; que no se
+    -- filtre a los siguientes.
+    local new_note = require "lzy.obsidian.new_note"
+    new_note.confirm = new_note.default_confirm
+    new_note.notify = new_note.default_notify
   end)
 
   it("resolves nested headings past the upstream max_lines limit", function()
@@ -1648,5 +1653,117 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal(1, #picked[2].items)
     assert.are.equal("Backlinks", picked[1].title)
     assert.are.equal(root .. "/source.md", picked[2].items[1].filename)
+  end)
+
+  describe("creating a note from a missing link", function()
+    local function follow(link)
+      local locations
+      require("obsidian.lsp.handlers._definition").follow_link(link, function(_, result)
+        locations = result
+      end, { bufnr = 0 })
+      vim.wait(3000, function()
+        return locations ~= nil
+      end, 20)
+      return locations
+    end
+
+    it("creates the exact NAME.md the link shows, without rewriting the link", function()
+      write("source.md", { "[[NuevaNota]]" })
+      vim.cmd.edit(root .. "/source.md")
+
+      local prompts = {}
+      require("lzy.obsidian.new_note").confirm = function(prompt, done)
+        prompts[#prompts + 1] = prompt
+        done "yes"
+      end
+
+      local locations = follow "[[NuevaNota]]"
+
+      assert.are.equal(1, #prompts)
+      assert.matches("NuevaNota", prompts[1])
+      assert.are.equal(1, #locations)
+      assert.are.equal(root .. "/NuevaNota.md", vim.uri_to_fname(locations[1].uri))
+      assert.is_not_nil(uv.fs_stat(root .. "/NuevaNota.md"))
+      -- El enlace bajo el cursor sigue igual: sin id, sin alias añadido.
+      assert.are.same({ "[[NuevaNota]]" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("creates the note under the subfolder the link names", function()
+      write("source.md", { "[[sub/Anidada]]" })
+      vim.cmd.edit(root .. "/source.md")
+      require("lzy.obsidian.new_note").confirm = function(_, done)
+        done "yes"
+      end
+
+      local locations = follow "[[sub/Anidada]]"
+
+      assert.are.equal(1, #locations)
+      assert.are.equal(root .. "/sub/Anidada.md", vim.uri_to_fname(locations[1].uri))
+    end)
+
+    it("creates nothing when the user declines", function()
+      write("source.md", { "[[Cancelada]]" })
+      vim.cmd.edit(root .. "/source.md")
+      require("lzy.obsidian.new_note").confirm = function(_, done)
+        done "no"
+      end
+
+      local locations = follow "[[Cancelada]]"
+
+      assert.is_nil(locations)
+      assert.is_nil(uv.fs_stat(root .. "/Cancelada.md"))
+    end)
+
+    it("does not prompt when the note already exists", function()
+      vim.cmd.edit(root .. "/source.md")
+      local confirm_called = false
+      require("lzy.obsidian.new_note").confirm = function(_, done)
+        confirm_called = true
+        done "yes"
+      end
+
+      local locations = follow "[[nota]]"
+
+      assert.is_false(confirm_called)
+      assert.are.equal(1, #locations)
+      assert.are.equal(root .. "/nota.md", vim.uri_to_fname(locations[1].uri))
+    end)
+  end)
+
+  describe("missing-note diagnostics", function()
+    it("flags a link to a note that does not exist, and leaves an existing one alone", function()
+      write("source.md", { "[[nota]]", "[[Missing]]" })
+      vim.cmd.edit(root .. "/source.md")
+      local bufnr = vim.api.nvim_get_current_buf()
+
+      require("lzy.obsidian.diagnostics").refresh(bufnr)
+      vim.wait(3000, function()
+        return #vim.diagnostic.get(bufnr) > 0
+      end, 20)
+
+      local diags = vim.diagnostic.get(bufnr)
+      assert.are.equal(1, #diags)
+      assert.are.equal(1, diags[1].lnum)
+      assert.matches("Missing", diags[1].message)
+    end)
+
+    it("clears once the missing note is created", function()
+      write("source.md", { "[[Missing]]" })
+      vim.cmd.edit(root .. "/source.md")
+      local bufnr = vim.api.nvim_get_current_buf()
+
+      require("lzy.obsidian.diagnostics").refresh(bufnr)
+      vim.wait(3000, function()
+        return #vim.diagnostic.get(bufnr) > 0
+      end, 20)
+      assert.are.equal(1, #vim.diagnostic.get(bufnr))
+
+      write("Missing.md", { "# Missing" })
+      require("lzy.obsidian.diagnostics").refresh(bufnr)
+      vim.wait(3000, function()
+        return #vim.diagnostic.get(bufnr) == 0
+      end, 20)
+      assert.are.equal(0, #vim.diagnostic.get(bufnr))
+    end)
   end)
 end)

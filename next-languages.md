@@ -6,49 +6,33 @@ Este documento es una hoja de ruta. No implica que todos estos servidores deban 
 vez. En especial, conviene elegir **un LSP principal** y **un formateador principal** por
 filetype para evitar diagnósticos duplicados y dos herramientas peleándose por el mismo buffer.
 
-## Archivos que intervienen
+## Qué hacer con cada lenguaje
 
-- `lua/lzy/lspconfig.lua`: añadir el nombre a `M.servers` y, solo cuando haga falta, una entrada
-  en `M.config`.
-- `lua/lzy/treesitter.lua`: añadir el parser a `M.languages` y el filetype a
-  `M.enabled_highlights`.
-- `lua/lzy/conform.lua`: añadir el formateador a `formatters_by_ft`.
-- `lua/hzsr/mason/nvchad/names.lua`: traducir el nombre que usa LSP/Conform al nombre del paquete
-  de Mason. Sin esta traducción, `MasonInstallAll` omite la herramienta.
-- `lua/user/opts.lua`: no hace falta tocarlo para los lenguajes de este documento; Neovim ya
-  detecta sus extensiones y nombres especiales.
-- `lua/user/indent.lua`: no añadir nada inicialmente. Solo crear excepciones si al usar un
-  lenguaje descubrimos que sus convenciones no encajan con el valor global.
+AGREGA AQUÍ SI NO ESTA YA O ACLARAR MEJOR: asegurarse de que está aquí, no se instalan multiples
+lenguajes a la vez, se lanzan uno a uno y se interactua con el usuario para que lo pruebe.
 
-La llamada actual de Conform usa `lsp_format = "fallback"`. Por tanto, dejar un filetype sin
-entrada en Conform es una decisión válida: si su LSP sabe formatear, se usará el formato LSP.
+No dar un lenguaje por terminado hasta completar este checklist:
 
-## Prioridad 0: completar Zsh
+- [ ] Configurar LSP, Treesitter y Conform —o documentar el fallback LSP—; tocar `opts.lua` o
+	  `indent.lua` solo si hace falta.
+- [ ] Verificar los mappings de Mason en `lua/hzsr/mason/nvchad/names.lua` y documentar todas las
+	  dependencias en `docs/language-dependencies.md`.
+- [ ] Si un paquete requiere Yay, comprobar antes si existe en Chaotic-AUR (CAUR), documentar
+	  ambas vías y añadir siempre `--sudoloop` al comando de Yay.
+- [ ] Crear en `/home/saburou/wip/proyectos/<lenguaje>` un proyecto mínimo pero completo, con
+	  código válido y deliberadamente mal formateado. Incluir manifiestos, configuración, varios
+	  filetypes o `.git` solo cuando sean necesarios para probar el lenguaje o detectar la raíz.
+- [ ] Pedir al usuario que ejecute `:MasonInstallAll`; no lanzar instalaciones de Mason en su
+	  lugar. Si faltan paquetes del sistema, indicar cuáles y esperar a que autorice instalarlos
+	  con `pkexec`. Avisar antes al usuario, el usuario quizás está fumando y el pkexec se puede
+	  quedar 5 minutos colgado mientras el usuario no está. Una vez autorizado el paquete exacto,
+	  ejecutar `pkexec pacman` con `--noconfirm` desde el primer intento para evitar repetir el
+	  comando por falta de entrada interactiva.
+- [ ] Después de la instalación, comprobar detección de filetype, Treesitter, conexión y
+	  funciones básicas del LSP, diagnósticos y formato usando el proyecto de prueba. Esto
+	  también se delega al usuario.
 
-Sí, debemos añadir Treesitter para Zsh. El parser `zsh` existe en el catálogo actual de
-`nvim-treesitter` y es tier 2.
-
-Treesitter y Shuck hacen trabajos distintos:
-
-- Treesitter analiza el buffer dentro de Neovim para highlighting, selección, indentación y
-  futuras consultas estructurales.
-- Shuck aporta análisis de proyecto, diagnósticos, navegación y formato por LSP.
-
-No hace falta añadir un formateador Zsh a Conform: Shuck ya entra mediante el fallback LSP.
-
-Cambios futuros:
-
-```lua
--- lua/lzy/treesitter.lua: M.languages
-"zsh",
-
--- lua/lzy/treesitter.lua: M.enabled_highlights
-zsh = true,
-```
-
-No hay que tocar `opts.lua`: Neovim ya detecta `.zsh` como `zsh` y los scripts con un shebang de Zsh.
-
-## Prioridad 1: lenguajes de Windows
+## Prioridad 0: PowerShell y Batch
 
 ### Qué son realmente `pwsh`, `powershell`, `cmd` y `bat`
 
@@ -77,6 +61,10 @@ terminal integrada**. No configura los filetypes ni el LSP.
 | Treesitter | parser `powershell`                          | El parser se asocia al filetype `ps1`                                        |
 | Conform    | ninguna entrada                              | Usar el formato de `powershell_es` mediante el fallback LSP                  |
 | Mason      | `powershell-editor-services`                 | Ya existe el mapping `powershell_es` en `names.lua`                          |
+| Runtime    | `pwsh` (PowerShell 7)                        | Necesario para ejecutar scripts y para PowerShell Editor Services            |
+
+En Linux, `pwsh` es PowerShell 7 nativo, no una emulación. Permite probar el lenguaje y toda la
+integración del editor; los módulos y APIs exclusivos de Windows deben validarse en Windows.
 
 Cambios futuros en `lspconfig.lua`:
 
@@ -141,7 +129,7 @@ La primera opción es preferible: el parser es reciente y batch tiene una gramá
 desagradable (`%var%`, expansión retardada, labels, paréntesis y quoting de `cmd.exe`). Aquí el coste
 de mantenimiento manual supera el beneficio inmediato.
 
-## Prioridad 2: segunda tanda
+## Prioridad 1: segunda tanda
 
 ### Resumen recomendado
 
@@ -424,14 +412,12 @@ simultáneamente.
 "julials",
 ```
 
-Zsh no aparece porque `shuck` ya está habilitado. Batch no aparece porque no hay un LSP
-recomendable.
+Batch no aparece porque no hay un LSP recomendable.
 
 ### `lua/lzy/treesitter.lua`
 
 ```lua
 -- M.languages
-"zsh",
 "powershell",
 "fish",
 "sql",
@@ -445,7 +431,6 @@ recomendable.
 
 ```lua
 -- M.enabled_highlights
-zsh = true,
 ps1 = true,
 fish = true,
 sql = true,
@@ -473,8 +458,8 @@ r = { "air" },
 julia = { "runic" },
 ```
 
-PowerShell y Zsh quedan deliberadamente fuera para usar formato LSP. Batch queda fuera porque no
-hay una opción suficientemente sólida.
+PowerShell queda deliberadamente fuera para usar formato LSP. Batch queda fuera porque no hay una
+opción suficientemente sólida.
 
 ### `lua/hzsr/mason/nvchad/names.lua`
 
@@ -494,13 +479,12 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`).
 
 ## Orden de implementación propuesto
 
-1. Añadir solo Treesitter Zsh y verificarlo con el `.zshrc` real.
-2. Añadir PowerShell completo y probar `.ps1`, `.psm1` y `.psd1` en Windows y, si interesa,
+1. Añadir PowerShell completo y probar `.ps1`, `.psm1` y `.psd1` en Windows y, si interesa,
    también con `pwsh` en Linux.
-3. Mantener `.bat`/`.cmd` con `dosbatch` hasta que el parser batch madure en `nvim-treesitter`.
-4. Añadir Fish y Nix: son stacks pequeños y fáciles de validar.
-5. Elegir una política SQL antes de habilitar nada: PostgreSQL específico o SQL genérico.
-6. Añadir Solidity, Erlang, Groovy, R y Julia cuando haya un proyecto real con el que verificar
+2. Mantener `.bat`/`.cmd` con `dosbatch` hasta que el parser batch madure en `nvim-treesitter`.
+3. Añadir Fish y Nix: son stacks pequeños y fáciles de validar.
+4. Elegir una política SQL antes de habilitar nada: PostgreSQL específico o SQL genérico.
+5. Añadir Solidity, Erlang, Groovy, R y Julia cuando haya un proyecto real con el que verificar
    roots, toolchains y formato.
 
 ## Referencias principales
