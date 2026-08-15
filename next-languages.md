@@ -8,14 +8,15 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 
 ## Estado
 
-| Lenguaje       | Estado              | Notas                                                     |
-| -------------- | ------------------- | --------------------------------------------------------- |
-| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                             |
-| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                   |
-| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout         |
-| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo |
-| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`      |
-| El resto       | Pendiente           | Fish, Solidity, Erlang, R y Julia                         |
+| Lenguaje       | Estado              | Notas                                                      |
+| -------------- | ------------------- | ---------------------------------------------------------- |
+| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                              |
+| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                    |
+| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout          |
+| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo  |
+| Julia          | Hecho el 2026-08-15 | `cmd` propio para `julials`; ver el hallazgo en su sección |
+| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`       |
+| El resto       | Pendiente           | Fish, Solidity, Erlang y R                                 |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -158,17 +159,17 @@ de mantenimiento manual supera el beneficio inmediato.
 
 ### Resumen recomendado
 
-| Lenguaje     | LSP decidido                  | Treesitter | Conform           | Instalación principal                   |
-| ------------ | ----------------------------- | ---------- | ----------------- | --------------------------------------- |
-| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL  | Mason                                   |
-| SQL genérico | `sqls`                        | `sql`      | ver política SQL  | Mason                                   |
-| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`     | LSP en Mason; formatter viene con Fish  |
-| Nix          | `nil_ls`                      | `nix`      | `nixfmt`          | Mason (`nil` compila con Cargo + `nix`) |
-| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`       | LSP en Mason; formatter con Foundry     |
-| Erlang       | `elp`                         | `erlang`   | `erlfmt`          | LSP en Mason; formatter externo         |
-| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint` | Mason                                   |
-| R            | `air`                         | `r`        | `air`             | Mason                                   |
-| Julia        | `julials`                     | `julia`    | `runic`           | LSP en Mason; formatter externo         |
+| Lenguaje     | LSP decidido                  | Treesitter | Conform                | Instalación principal                   |
+| ------------ | ----------------------------- | ---------- | ---------------------- | --------------------------------------- |
+| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL       | Mason                                   |
+| SQL genérico | `sqls`                        | `sql`      | ver política SQL       | Mason                                   |
+| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`          | LSP en Mason; formatter viene con Fish  |
+| Nix          | `nil_ls`                      | `nix`      | `nixfmt`               | Mason (`nil` compila con Cargo + `nix`) |
+| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`            | LSP en Mason; formatter con Foundry     |
+| Erlang       | `elp`                         | `erlang`   | `erlfmt`               | LSP en Mason; formatter externo         |
+| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint`      | Mason                                   |
+| R            | `air`                         | `r`        | `air`                  | Mason                                   |
+| Julia        | `julials`                     | `julia`    | sin entrada, ver Julia | Mason (`cmd` propio, ver Julia)         |
 
 Las excepciones importantes están debajo; no conviene copiar la tabla a ciegas. Los formatters
 que no vienen de Mason (`forge_fmt`, `erlfmt`, `runic`) siguen la política de binarios externos.
@@ -453,28 +454,50 @@ No activar `air` y `r_language_server` a la vez para `.R` sin una razón concret
 
 ### Julia
 
-El estándar del ecosistema es `julials`, respaldado por `LanguageServer.jl`:
+El estándar del ecosistema es `julials`, respaldado por `LanguageServer.jl`. Con una salvedad
+importante descubierta al implementarlo, no anticipada aquí: **el `cmd` por defecto de
+`nvim-lspconfig` no sirve con el paquete que instala Mason**, no es solo "añadir a `M.servers`".
+
+`julials.lua` invoca `julia` crudo con un script inline que espera `LanguageServer.jl` instalado
+a mano vía `Pkg.add`. El paquete de Mason (`julia-lsp`) es un binario propio que recibe la ruta
+del entorno como argumento posicional (`julia-lsp "<ruta>"`); con el `cmd` por defecto falla con
+exit 1 inmediato. Es un problema real y reconocido, sin arreglo limpio en la API clásica de
+`lspconfig` (`mason-org/mason-lspconfig.nvim#582`, "`before_init` llega demasiado tarde para
+cambiar `cmd`").
+
+Con la API nativa `vim.lsp.config`/`vim.lsp.enable` que usa esta config sí hay arreglo limpio,
+porque `root_dir` se resuelve a una cadena antes de invocar `cmd(dispatchers, config)`:
 
 ```lua
 -- lspconfig.lua: M.servers
 "julials",
 
+-- lspconfig.lua: M.config
+julials = {
+  cmd = function(dispatchers, config)
+    local env = config.root_dir or vim.fn.getcwd()
+    return vim.lsp.rpc.start({ "julia-lsp", env }, dispatchers)
+  end,
+},
+
 -- treesitter.lua
 "julia",          -- M.languages
 julia = true,     -- M.enabled_highlights
-
--- conform.lua
-julia = { "runic" },
 ```
 
-El mapping `julials = "julia-lsp"` ya existe. `runic` es un formatter de Julia y Conform ya conoce su
-interfaz, pero no está en el registro local de Mason: debe instalarse desde Julia o mediante el
-sistema. Si no queremos esa dependencia, puede omitirse y dejar que `julials`/el ecosistema Julia
-resuelva el formato.
+El mapping `julials = "julia-lsp"` ya existía. `julia` (el runtime) es dependencia real del
+sistema —sin él, `julia-lsp` no arranca—, disponible en el repo oficial `extra` de Arch, sin
+CAUR/AUR. Verificado con `julia` instalado: el cliente llega a adjuntarse (`ATTACHED
+client=julials`) con el `root_dir` correcto y arranca la precompilación de
+`LanguageServer.jl`/`SymbolServer.jl`, que tarda varios minutos la primera vez.
+
+`runic` queda descartado por ahora: su entrada en Conform necesita el "aviso de binario ausente"
+compartido con Erlang y Solidity, que todavía no existe. El formato lo resuelve `julials`/el
+ecosistema Julia mientras tanto.
 
 Los proyectos deben tener un entorno Julia reconocible (`Project.toml` o `JuliaProject.toml`). El
-config actual de `nvim-lspconfig` incluye el comando `:LspJuliaActivateEnv` para cambiar el entorno
-cuando sea necesario.
+config de `nvim-lspconfig` sigue aportando `:LspJuliaActivateEnv` para cambiar el entorno cuando
+sea necesario; no se ha sobrescrito ese `on_attach`, solo `cmd`.
 
 ## Política de herramientas que Mason no instala
 
@@ -516,7 +539,7 @@ simultáneamente.
 "elp",
 "groovyls",
 "air",
-"julials",
+"julials", -- cmd propio en M.config; el de nvim-lspconfig no sirve con Mason (ver Julia)
 ```
 
 Batch no aparece porque no hay un LSP recomendable.
@@ -596,10 +619,13 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
 3. ~~SQL~~. Hecho, con los dos servidores repartidos por raíz y el formateador condicional.
 4. ~~Groovy~~. Hecho, con el JDK de compilación resuelto por el camino.
 5. ~~Nix~~. Hecho; `nil` necesita `nix` del sistema para compilarse, resuelto por el camino.
-6. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
-7. Escribir el aviso de binario ausente antes de tocar Solidity, Erlang y Julia: los tres
-   dependen de él y solo hay que hacerlo una vez.
-8. Añadir Solidity, Erlang, R y Julia cuando haya un proyecto real con el que verificar roots,
+6. ~~Julia~~. Hecho el LSP y el parser; el `cmd` por defecto de `nvim-lspconfig` no servía con el
+   paquete de Mason, resuelto con un `cmd` propio (ver su sección). `runic` sigue pendiente del
+   aviso de binario ausente, como Erlang y Solidity.
+7. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
+8. Escribir el aviso de binario ausente antes de tocar Solidity y Erlang, y para añadir `runic` a
+   Julia: los tres dependen de él y solo hay que hacerlo una vez.
+9. Añadir Solidity, Erlang y R cuando haya un proyecto real con el que verificar roots,
    toolchains y formato.
 
 ## Referencias principales

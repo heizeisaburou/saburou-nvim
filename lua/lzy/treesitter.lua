@@ -10,6 +10,7 @@ M.languages = {
   "lua",
   "luadoc",
   "groovy",
+  "julia",
   "markdown_inline",
   "markdown",
   "nix",
@@ -98,6 +99,7 @@ M.enabled_highlights = {
   jinja = true,
   json = true,
   json5 = true,
+  julia = true,
   kotlin = true,
   lhaskell = true, -- `.lhs`; requiere también el alias de M.language_aliases
   liquid = true,

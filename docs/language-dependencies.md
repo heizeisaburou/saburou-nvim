@@ -59,6 +59,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | HTML               | `html`                           | `html`                   | `prettier`                   | `html`                         |
 | Java               | `java`                           | `jdtls`                  | `google-java-format`         | `java`                         |
 | JavaScript         | `javascript` / `javascriptreact` | `vtsls`                  | `prettier`                   | `javascript`                   |
+| Julia              | `julia`                          | `julials`                | vía LSP                      | `julia`                        |
 | Jinja              | `jinja`                          | `jinja_lsp`              | `prettier_jinja`             | `jinja` + `jinja_inline`       |
 | JSON               | `json`                           | `jsonls`                 | `biome`                      | `json` / `json5`               |
 | Kotlin             | `kotlin`                         | `kotlin_language_server` | `ktlint`                     | `kotlin`                       |
@@ -260,6 +261,51 @@ rápidas, pero el límite tiene que aguantar la primera o el formato falla por t
 
 `jdtls` y `google-java-format` no requieren ajustes especiales en la configuración más allá de
 disponer de un JDK compatible con el proyecto.
+
+### Julia
+
+`julials` es el único servidor del catálogo cuyo `cmd` por defecto de `nvim-lspconfig` **no sirve
+con el paquete que instala Mason**, y no por descuido: son dos programas distintos.
+
+El `julials.lua` de `nvim-lspconfig` invoca el binario `julia` crudo con un script inline que
+carga `LanguageServer.jl`/`SymbolServer.jl`/`StaticLint.jl` desde
+`~/.julia/environments/nvim-lspconfig` — instalación manual vía `Pkg.add`. El paquete de Mason
+(`julia-lsp`, de `mason-org/julia-lsp`) es un ejecutable propio: un wrapper que recibe por
+argumento posicional la ruta del entorno Julia a usar (`julia-lsp "<ruta>"`) y que por defecto
+sigue necesitando `julia` en el `PATH` (anulable con `JULIA_LSP_JULIA_BIN`). Usar el `cmd` por
+defecto contra el binario de Mason falla con exit 1 inmediato: el wrapper exige ese argumento y
+nunca lo recibe.
+
+Este problema está reconocido y sin arreglo limpio en la API clásica: ver
+[`mason-org/mason-lspconfig.nvim#582`](https://github.com/mason-org/mason-lspconfig.nvim/issues/582),
+"`before_init` llega demasiado tarde para cambiar `cmd`" — con
+`require("lspconfig").julials.setup{}` `root_dir` no está resuelto todavía cuando hace falta
+construir `cmd`.
+
+Con la API nativa `vim.lsp.config`/`vim.lsp.enable` que usa esta configuración, el problema no
+existe: `root_dir` se resuelve a una cadena **antes** de invocar `cmd(dispatchers, config)`
+(`vim.lsp.lua`, en el flujo de `vim.lsp.enable`), así que basta con leer `config.root_dir` dentro
+de la función `cmd` para construir el argumento, sin ningún hook adicional:
+
+```lua
+julials = {
+  cmd = function(dispatchers, config)
+    local env = config.root_dir or vim.fn.getcwd()
+    return vim.lsp.rpc.start({ "julia-lsp", env }, dispatchers)
+  end,
+}
+```
+
+`julia` en sí (el runtime, no solo el LSP) es dependencia real del sistema: sin él, `julia-lsp`
+falla al arrancar. En Arch está en el repo oficial `extra` (`pacman -S julia`), sin AUR ni
+Chaotic-AUR de por medio. La primera vez que arranca, `julia-lsp` precompila
+`LanguageServer.jl`/`SymbolServer.jl`/`StaticLint.jl`, lo que puede tardar varios minutos; las
+siguientes veces reutiliza esa caché de compilación y arranca mucho más rápido.
+
+No hay entrada en Conform para `julia`: el formato lo resuelve el propio LSP/ecosistema. `runic`
+queda descartado por ahora porque su condición de "binario ausente sin fallo silencioso" depende
+de una pieza compartida con Erlang y Solidity que todavía no existe (ver "Política de
+herramientas que Mason no instala" en `next-languages.md`).
 
 ### Kotlin
 

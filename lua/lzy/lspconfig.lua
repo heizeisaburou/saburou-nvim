@@ -41,6 +41,7 @@ M.servers = {
   "lua_ls",
   "marksman", -- markdown
   "groovyls", -- Groovy, Jenkinsfile y Gradle
+  "julials", -- Julia; cmd propio, ver M.config
   "nil_ls", -- Nix; no nixd, ver next-languages.md
   "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
   "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
@@ -239,6 +240,32 @@ M.config = {
   jdtls = {},
 
   jsonls = {},
+
+  julials = {
+    -- El `julials.lua` por defecto de nvim-lspconfig invoca `julia` crudo con
+    -- un script inline que carga LanguageServer.jl desde
+    -- ~/.julia/environments/nvim-lspconfig -- instalación manual vía
+    -- `Pkg.add`, no lo que trae Mason.
+    --
+    -- El paquete de Mason (`julia-lsp`, de mason-org/julia-lsp) es un
+    -- ejecutable propio, un wrapper fino sobre LanguageServer.jl que recibe
+    -- por argumento posicional la ruta del entorno Julia a usar, y que por
+    -- defecto sigue necesitando `julia` en el PATH (ver
+    -- docs/language-dependencies.md). Sustituir el `cmd` por defecto es
+    -- obligatorio: sin esto, Neovim intenta lanzar `julia -e <script>` y
+    -- falla porque Mason nunca instaló LanguageServer.jl a mano.
+    --
+    -- Con la API nativa vim.lsp.config/vim.lsp.enable (a diferencia de la
+    -- vieja require("lspconfig").julials.setup{}, donde este mismo problema
+    -- sigue abierto: mason-org/mason-lspconfig.nvim#582, "before_init es
+    -- demasiado tarde para cambiar cmd") root_dir ya está resuelto a un
+    -- string antes de invocar cmd(dispatchers, config), así que no hace
+    -- falta ningún hook adicional: basta con leer config.root_dir aquí.
+    cmd = function(dispatchers, config)
+      local env = config.root_dir or vim.fn.getcwd()
+      return vim.lsp.rpc.start({ "julia-lsp", env }, dispatchers)
+    end,
+  },
 
   kotlin_language_server = function()
     local java_home = hzsr.sys.java.resolve_home {
