@@ -9,20 +9,28 @@ local install_running = false
 M.languages = {
   "lua",
   "luadoc",
-  "erlang",
-  "fish",
-  "groovy",
-  "julia",
   "markdown_inline",
   "markdown",
-  "nix",
-  "powershell",
-  "r",
-  "solidity",
-  "sql",
   --
   --
   --
+  -- `asm` cubre el default de Neovim (GAS/AT&T); `nasm` es el filetype y el
+  -- parser propios del dialecto Intel, que Neovim asigna cuando el archivo
+  -- declara `asmsyntax=nasm`.
+  -- "asm",
+  -- "erlang",
+  -- "fish",
+  -- "glsl",
+  -- "groovy",
+  -- "julia",
+  -- "nasm",
+  -- "nix",
+  -- "powershell",
+  -- "r",
+  -- "solidity",
+  -- "sql",
+  -- Sin entrada para WebAssembly (wat/wasm): no existe parser catalogado en
+  -- nvim-treesitter todavía, ver next-languages.md.
   -- "bash",
   -- "c_sharp",
   -- "c",
@@ -77,6 +85,7 @@ M.languages = {
 }
 
 M.enabled_highlights = {
+  asm = true,
   bash = true,
   c = true,
   clojure = true,
@@ -90,6 +99,7 @@ M.enabled_highlights = {
   erlang = true,
   fish = true,
   fsharp = true,
+  glsl = true,
   go = true,
   gomod = true,
   gosum = true,
@@ -113,6 +123,7 @@ M.enabled_highlights = {
   make = true,
   markdown = true,
   markdown_inline = true,
+  nasm = true,
   nix = true,
   ocaml = true,
   ocamlinterface = true,

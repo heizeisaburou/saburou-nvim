@@ -30,72 +30,77 @@ Los nombres de la columna **LSP** son los identificadores usados por la configur
 no siempre coinciden con el nombre del paquete de Mason.
 
 
-| Lenguaje / formato | Filetype                         | LSP                           | Formatter                    | Tree-sitter                    |
-| ------------------ | -------------------------------- | ----------------------------- | ---------------------------- | ------------------------------ |
-| Ansible            | `yaml.ansible`                   | `ansiblels`                   | `yamlfmt` (vía `yaml`)       | `yaml` (fallback)              |
-| Bash               | `bash`                           | `bashls`                      | `shfmt`                      | `bash`                         |
-| C                  | `c`                              | `clangd`                      | `clang_format`               | `c`                            |
-| C++                | `cpp`                            | `clangd`                      | `clang_format`               | `cpp`                          |
-| CMake              | `cmake`                          | `neocmake`                    | —                            | `cmake`                        |
-| C#                 | `cs`                             | `csharp_ls`                   | `csharpier`                  | `c_sharp`                      |
-| Clojure            | `clojure`                        | `clojure_lsp`                 | `zprint`                     | `clojure`                      |
-| EDN                | `edn`                            | —                             | `zprint`                     | `clojure` (alias)              |
-| CSS                | `css`                            | `cssls`                       | `prettier`                   | `css`                          |
-| Dart               | `dart`                           | `dartls`                      | `dart_format`                | `dart`                         |
-| Django templates   | `htmldjango`                     | `djls`                        | `djlint`                     | `htmldjango`                   |
-| Elixir             | `elixir`                         | `elixirls`                    | `mix`                        | `elixir`                       |
-| EEx                | `eelixir`                        | `elixirls`                    | `mix`                        | —                              |
-| HEEx               | `heex`                           | `elixirls`                    | `mix`                        | `heex`                         |
-| Erlang             | `erlang`                         | `elp`                         | `erlfmt`                     | `erlang`                       |
-| F#                 | `fsharp`                         | `fsautocomplete`              | `fantomas`                   | `fsharp`                       |
-| Fish               | `fish`                           | `fish_lsp`                    | `fish_indent`                | `fish`                         |
-| Gleam              | `gleam`                          | —                             | `gleam`                      | —                              |
-| Go                 | `go`                             | `gopls`                       | `gofmt`                      | `go`                           |
-| Go modules         | `gomod` / `gosum` / `gowork`     | `gopls`                       | —                            | `gomod` / `gosum` / `gowork`   |
-| Go templates       | `gotmpl`                         | `gopls`                       | `prettier_gotmpl`            | `gotmpl`                       |
-| Groovy             | `groovy`                         | `groovyls`                    | `npm-groovy-lint`            | `groovy`                       |
-| Handlebars         | `handlebars`                     | —                             | `prettier_handlebars`        | —                              |
-| Haskell            | `haskell`                        | `hls`                         | `fourmolu`                   | `haskell`                      |
-| Literate Haskell   | `lhaskell`                       | `hls`                         | `fourmolu`                   | `haskell` (alias)              |
-| HTML               | `html`                           | `html`                        | `prettier`                   | `html`                         |
-| Java               | `java`                           | `jdtls`                       | `google-java-format`         | `java`                         |
-| JavaScript         | `javascript` / `javascriptreact` | `vtsls`                       | `prettier`                   | `javascript`                   |
-| Julia              | `julia`                          | `julials`                     | `runic`                      | `julia`                        |
-| Jinja              | `jinja`                          | `jinja_lsp`                   | `prettier_jinja`             | `jinja` + `jinja_inline`       |
-| JSON               | `json`                           | `jsonls`                      | `biome`                      | `json` / `json5`               |
-| Kotlin             | `kotlin`                         | `kotlin_language_server`      | `ktlint`                     | `kotlin`                       |
-| LaTeX / TeX        | `tex` / `plaintex`               | `texlab`                      | `latexindent`                | —                              |
-| Liquid / Shopify   | `liquid`                         | `shopify_theme_ls`            | `prettier_liquid`            | `liquid`                       |
-| Lua                | `lua`                            | `lua_ls`                      | `stylua`                     | `lua` / `luadoc`               |
-| Make               | `make`                           | —                             | —                            | `make`                         |
-| Markdown           | `markdown`                       | `marksman`                    | `prettier` + `markdown_tabs` | `markdown` + `markdown_inline` |
-| Nix                | `nix`                            | `nil_ls`                      | `nixfmt`                     | `nix`                          |
-| OCaml              | `ocaml`                          | `ocamllsp`                    | `ocamlformat`                | `ocaml`                        |
-| OCaml interface    | `ocamlinterface`                 | `ocamllsp`                    | `ocamlformat`                | `ocaml_interface`              |
-| PHP                | `php`                            | `phpactor`                    | `php_cs_fixer`               | `php`                          |
-| PowerShell         | `ps1`                            | `powershell_es`               | vía LSP                      | `powershell`                   |
-| Pug / Jade         | `pug`                            | `pug`                         | `prettier_pug`               | `pug`                          |
-| Python             | `python`                         | `basedpyright` + `ruff`       | `ruff_format`                | `python`                       |
-| QML                | `qml`                            | `qmlls`                       | `qmlformat` (externo)        | `qmljs`                        |
-| R                  | `r`                              | `air`                         | `air`                        | `r`                            |
-| Ruby               | `ruby`                           | `ruby_lsp`                    | `rubocop`                    | `ruby`                         |
-| Rust               | `rust`                           | `rust_analyzer`               | `rustfmt`                    | `rust`                         |
-| Scala              | `scala`                          | `metals`                      | `scalafmt`                   | `scala`                        |
-| SCSS               | `scss`                           | `cssls`                       | `prettier`                   | —                              |
-| Solidity           | `solidity`                       | `solidity_ls_nomicfoundation` | `forge_fmt`                  | `solidity`                     |
-| SQL                | `sql`                            | `postgres_lsp` / `sqls`       | `sqlfluff` / `pg_format`     | `sql`                          |
-| Surface            | `surface`                        | —                             | `mix`                        | —                              |
-| Svelte             | `svelte`                         | `svelte`                      | `prettier_svelte`            | `svelte`                       |
-| Swift              | `swift`                          | `sourcekit`                   | `swiftformat`                | `swift`                        |
-| TOML               | `toml`                           | `taplo`                       | `taplo`                      | `toml`                         |
-| Twig               | `twig`                           | `twiggy_language_server`      | `prettier_twig`              | `twig`                         |
-| TypeScript / TSX   | `typescript` / `typescriptreact` | `vtsls`                       | `prettier`                   | `typescript` / `tsx`           |
-| Typst              | `typst`                          | `tinymist`                    | `typstyle`                   | `typst`                        |
-| Vim                | `vim`                            | —                             | —                            | `vim`                          |
-| Vimdoc             | `vimdoc`                         | —                             | —                            | `vimdoc`                       |
-| Vue                | `vue`                            | `vue_ls`                      | `prettier`                   | `vue`                          |
-| YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                         |
-| Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                          |
+| Lenguaje / formato | Filetype                         | LSP                           | Formatter                    | Tree-sitter                                   |
+| ------------------ | -------------------------------- | ----------------------------- | ---------------------------- | --------------------------------------------- |
+| Ansible            | `yaml.ansible`                   | `ansiblels`                   | `yamlfmt` (vía `yaml`)       | `yaml` (fallback)                             |
+| Assembly (GAS)     | `asm`                            | `asm_lsp`                     | — (no existe)                | `asm`                                         |
+| Assembly (NASM)    | `nasm`                           | `asm_lsp`                     | `nasmfmt`                    | `nasm`                                        |
+| Bash               | `bash`                           | `bashls`                      | `shfmt`                      | `bash`                                        |
+| Batch              | `dosbatch`                       | —                             | —                            | pendiente (`tree-sitter-batch` sin catalogar) |
+| C                  | `c`                              | `clangd`                      | `clang_format`               | `c`                                           |
+| C++                | `cpp`                            | `clangd`                      | `clang_format`               | `cpp`                                         |
+| CMake              | `cmake`                          | `neocmake`                    | —                            | `cmake`                                       |
+| C#                 | `cs`                             | `csharp_ls`                   | `csharpier`                  | `c_sharp`                                     |
+| Clojure            | `clojure`                        | `clojure_lsp`                 | `zprint`                     | `clojure`                                     |
+| EDN                | `edn`                            | —                             | `zprint`                     | `clojure` (alias)                             |
+| CSS                | `css`                            | `cssls`                       | `prettier`                   | `css`                                         |
+| Dart               | `dart`                           | `dartls`                      | `dart_format`                | `dart`                                        |
+| Django templates   | `htmldjango`                     | `djls`                        | `djlint`                     | `htmldjango`                                  |
+| Elixir             | `elixir`                         | `elixirls`                    | `mix`                        | `elixir`                                      |
+| EEx                | `eelixir`                        | `elixirls`                    | `mix`                        | —                                             |
+| HEEx               | `heex`                           | `elixirls`                    | `mix`                        | `heex`                                        |
+| Erlang             | `erlang`                         | `elp`                         | `erlfmt`                     | `erlang`                                      |
+| F#                 | `fsharp`                         | `fsautocomplete`              | `fantomas`                   | `fsharp`                                      |
+| Fish               | `fish`                           | `fish_lsp`                    | `fish_indent`                | `fish`                                        |
+| Gleam              | `gleam`                          | —                             | `gleam`                      | —                                             |
+| GLSL               | `glsl`                           | `glsl_analyzer`               | vía LSP                      | `glsl`                                        |
+| Go                 | `go`                             | `gopls`                       | `gofmt`                      | `go`                                          |
+| Go modules         | `gomod` / `gosum` / `gowork`     | `gopls`                       | —                            | `gomod` / `gosum` / `gowork`                  |
+| Go templates       | `gotmpl`                         | `gopls`                       | `prettier_gotmpl`            | `gotmpl`                                      |
+| Groovy             | `groovy`                         | `groovyls`                    | `npm-groovy-lint`            | `groovy`                                      |
+| Handlebars         | `handlebars`                     | —                             | `prettier_handlebars`        | —                                             |
+| Haskell            | `haskell`                        | `hls`                         | `fourmolu`                   | `haskell`                                     |
+| Literate Haskell   | `lhaskell`                       | `hls`                         | `fourmolu`                   | `haskell` (alias)                             |
+| HTML               | `html`                           | `html`                        | `prettier`                   | `html`                                        |
+| Java               | `java`                           | `jdtls`                       | `google-java-format`         | `java`                                        |
+| JavaScript         | `javascript` / `javascriptreact` | `vtsls`                       | `prettier`                   | `javascript`                                  |
+| Julia              | `julia`                          | `julials`                     | `runic`                      | `julia`                                       |
+| Jinja              | `jinja`                          | `jinja_lsp`                   | `prettier_jinja`             | `jinja` + `jinja_inline`                      |
+| JSON               | `json`                           | `jsonls`                      | `biome`                      | `json` / `json5`                              |
+| Kotlin             | `kotlin`                         | `kotlin_language_server`      | `ktlint`                     | `kotlin`                                      |
+| LaTeX / TeX        | `tex` / `plaintex`               | `texlab`                      | `latexindent`                | —                                             |
+| Liquid / Shopify   | `liquid`                         | `shopify_theme_ls`            | `prettier_liquid`            | `liquid`                                      |
+| Lua                | `lua`                            | `lua_ls`                      | `stylua`                     | `lua` / `luadoc`                              |
+| Make               | `make`                           | —                             | —                            | `make`                                        |
+| Markdown           | `markdown`                       | `marksman`                    | `prettier` + `markdown_tabs` | `markdown` + `markdown_inline`                |
+| Nix                | `nix`                            | `nil_ls`                      | `nixfmt`                     | `nix`                                         |
+| OCaml              | `ocaml`                          | `ocamllsp`                    | `ocamlformat`                | `ocaml`                                       |
+| OCaml interface    | `ocamlinterface`                 | `ocamllsp`                    | `ocamlformat`                | `ocaml_interface`                             |
+| PHP                | `php`                            | `phpactor`                    | `php_cs_fixer`               | `php`                                         |
+| PowerShell         | `ps1`                            | `powershell_es`               | vía LSP                      | `powershell`                                  |
+| Pug / Jade         | `pug`                            | `pug`                         | `prettier_pug`               | `pug`                                         |
+| Python             | `python`                         | `basedpyright` + `ruff`       | `ruff_format`                | `python`                                      |
+| QML                | `qml`                            | `qmlls`                       | `qmlformat` (externo)        | `qmljs`                                       |
+| R                  | `r`                              | `air`                         | `air`                        | `r`                                           |
+| Ruby               | `ruby`                           | `ruby_lsp`                    | `rubocop`                    | `ruby`                                        |
+| Rust               | `rust`                           | `rust_analyzer`               | `rustfmt`                    | `rust`                                        |
+| Scala              | `scala`                          | `metals`                      | `scalafmt`                   | `scala`                                       |
+| SCSS               | `scss`                           | `cssls`                       | `prettier`                   | —                                             |
+| Solidity           | `solidity`                       | `solidity_ls_nomicfoundation` | `forge_fmt`                  | `solidity`                                    |
+| SQL                | `sql`                            | `postgres_lsp` / `sqls`       | `sqlfluff` / `pg_format`     | `sql`                                         |
+| Surface            | `surface`                        | —                             | `mix`                        | —                                             |
+| Svelte             | `svelte`                         | `svelte`                      | `prettier_svelte`            | `svelte`                                      |
+| Swift              | `swift`                          | `sourcekit`                   | `swiftformat`                | `swift`                                       |
+| TOML               | `toml`                           | `taplo`                       | `taplo`                      | `toml`                                        |
+| Twig               | `twig`                           | `twiggy_language_server`      | `prettier_twig`              | `twig`                                        |
+| TypeScript / TSX   | `typescript` / `typescriptreact` | `vtsls`                       | `prettier`                   | `typescript` / `tsx`                          |
+| Typst              | `typst`                          | `tinymist`                    | `typstyle`                   | `typst`                                       |
+| Vim                | `vim`                            | —                             | —                            | `vim`                                         |
+| Vimdoc             | `vimdoc`                         | —                             | —                            | `vimdoc`                                      |
+| Vue                | `vue`                            | `vue_ls`                      | `prettier`                   | `vue`                                         |
+| WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | pendiente (sin parser catalogado)             |
+| YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                                        |
+| Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                                         |
 
 Además se instala el parser `printf`, usado como parser auxiliar. `expert` se mantiene como
 alternativa comentada a `elixirls` hasta evaluarlo con calma.
@@ -132,6 +137,43 @@ Hay varios casos especialmente importantes:
 Cuando algo no arranca, conviene comprobar en este orden: ejecutable disponible, filetype
 correcto, raíz de proyecto detectada y toolchain del proyecto instalado/restaurado.
 
+### Herramientas que Mason no instala: el aviso de binario ausente
+
+`:MasonInstallAll` **se salta en silencio** todo lo que no tenga mapping en Mason
+(`lua/hzsr/mason/nvchad/init.lua`). Como esta configuración es pública, una herramienta ausente
+no puede fallar sin más: hay que decir qué falta, qué deja de funcionar y cómo se instala, pero
+una sola vez por sesión y sin bloquear el guardado.
+
+Eso lo centraliza `hzsr.sys.executable.external` (`lua/hzsr/sys/executable.lua`), y el adaptador
+que lo convierte en un formatter de Conform es la función local `external` de
+`lua/lzy/conform.lua`:
+
+```lua
+runic = external {
+  bin = "runic",
+  paths = { "~/.julia/bin" },
+  why = "el formato de Julia no se ejecuta",
+  how = [[Instálalo con `julia -e 'using Pkg; Pkg.Apps.add("Runic")'`.]],
+},
+```
+
+Resuelve el binario una vez por sesión (no una vez por formateo), lo busca primero en el `PATH` y
+luego en los directorios de `paths`, y si no está avisa con `vim.notify_once`. Cuando Conform
+tiene builtin para esa herramienta, solo se sustituyen `command` y `condition`: los `args` siguen
+viniendo de Conform.
+
+`paths` no es un detalle: varias de estas herramientas se instalan fuera del `PATH`, y otras solo
+están en él porque el instalador editó el rc de la shell —lo que deja de cumplirse si Neovim
+arranca desde un lanzador de escritorio en vez de una terminal, como pasa con `forge`—.
+
+| Herramienta   | Lenguaje | Se instala con                 | Fuera del `PATH` en         |
+| ------------- | -------- | ------------------------------ | --------------------------- |
+| `runic`       | Julia    | `Pkg.Apps.add("Runic")`        | `~/.julia/bin`              |
+| `erlfmt`      | Erlang   | `rebar3 as release escriptize` | `~/.local/share/erlfmt/...` |
+| `forge_fmt`   | Solidity | instalador de Foundry          | `~/.config/.foundry/bin`    |
+| `nasmfmt`     | NASM     | `go install`                   | `~/go/bin`                  |
+| `fish_indent` | Fish     | paquete `fish` del sistema     | —                           |
+
 ### Paquetes de AUR y Chaotic-AUR
 
 Si una dependencia requiere Yay, comprobar antes si el mismo paquete está disponible en
@@ -160,6 +202,77 @@ sudo pacman -S --needed ansible-core ansible-lint
   playbooks; esto evita el no-op que puede producir una invocación basada únicamente en
   `-in $FILENAME`.
 - Tree-sitter reutiliza el parser `yaml` para el filetype compuesto.
+
+### Assembly
+
+**`asm` no es un lenguaje, son dos**, y ese es el punto delicado de este filetype. GAS/AT&T
+(`mov $1, %eax`) y NASM/Intel (`mov eax, 1`) son sintaxis incompatibles, y las extensiones no las
+distinguen: `.s` la usan tanto GAS como el ensamblador de Go, `.asm` la usa cualquiera.
+
+El LSP no sufre por esto: `asm_lsp` (Mason: `asm-lsp`) entiende NASM, GAS y el ensamblador de Go
+con el mismo binario. Su `cmd`/`root_markers` por defecto (`.asm-lsp.toml`, `.git`) ya sirven; lo
+único que se le añade en `lspconfig.lua` es el filetype `nasm`, que `nvim-lspconfig` no declara
+(solo `asm` y `vmasm`).
+
+El formateo sí sufre, porque cada herramienta entiende un dialecto y solo uno:
+
+| Herramienta | Dialecto que formatea | Sirve para el filetype `asm` |
+| ----------- | --------------------- | ---------------------------- |
+| `asmfmt`    | Go / Plan 9 (Mason)   | No: destrozaría GAS y NASM   |
+| `nasmfmt`   | NASM / Intel          | No: destrozaría GAS          |
+| —           | GAS / AT&T            | No existe ninguno            |
+
+La solución no está en Conform sino en la detección de filetype, y Neovim ya la trae:
+`vim.filetype.detect.asm()` lee las 5 primeras líneas buscando una directiva
+`asmsyntax=<dialecto>` y **usa ese valor como filetype**. Un archivo que empieza con
+`; asmsyntax=nasm` pasa a ser filetype `nasm`, no `asm`; `g:asmsyntax` hace lo mismo de forma
+global para quien trabaje siempre en un dialecto.
+
+Con eso el filetype compartido deja de existir y cada uno recibe lo que le corresponde:
+
+| Filetype | Dialecto   | Parser | Formatter |
+| -------- | ---------- | ------ | --------- |
+| `asm`    | GAS/AT&T   | `asm`  | ninguno   |
+| `nasm`   | NASM/Intel | `nasm` | `nasmfmt` |
+
+Que `asm` no tenga formatter es deliberado y no es un hueco por rellenar: para GAS/AT&T no existe
+formateador, ni en Mason ni fuera. Lo que se evita es lo contrario, que un formateador del
+dialecto equivocado corrompa el archivo.
+
+Y no vale reutilizar `clang_format`, aunque acepte el archivo. Probado sobre un `.s` real: lo
+parsea como C, separa `%rax` en `% rax`, junta instrucciones en la misma línea y convierte
+`.section .rodata` en `.section.rodata`. Deja el archivo inservible **y sale con código 0**, así
+que el fallo sería silencioso. Es justo el escenario que esta separación por filetype evita.
+
+Dependencias de sistema:
+
+- Ninguna para el LSP. Mason compila `asm-lsp` con Cargo (`pkg:cargo/asm-lsp`); a diferencia de
+  `nil` (Nix), no necesita ningún ensamblador del sistema para construirse.
+- `nasmfmt` **no está en Mason ni tiene builtin en Conform**. Se instala con Go y queda fuera del
+  `PATH` en muchos sistemas, así que la config lo resuelve también por ruta:
+
+  ```bash
+  go install github.com/yamnikov-oleg/nasmfmt@latest   # deja el binario en ~/go/bin
+  ```
+
+  Reescribe el archivo in situ y no lee stdin (`stdin = false`, `$FILENAME`). Solo admite
+  indentación por espacios: se le pasa `-ii` con el ancho de la política general, y con estilo
+  tabs se aplica igualmente ese ancho en espacios. Comprobado que no altera la directiva
+  `asmsyntax` de la primera línea, así que formatear no rompe la detección de dialecto.
+- Para ensamblar de verdad: `binutils` (trae `as`, GAS/AT&T) o `nasm` (repo oficial `extra`,
+  sin AUR ni Chaotic-AUR) para Intel.
+
+### Batch
+
+`.bat`/`.cmd` no tienen ninguna integración activa: ni LSP, ni formatter, ni Tree-sitter. No es
+un descuido: tampoco hay formateador de batch en CLI —solo herramientas web, y el lenguaje ni
+siquiera tiene un estándar de estilo formal—, no hay un servidor batch maduro que merezca
+añadirse, y `tree-sitter-batch`
+(`wharflab/tree-sitter-batch`) todavía no está catalogado en `nvim-treesitter`.
+
+Neovim detecta `.bat` y `.cmd` de serie como `dosbatch` y conserva el highlighting Vim
+tradicional. Verificado con un archivo real —no solo `vim.filetype.match`, que da falsos
+negativos en comprobaciones sin buffer real—: ambas extensiones resuelven a `dosbatch`.
 
 ### C#
 
@@ -243,11 +356,10 @@ rebar3 as release escriptize
 vez de descargarlo, y revienta. No es un bug de `rebar3`/OTP, es que hace falta el perfil
 correcto.
 
-Construido en esta máquina y resuelto por ruta absoluta en `lua/lzy/conform.lua` (mismo patrón
-que `runic` con `~/.julia/bin`, para no depender de que el usuario toque su `PATH`). El
-`condition` de `erlfmt` comprueba el ejecutable —por `PATH` o en esa ruta— y avisa una vez si no
-lo encuentra en ninguna, sin bloquear el guardado. Sigue siendo un `condition` a medida, no la
-pieza compartida de "aviso de binario ausente" (ver `next-languages.md`).
+Como no queda en el `PATH`, entra por el mecanismo compartido de binarios ausentes con
+`paths = { "~/.local/share/erlfmt/_build/release/bin" }`: se resuelve por esa ruta sin que el
+usuario toque su `PATH`, y si falta avisa una vez sin bloquear el guardado. Ver "Herramientas que
+Mason no instala" más arriba.
 
 ### F#
 
@@ -269,9 +381,9 @@ faltaba activarlo en `M.languages` y `M.servers`.
 
 `fish_indent` viene con la propia shell Fish (paquete `fish` del sistema), no con Mason: sin la
 shell instalada no hay binario que resolver, aunque el LSP siga funcionando igual. En Arch,
-`pacman -S fish`. Mismo patrón que `runic`/`forge_fmt`: `condition` a medida en
-`lua/lzy/conform.lua` que avisa una vez si falta, no la pieza compartida de "aviso de binario
-ausente" (ver `next-languages.md`).
+`pacman -S fish`. Entra por el mecanismo compartido de binarios ausentes, que avisa una vez si
+falta; es el único de los cinco que no necesita `paths`, porque un paquete del sistema sí queda
+en el `PATH`. Ver "Herramientas que Mason no instala" más arriba.
 
 ### Haskell
 
@@ -366,10 +478,9 @@ binario en `~/.julia/bin/runic` —un directorio que Julia no añade al `PATH` p
 override de `runic` en `lua/lzy/conform.lua` resuelve la ruta absoluta ahí si no está en `PATH`,
 así que funciona sin tocar el `PATH` del sistema.
 
-Ese override es deliberadamente mínimo: comprueba el ejecutable y avisa una vez si falta, pero
-**no** es la pieza compartida de "aviso de binario ausente" que necesitan también Erlang y
-Solidity (ver "Política de herramientas que Mason no instala" en `next-languages.md`). Queda
-anotado en el propio código para generalizarlo cuando se escriba esa pieza.
+Ese `paths` y el aviso cuando falta vienen del mecanismo compartido de binarios ausentes, el
+mismo que usan `erlfmt`, `forge_fmt`, `nasmfmt` y `fish_indent` (ver "Herramientas que Mason no
+instala" más arriba).
 
 ### Kotlin
 
@@ -624,11 +735,13 @@ Ese error es del propio servidor, no de esta configuración: no hay ningún `cmd
 arreglarlo pueda evitar, solo instalar Foundry. Los proyectos Hardhat sin `foundry.toml` no lo
 disparan.
 
-El `condition` de `forge_fmt` en `lua/lzy/conform.lua` comprueba el ejecutable `forge` y avisa
-una vez (`vim.notify_once`) si falta, sin bloquear el guardado —eso cubre el formateador, no el
-aviso de inicialización del LSP, que es cosa del propio servidor—. Es la misma idea a medida que
-`runic` en Julia, **no** la pieza compartida de "aviso de binario ausente" que también necesita
-Erlang (ver `next-languages.md`).
+`forge_fmt` entra por el mecanismo compartido de binarios ausentes, con
+`paths = { "~/.config/.foundry/bin", "~/.foundry/bin" }`. Esas rutas importan más de lo que
+parece: el instalador de Foundry añade la suya al `PATH` desde el rc de la shell, así que Neovim
+abierto desde una terminal encuentra `forge` pero abierto desde un lanzador de escritorio no. Con
+`paths` se resuelve igual en los dos casos, y si de verdad falta avisa una vez sin bloquear el
+guardado. Eso cubre el formateador, no el aviso de inicialización del LSP, que es cosa del propio
+servidor.
 
 ### Swift
 
@@ -749,6 +862,38 @@ de formato.
 `typstyle` se define con los valores de ancho de línea e indentación de la política general, ya
 que el builtin de Conform no pasa por sí solo esos argumentos.
 
+### GLSL
+
+Elegido `glsl_analyzer` (Mason: `glsl_analyzer`, release Rust prebuilt) sobre `glslls`
+(`svenstaro/glsl-language-server`, que en esta config solo se instala compilando a mano o vía
+AUR) por el mismo criterio que decidió `nil_ls` sobre `nixd`: en una config pública, quien clona
+y ejecuta `:MasonInstallAll` se queda sin nada si el paquete no está en el registro con binario
+prebuilt. `cmd`/`root_markers` por defecto ya sirven.
+
+`glsl_analyzer` anuncia los filetypes `glsl`, `vert`, `tesc`, `tese`, `frag`, `geom` y `comp`,
+pero Neovim ya normaliza todas esas extensiones (`.vert`, `.frag`, `.geom`, `.tesc`, `.tese`,
+`.comp`) al filetype único `glsl`; no hace falta ningún alias ni ajuste adicional.
+
+Sin entrada en Conform: `glsl_analyzer` expone su propio `textDocument/formatting`, y el atajo de
+formato de esta config ya cae al LSP cuando Conform no cubre el filetype (`lsp_format =
+"fallback"`).
+
+### WebAssembly
+
+`wasm_language_tools` (Mason: `wasm-language-tools`, release Rust prebuilt) para el formato de
+texto WebAssembly (`.wat`/`.wast`, filetype `wat`). Es LSP y formatter a la vez —el propio
+proyecto se describe como "out-of-the-box formatter"—, así que tampoco necesita entrada en
+Conform: cae al LSP igual que GLSL. `cmd` por defecto (`wat_server`) ya sirve; el config no
+publica `root_markers` propios y no hizo falta añadir ninguno.
+
+Sin Tree-sitter: no existe ningún parser de WebAssembly en el catálogo local de
+`nvim-treesitter` (comprobado; ni `wat` ni `wasm` aparecen). Mismo caso que Batch: queda
+pendiente de que aparezca un parser catalogado.
+
+No se ha instalado localmente ningún ensamblador binario de WebAssembly (`wat2wasm`/`wasm2wat` de
+WABT) para producir `.wasm`; los archivos de prueba son solo texto WAT, que es lo único que
+`wasm_language_tools` analiza.
+
 ### Vue
 
 Se usa `vue_ls` (Volar) y no el alias antiguo `volar`. Conform delega el SFC completo a
@@ -863,3 +1008,7 @@ máquina concreta.
 - [Twiggy](https://github.com/moetelo/twiggy)
 - [Pug plugin for Prettier](https://github.com/prettier/plugin-pug)
 - [pug-lsp](https://github.com/opa-oz/pug-lsp)
+- [`asm-lsp`](https://github.com/bergercookie/asm-lsp)
+- [`tree-sitter-batch`](https://github.com/wharflab/tree-sitter-batch)
+- [`glsl_analyzer`](https://github.com/nolanderc/glsl_analyzer)
+- [`wasm-language-tools`](https://github.com/g-plane/wasm-language-tools)

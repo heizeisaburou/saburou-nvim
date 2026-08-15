@@ -8,18 +8,21 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 
 ## Estado
 
-| Lenguaje       | Estado              | Notas                                                       |
-| -------------- | ------------------- | ----------------------------------------------------------- |
-| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                               |
-| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                     |
-| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout           |
-| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo   |
-| Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección  |
-| Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia |
-| Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` con condition a medida          |
-| Erlang         | Hecho el 2026-08-16 | `elp` necesita `rebar3`; `erlfmt` construido y funcionando  |
-| R              | Hecho el 2026-08-16 | El más sencillo: sin condition ni dependencia de sistema    |
-| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`        |
+| Lenguaje       | Estado              | Notas                                                                |
+| -------------- | ------------------- | -------------------------------------------------------------------- |
+| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                                        |
+| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                              |
+| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout                    |
+| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo            |
+| Julia          | Hecho el 2026-08-15 | `cmd` propio; `runic` fuera del PATH, ver sección                    |
+| Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge` viene con Foundry, fuera de Mason              |
+| Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` viene con la shell                       |
+| Erlang         | Hecho el 2026-08-16 | `elp` necesita `rebar3`; `erlfmt` construido y funcionando           |
+| R              | Hecho el 2026-08-16 | El más sencillo: sin condition ni dependencia de sistema             |
+| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`                 |
+| Assembly       | Configurado         | Dialectos separados: `asm` (GAS) sin formatter, `nasm` con `nasmfmt` |
+| GLSL           | Configurado         | `glsl_analyzer`, no `glslls`; formato vía LSP                        |
+| WebAssembly    | Configurado         | LSP mecánico; formato vía LSP; sin Treesitter todavía                |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -57,668 +60,244 @@ No dar un lenguaje por terminado hasta completar este checklist:
 	  funciones básicas del LSP, diagnósticos y formato usando el proyecto de prueba. Esto
 	  también se delega al usuario.
 
-## Prioridad 0: PowerShell y Batch
+## Lenguajes hechos: primera y segunda tanda
 
-### Qué son realmente `pwsh`, `powershell`, `cmd` y `bat`
+`pwsh`/`powershell.exe`/`cmd.exe` no son variantes del mismo lenguaje: `pwsh` y `powershell.exe`
+hablan PowerShell (`.ps1`/`.psm1`/`.psd1` → filetype `ps1`); `cmd.exe` interpreta batch
+(`.bat`/`.cmd` → filetype `dosbatch`), un lenguaje aparte. `.psd1` no lo detecta Neovim de serie;
+lo mapea `lua/user/opts.lua`.
 
-No son cuatro lenguajes.
+Resumen de las nueve implementadas, detalle completo en `docs/language-dependencies.md` (sección
+"Notas por lenguaje") y en el código de cada capa:
 
-| Nombre                          | Qué es                                                                                    | Archivos relacionados en Neovim               |
-| ------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `pwsh` / `pwsh.exe`             | Ejecutable de PowerShell moderno, versión 7+, multiplataforma y basado en .NET moderno    | `.ps1`, `.psm1`, `.psd1` → filetype `ps1`     |
-| `powershell` / `powershell.exe` | Ejecutable de Windows PowerShell 5.1, antiguo, solo Windows y basado en .NET Framework    | Los mismos archivos y el mismo filetype `ps1` |
-| `cmd.exe`                       | Intérprete clásico de comandos de Windows; es otro lenguaje, no una edición de PowerShell | `.bat` y `.cmd` → filetype `dosbatch`         |
-| `.bat` / `.cmd`                 | Dos extensiones de la misma familia de scripts batch ejecutada por `cmd.exe`              | Ambos usan `dosbatch`                         |
+| Lenguaje     | LSP decidido                  | Treesitter   | Conform                | Nota                                              |
+| ------------ | ----------------------------- | ------------ | ---------------------- | ------------------------------------------------- |
+| PowerShell   | `powershell_es`               | `powershell` | vía LSP                | `bundle_path` propio: el paquete no deja binario  |
+| PostgreSQL   | `postgres_lsp`                | `sql`        | `pg_format`            | Se autolimita a proyectos con root PostgreSQL     |
+| SQL genérico | `sqls`                        | `sql`        | `sqlfluff`/`pg_format` | `root_dir` cede ante `postgres_lsp`               |
+| Fish         | `fish_lsp`                    | `fish`       | `fish_indent`          | LSP mecánico; formatter viene con la shell        |
+| Nix          | `nil_ls` (no `nixd`)          | `nix`        | `nixfmt`               | `nil` necesita `nix` del sistema para compilarse  |
+| Solidity     | `solidity_ls_nomicfoundation` | `solidity`   | `forge_fmt`            | LSP mecánico; `forge` lo trae Foundry             |
+| Erlang       | `elp`                         | `erlang`     | `erlfmt`               | `elp` necesita `rebar3`; `erlfmt` se compila      |
+| Groovy       | `groovyls`                    | `groovy`     | `npm-groovy-lint`      | JDK 21/17 fijado antes de compilar con Gradle     |
+| R            | `air`                         | `r`          | `air`                  | El más sencillo: sin `cmd` ni `condition` propios |
+| Julia        | `julials`                     | `julia`      | `runic`                | `cmd` propio; `runic` vive en `~/.julia/bin`      |
 
-`pwsh` y `powershell.exe` hablan esencialmente el mismo lenguaje PowerShell, pero no ofrecen
-exactamente el mismo runtime, módulos ni compatibilidad. Para trabajo nuevo elegiría PowerShell 7
-(`pwsh`). Windows PowerShell 5.1 solo interesa para automatización heredada o módulos que dependan
-de Windows/.NET Framework.
+Batch (`.bat`/`.cmd`) sigue sin ninguna integración: no hay LSP maduro que merezca añadirse, no
+hay formatter consolidado en Conform, y `tree-sitter-batch` (`wharflab/tree-sitter-batch`)
+todavía no está catalogado en `nvim-treesitter`. No añadir `cmd`/`bat`/`dosbatch` a `M.languages`
+mientras eso siga así.
 
-La preferencia `auto`/`pwsh`/`powershell`/`cmd` de `lua/user/terminal.lua` elige el **proceso de la
-terminal integrada**. No configura los filetypes ni el LSP.
+Los formatters que no vienen de Mason (`forge_fmt`, `erlfmt`, `runic`, `fish_indent`) entran por
+la pieza compartida de binarios ausentes que se describe más abajo.
 
-Corrección de la tabla de arriba, comprobada al implementarlo: Neovim detecta `.ps1` y `.psm1`, pero
-**no `.psd1`**. Los manifiestos de módulo se quedaban sin filetype y `powershell_es` —que solo
-atiende `ps1`— no se adjuntaba a ellos. Lo mapea `lua/user/opts.lua`.
-
-### PowerShell: stack recomendado
-
-| Capa       | Elección                                     | Motivo                                                                       |
-| ---------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
-| LSP        | `powershell_es` (PowerShell Editor Services) | Definición, referencias, completado, análisis con PSScriptAnalyzer y formato |
-| Treesitter | parser `powershell`                          | El parser se asocia al filetype `ps1`                                        |
-| Conform    | ninguna entrada                              | Usar el formato de `powershell_es` mediante el fallback LSP                  |
-| Mason      | `powershell-editor-services`                 | Ya existe el mapping `powershell_es` en `names.lua`                          |
-| Runtime    | `pwsh` (PowerShell 7)                        | Necesario para ejecutar scripts y para PowerShell Editor Services            |
-
-En Linux, `pwsh` es PowerShell 7 nativo, no una emulación. Permite probar el lenguaje y toda la
-integración del editor; los módulos y APIs exclusivos de Windows deben validarse en Windows.
-
-Cambios futuros en `lspconfig.lua`:
-
-```lua
--- M.servers
-"powershell_es",
-
--- M.config
-powershell_es = function()
-  return {
-	bundle_path = vim.fs.joinpath(
-	  vim.fn.stdpath "data",
-	  "mason",
-	  "packages",
-	  "powershell-editor-services"
-	),
-	shell = vim.fn.executable "pwsh" == 1 and "pwsh" or "powershell",
-  }
-end,
-```
-
-La configuración especial no es decorativa: el config de `nvim-lspconfig` necesita conocer la raíz
-del ZIP extraído de PowerShell Editor Services. Mason instala precisamente esa raíz en el
-directorio usado arriba, pero su paquete no expone un binario normal en `mason/bin`.
-
-En un equipo sin PowerShell 7, el fallback arrancaría `powershell.exe`. PowerShell Editor Services
-soporta las versiones vigentes de PowerShell 7+; el soporte de Windows PowerShell 5.1 es de mejor
-esfuerzo.
-
-Cambios futuros en `treesitter.lua`:
-
-```lua
--- M.languages: nombre del parser
-"powershell",
-
--- M.enabled_highlights: nombre del filetype de Neovim
-ps1 = true,
-```
-
-No añadir `ps1` a Conform. Si posteriormente queremos una política de formato propia, se puede
-crear un formatter Conform que invoque `Invoke-Formatter`, pero duplicaría el motor que ya usa
-PowerShell Editor Services/PSScriptAnalyzer.
-
-### Batch (`.bat` y `.cmd`): stack recomendado por ahora
-
-| Capa       | Elección          | Motivo                                                                                     |
-| ---------- | ----------------- | ------------------------------------------------------------------------------------------ |
-| Filetype   | `dosbatch` nativo | Neovim ya detecta `.bat` y `.cmd`                                                          |
-| LSP        | ninguno           | No hay un servidor batch maduro y estándar que merezca añadirse                            |
-| Conform    | ninguno           | No hay un formateador batch consolidado en Conform                                         |
-| Treesitter | esperar           | Existe `tree-sitter-batch`, pero todavía no está en el catálogo local de `nvim-treesitter` |
-
-Batch seguirá teniendo el highlighting Vim tradicional de `dosbatch`. No debemos añadir `cmd`, `bat` ni
-`dosbatch` a `M.languages`: esos no son nombres de parser válidos actualmente.
-
-Más adelante hay dos opciones para Treesitter:
-
-1. Esperar a que `nvim-treesitter` catalogue `wharflab/tree-sitter-batch`.
-2. Registrar ese parser manualmente y mapear `dosbatch` a su lenguaje.
-
-La primera opción es preferible: el parser es reciente y batch tiene una gramática especialmente
-desagradable (`%var%`, expansión retardada, labels, paréntesis y quoting de `cmd.exe`). Aquí el coste
-de mantenimiento manual supera el beneficio inmediato.
-
-## Prioridad 1: segunda tanda
+## Prioridad 2: tercera tanda
 
 ### Resumen recomendado
 
-| Lenguaje     | LSP decidido                  | Treesitter | Conform                              | Instalación principal                   |
-| ------------ | ----------------------------- | ---------- | ------------------------------------ | --------------------------------------- |
-| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL                     | Mason                                   |
-| SQL genérico | `sqls`                        | `sql`      | ver política SQL                     | Mason                                   |
-| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`                        | LSP en Mason; formatter viene con Fish  |
-| Nix          | `nil_ls`                      | `nix`      | `nixfmt`                             | Mason (`nil` compila con Cargo + `nix`) |
-| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`                          | LSP en Mason; formatter con Foundry     |
-| Erlang       | `elp`                         | `erlang`   | `erlfmt`                             | LSP en Mason; formatter externo         |
-| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint`                    | Mason                                   |
-| R            | `air`                         | `r`        | `air`                                | Mason                                   |
-| Julia        | `julials`                     | `julia`    | `runic` (`cmd`/`condition` a medida) | Mason (`cmd` propio, ver Julia)         |
+| Lenguaje    | LSP decidido          | Treesitter    | Conform               | Instalación principal |
+| ----------- | --------------------- | ------------- | --------------------- | --------------------- |
+| Assembly    | `asm_lsp`             | `asm`, `nasm` | `nasmfmt` (solo NASM) | Mason (Cargo) + Go    |
+| GLSL        | `glsl_analyzer`       | `glsl`        | vía LSP               | Mason                 |
+| WebAssembly | `wasm_language_tools` | pendiente     | vía LSP               | Mason                 |
 
-Las excepciones importantes están debajo; no conviene copiar la tabla a ciegas. Los formatters
-que no vienen de Mason (`forge_fmt`, `erlfmt`, `runic`) siguen la política de binarios externos.
+Los tres LSP son mecánicos: `cmd`/`root_markers` por defecto ya sirven. Assembly es el único que
+necesitó `M.config`, y no por el servidor sino para añadirle el filetype `nasm`. Detalle completo
+en `docs/language-dependencies.md`.
 
-### PostgreSQL y SQL genérico
+### Assembly
 
-#### Política decidida
+`asm_lsp` (Mason: `asm-lsp`) cubre NASM/GAS/ensamblador de Go con el mismo binario. Mason lo
+compila con Cargo; a diferencia de `nil` (Nix), no hay indicio en su repositorio de que necesite
+ningún ensamblador del sistema para compilarse —la tabla de opcodes viene embebida como datos, no
+generada llamando a un ensamblador externo—, pero no se ha verificado con una compilación real.
 
-Entran **los dos**, y se reparten por raíz de proyecto. No es la coexistencia cara de
-obsidian.nvim/marksman: allí lo caro fue reimplementar las funciones del vault para que dos
-plugins no se pelearan por el buffer; aquí no hay plugins, solo dos clientes LSP y una
-comprobación de raíz.
+El formateo tuvo vuelta, y la solución no estaba en Conform sino en el filetype. `asm` no es un
+lenguaje: es dos, con extensiones que se solapan. `asmfmt` (el único candidato de Mason) es del
+**ensamblador de Go**, sintaxis Plan 9, y usa la misma extensión `.s` que GAS; `nasmfmt` solo
+entiende NASM; para GAS/AT&T no existe formateador en ningún sitio. Aplicar cualquiera de ellos
+al filetype `asm` compartido destrozaría los archivos de los otros dialectos.
 
-Media pieza viene hecha de fábrica. `nvim-lspconfig` ya publica `postgres_lsp` con
-`root_markers = { "postgres-language-server.jsonc" }` y `workspace_required = true`, así que **se
-autolimita**: fuera de un proyecto Postgres ni arranca. El que se pasa de la raya es `sqls`, que
-trae `root_markers = { "config.yml" }` y ningún `workspace_required`, de modo que se engancharía
-también dentro del proyecto Postgres. Todo el arbitraje es hacerle sitio, con el mismo patrón que
-ya usa `marksman` en `lua/lzy/lspconfig.lua`:
+Neovim ya resuelve esto y no lo estábamos usando: `vim.filetype.detect.asm()` lee las 5 primeras
+líneas buscando una directiva `asmsyntax=<dialecto>` y **usa ese valor como filetype**.
+Verificado:
 
-```lua
-sqls = {
-  -- Dentro de un proyecto Postgres manda postgres_lsp. root_dir devuelve nil
-  -- ahí y workspace_required impide arrancar sin root, igual que marksman
-  -- dentro de un vault.
-  workspace_required = true,
-  root_dir = function(bufnr, on_dir)
-	local name = vim.api.nvim_buf_get_name(bufnr)
-	if name == "" then
-	  return on_dir(nil)
-	end
-	local postgres = #vim.fs.find({ "postgres-language-server.jsonc" }, {
-	  upward = true,
-	  path = vim.fs.dirname(name),
-	}) > 0
-	if postgres then
-	  return on_dir(nil)
-	end
-	on_dir(vim.fs.root(bufnr, { "config.yml", ".git" }))
-  end,
-},
+```
+; asmsyntax=nasm  →  filetype nasm
+(sin directiva)   →  filetype asm     (GAS/AT&T, el default)
 ```
 
-Contrapartida aceptada: con `workspace_required`, un `.sql` suelto sin `.git` ni raíz se queda sin
-`sqls`. En la práctica casi no ocurre, y `sqls` sin proyecto aporta poco.
+Con eso el filetype compartido desaparece y cada dialecto puede tener su herramienta:
 
-Formato: `sqlfluff` cuando el proyecto declara su dialecto y `pg_format` cuando no. `sqlfluff` es mejor
-—formatea y hace de linter— pero exige un `.sqlfluff` por proyecto y sin él se queja; en una config
-pública eso castiga a quien solo abre un `.sql`. Conform lo resuelve con `condition`, el mismo patrón
-que ya usa `markdown_tabs` en `lua/lzy/conform.lua`:
-
-```lua
-sql = { "sqlfluff", "pg_format", stop_after_first = true },
-
--- formatters
-sqlfluff = {
-  condition = function(_, ctx)
-	return vim.fs.root(ctx.filename, { ".sqlfluff" }) ~= nil
-  end,
-},
-```
-
-#### PostgreSQL
-
-Para proyectos PostgreSQL elegiría `postgres_lsp`, el servidor actual de la comunidad de Supabase.
-Usa un parser PostgreSQL real y puede ofrecer análisis de tipos, completado, lint de migraciones
-y formato específico de PostgreSQL.
+| Filetype | Dialecto   | Parser | Formateador                    |
+| -------- | ---------- | ------ | ------------------------------ |
+| `asm`    | GAS/AT&T   | `asm`  | ninguno: no existe             |
+| `nasm`   | NASM/Intel | `nasm` | `nasmfmt` (externo, ver abajo) |
 
 ```lua
 -- lspconfig.lua: M.servers
-"postgres_lsp",
+"asm_lsp",
+
+-- lspconfig.lua: M.config -- nvim-lspconfig solo declara asm/vmasm, pero
+-- asm-lsp entiende NASM también
+asm_lsp = { filetypes = { "asm", "vmasm", "nasm" } },
 
 -- treesitter.lua
-"sql",          -- M.languages
-sql = true,     -- M.enabled_highlights
+"asm", "nasm",             -- M.languages
+asm = true, nasm = true,   -- M.enabled_highlights
+
+-- conform.lua: SOLO nasm, nunca asm
+nasm = { "nasmfmt" },
 ```
 
-El servidor tiene `workspace_required = true`: cada proyecto debe tener una raíz reconocible,
-normalmente `postgres-language-server.jsonc`. No se adjunta a un `.sql` suelto en cualquier
-directorio, y eso es justamente lo que hace barato el reparto con `sqls`.
+`nasmfmt` (`yamnikov-oleg/nasmfmt`) no está en Mason ni tiene builtin en Conform: se instala con
+`go install github.com/yamnikov-oleg/nasmfmt@latest` y entra por la pieza compartida de binarios
+externos. Reescribe in situ (`stdin = false`), y comprobado que no toca la directiva `asmsyntax`
+de la primera línea, así que formatear no rompe la detección de dialecto.
 
-El formato no lo lleva el LSP sino Conform, según la política decidida arriba. `pg_format` es el
-que atiende a quien no declara dialecto, así que hace falta su mapping en `names.lua`:
+El mapping `asm_lsp = "asm-lsp"` ya existía en `names.lua`; `nasmfmt` no lleva mapping porque
+Mason no lo ofrece.
 
-```lua
-pg_format = "pgformatter",
-```
+### GLSL
 
-#### SQL genérico
-
-Para SQL que deba servir con PostgreSQL, MySQL, SQLite, SQL Server y otros, elegiría `sqls` antes
-que `sqlls`:
-
-```lua
--- lspconfig.lua: M.servers
-"sqls",
-```
-
-`sqls` y `sqlls` son proyectos diferentes. `sqlls` es el nombre de config para `sql-language-server`;
-`slls` probablemente era una errata. `sqls` tiene soporte explícito para varios motores y aprovecha
-la conexión a base de datos para completado y navegación. Sin configurar la conexión, su valor
-baja bastante.
-
-`sqlfluff` necesita que cada proyecto declare su dialecto, normalmente en `.sqlfluff`; por eso entra
-con `condition` y `pg_format` recoge el resto. `sql_formatter` queda como alternativa descartada: más
-sencillo, pero peor linter y menos consciente de cada motor.
-
-`postgres_lsp` y `sqls` conviven porque se reparten por raíz, no porque se activen los dos sobre el
-mismo buffer: eso sigue estando prohibido y es lo que evita el `root_dir` de la política.
-
-Mapping de Mason que falta para PostgreSQL:
-
-```lua
-postgres_lsp = "postgres-language-server",
-```
-
-`sqls`, `sqlls`, `sqlfluff` y `sql_formatter` ya tienen mapping local.
-
-### Fish
-
-Stack recomendado:
+Decidido: `glsl_analyzer`, no `glslls`. Mismo criterio que decidió `nil_ls` sobre `nixd`:
+`glslls` (`svenstaro/glsl-language-server`) solo se instala compilando a mano o vía AUR en esta
+config, mientras que `glsl_analyzer` es un release Rust prebuilt de Mason. En una config pública,
+quien clona y ejecuta `:MasonInstallAll` se queda sin nada con la primera opción.
 
 ```lua
 -- lspconfig.lua: M.servers
-"fish_lsp",
-
--- treesitter.lua: M.languages
-"fish",
-
--- treesitter.lua: M.enabled_highlights
-fish = true,
-
--- conform.lua: formatters_by_ft
-fish = { "fish_indent" },
-
--- names.lua
-fish_lsp = "fish-lsp",
-```
-
-`fish_indent` viene con Fish y no se instala mediante Mason, por lo que no necesita mapping. Aunque
-`fish_lsp` también sabe formatear, prefiero `fish_indent`: es la herramienta canónica del propio
-shell y deja el reparto de responsabilidades muy claro.
-
-El LSP resultó mecánico de verdad (como Solidity, no como Julia): `cmd`/`root_markers` por
-defecto ya sirven y `fish = true` en `M.enabled_highlights` ya estaba del catálogo previo a
-`next-languages`, solo faltaba activarlo en `M.languages`/`M.servers`. `fish` (la shell) no
-estaba instalada en esta máquina —era la única forma de tener `fish_indent`—, así que se
-instaló con `pkexec pacman -S --noconfirm fish`. `fish_indent` lleva el mismo `condition` a
-medida que `runic`/`forge_fmt`: avisa una vez si falta, sin bloquear el guardado.
-
-### Nix
-
-Decidido: **`nil_ls`**, no `nixd`. `nixd` sabe bastante más (opciones, paquetes, navegación con NixOS,
-Home Manager y flakes), pero no está en el registro de Mason: se instala con Nix o desde el
-sistema. En una config pública eso significa que quien la clona y ejecuta `:MasonInstallAll` se
-queda con un LSP configurado que no tiene. `nil_ls` ya está mapeado en Mason como `nil` y entra solo.
-
-```lua
--- lspconfig.lua: M.servers
-"nil_ls",
+"glsl_analyzer",
 
 -- treesitter.lua
-"nix",          -- M.languages
-nix = true,     -- M.enabled_highlights
-
--- conform.lua
-nix = { "nixfmt" },
-
--- names.lua
-nixfmt = "nixfmt",
+"glsl",       -- M.languages
+glsl = true,  -- M.enabled_highlights
 ```
 
-Quien trabaje en serio con NixOS puede cambiar `nil_ls` por `nixd` en su fork; queda documentado
-como mejora opcional, no como default. No usar ambos a la vez.
+`glsl_analyzer` anuncia los filetypes `glsl`, `vert`, `tesc`, `tese`, `frag`, `geom` y `comp`,
+pero Neovim ya normaliza todas esas extensiones al filetype único `glsl` (verificado con archivos
+reales), así que no hace falta ningún alias. Sin entrada en Conform: `glsl_analyzer` expone su
+propio `textDocument/formatting` y el atajo de formato de esta config ya cae al LSP cuando
+Conform no cubre el filetype. Los mappings `glsl_analyzer = "glsl_analyzer"` y `glslls =
+"glslls"` ya existían en `names.lua`.
 
-Lo que se aprendió al implementarlo, que no estaba anticipado en la propuesta original:
+### WebAssembly
 
-- **`nil` necesita el binario `nix` para compilarse**, no solo `cargo`/`rustc`. Su `build.rs`
-  ejecuta `nix eval` para volcar la tabla de funciones integradas del lenguaje y la empotra en el
-  binario; sin `nix` en el `PATH` la instalación de Mason falla con
-  `Failed to get builtins. Is nix accessible?`. Es dependencia solo de compilación: una vez
-  construido, `nil` no vuelve a necesitar `nix` para funcionar. En Arch está en el repo oficial
-  `extra` (`pacman -S nix`), sin pasar por AUR ni Chaotic-AUR.
-- Por eso "Instalación principal: Mason" de la tabla de arriba es una simplificación: hace falta
-  ese paquete del sistema una vez, igual que Groovy necesita un JDK compatible. Ver el caso 5 de
-  "Qué instala Mason y qué no" en `docs/language-dependencies.md`.
-
-### Solidity
-
-Para proyectos Hardhat o Foundry:
+`wasm_language_tools` (Mason: `wasm-language-tools`, release Rust prebuilt) para el formato de
+texto WebAssembly (`.wat`/`.wast`, filetype `wat`, verificado con archivos reales). Es LSP y
+formatter a la vez —el propio proyecto se describe como "out-of-the-box formatter"—, así que
+tampoco necesita entrada en Conform: cae al LSP igual que GLSL.
 
 ```lua
 -- lspconfig.lua: M.servers
-"solidity_ls_nomicfoundation",
+"wasm_language_tools",
 
--- treesitter.lua
-"solidity",          -- M.languages
-solidity = true,     -- M.enabled_highlights
-
--- conform.lua
-solidity = { "forge_fmt" },
+-- names.lua: mapping que faltaba
+wasm_language_tools = "wasm-language-tools",
 ```
 
-El mapping LSP de Mason ya existía. A diferencia de Julia, `solidity_ls_nomicfoundation` no
-necesitó ningún ajuste: su `cmd`/`root_markers` por defecto ya sirven con lo que instala Mason.
-
-`forge_fmt` sí tiene una vuelta: Foundry (que trae `forge`) **no está en pacman ni en
-Chaotic-AUR** (comprobado; solo hay coincidencias de nombre ajenas). Se instala con
-`curl -L https://foundry.paradigm.xyz | bash` y luego `foundryup`. Igual que `runic` en Julia,
-`forge_fmt` lleva un `condition` a medida que comprueba el ejecutable y avisa una vez si falta,
-en vez de esperar a la pieza compartida de "aviso de binario ausente" (ver esa sección).
-
-### Erlang y el ecosistema BEAM
-
-Para completar Elixir/HEEx elegiría ELP (`elp`), el servidor incremental creado por WhatsApp, antes
-que `erlangls`:
-
-```lua
--- lspconfig.lua: M.servers
-"elp",
-
--- treesitter.lua
-"erlang",          -- M.languages
-erlang = true,     -- M.enabled_highlights
-
--- conform.lua
-erlang = { "erlfmt" },
-```
-
-`elp = "elp"` ya está en `names.lua`. `erlfmt` se instala fuera de Mason; no añadir mapping
-mientras el registro no ofrezca el paquete.
-
-La config de `elp` fue mecánica de verdad (como Solidity y Fish): no necesitó ningún ajuste de
-`cmd`/`root_markers`. Pero **sí tiene una dependencia en tiempo de ejecución que la config no
-puede evitar**: al abrir un archivo en un proyecto con `rebar.config`, ELP requiere `rebar3` ≥
-3.24.0 para descubrir la estructura del proyecto, y sin él falla con
-`LSP[elp] No such file or directory (os error 2)` —lo encontró 平生三郎 al probar, no algo que yo
-hubiera verificado antes—. `erl`/`escript`/`erlc` (el runtime en sí) no hacían falta para el LSP,
-solo `rebar3`, que instalé con `pkexec pacman -S --noconfirm rebar3` y confirmé que arregla el
-`attach`.
-
-`erlfmt` sí es un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: no tiene binario
-prebuilt en ningún sitio, solo se construye desde fuente con `rebar3`. Construido en
-`~/.local/share/erlfmt` y resuelto por ruta absoluta en Conform (mismo patrón que `runic` con
-`~/.julia/bin`). Ojo con el perfil: `rebar3 escriptize` a secas falla porque `erlfmt` deja
-`getopt` fuera de las dependencias del perfil por defecto —hace falta `rebar3 as release
-escriptize`—; no es un bug de `rebar3`/OTP, es el perfil correcto (ver la sección de Erlang en
-`docs/language-dependencies.md` para el detalle completo).
-
-Esto no sustituye Elixir: para el BEAM completo quedarían parsers `elixir`, `heex` y `erlang`,
-más el LSP de Elixir que se elija en su momento.
-
-### Groovy
-
-Groovy cubre scripts, `Jenkinsfile`, Gradle y parte del ecosistema JVM:
-
-```lua
--- lspconfig.lua: M.servers
-"groovyls",
-
--- treesitter.lua
-"groovy",          -- M.languages
-groovy = true,     -- M.enabled_highlights
-
--- conform.lua
-groovy = { "npm-groovy-lint" },
-
--- names.lua: mapping que falta para el formatter
-["npm-groovy-lint"] = "npm-groovy-lint",
-```
-
-El mapping `groovyls = "groovy-language-server"` ya existe.
-
-Lo que se aprendió al implementarlo, que era justo lo que la nota marcaba como riesgo:
-
-- **El Java importa antes de que exista el servidor.** Mason no descarga este paquete, lo compila
-  con `./gradlew build`, y el wrapper fija Gradle 9.1 (septiembre de 2025). Con el JDK 26 del
-  sistema el build muere con `Unsupported class file major version 70`. Por eso se fija
-  `JAVA_HOME` a un JDK 21 o 17 antes de cualquier instalación de Mason, y el servidor se arranca
-  luego con ese mismo JDK vía `cmd_env`.
-- **`npm-groovy-lint` entra solo como formateador**, para no duplicar los diagnósticos de
-  `groovyls`. Necesita `timeout_ms = 20000`: arranca una JVM con CodeNarc y la primera pasada de
-  la sesión pasa de 10 s.
-
-### R
-
-Decidido: **Air**, un único binario moderno de Mason que ofrece LSP y formato. El caso más
-sencillo de toda esta tanda: sin `cmd` propio como Julia, sin `condition` a medida como Solidity/
-Fish/Erlang. `air` es un release Rust prebuilt para todas las plataformas y no necesita el
-runtime de R para nada.
-
-```lua
--- lspconfig.lua: M.servers
-"air",
-
--- treesitter.lua
-"r",          -- M.languages
-r = true,     -- M.enabled_highlights
-
--- conform.lua
-r = { "air" },
-
--- names.lua
-air = "air",
-```
-
-Alternativa descartada por ahora: `r_language_server`, ya mapeado como `r-languageserver`. Es el
-servidor establecido y cubre además `rmd` y `quarto` en la config de `nvim-lspconfig`; necesita el
-paquete R `languageserver`. Merecería el cambio si aparece mucho trabajo con R Markdown o Quarto, o
-si Air se queda corto en funciones de paquete/proyecto.
-
-No activar `air` y `r_language_server` a la vez para `.R` sin una razón concreta.
-
-### Julia
-
-El estándar del ecosistema es `julials`, respaldado por `LanguageServer.jl`. Con una salvedad
-importante descubierta al implementarlo, no anticipada aquí: **el `cmd` por defecto de
-`nvim-lspconfig` no sirve con el paquete que instala Mason**, no es solo "añadir a `M.servers`".
-
-`julials.lua` invoca `julia` crudo con un script inline que espera `LanguageServer.jl` instalado
-a mano vía `Pkg.add`. El paquete de Mason (`julia-lsp`) es un binario propio que recibe la ruta
-del entorno como argumento posicional (`julia-lsp "<ruta>"`); con el `cmd` por defecto falla con
-exit 1 inmediato. Es un problema real y reconocido, sin arreglo limpio en la API clásica de
-`lspconfig` (`mason-org/mason-lspconfig.nvim#582`, "`before_init` llega demasiado tarde para
-cambiar `cmd`").
-
-Con la API nativa `vim.lsp.config`/`vim.lsp.enable` que usa esta config sí hay arreglo limpio,
-porque `root_dir` se resuelve a una cadena antes de invocar `cmd(dispatchers, config)`:
-
-```lua
--- lspconfig.lua: M.servers
-"julials",
-
--- lspconfig.lua: M.config
-julials = {
-  cmd = function(dispatchers, config)
-    local env = config.root_dir or vim.fn.getcwd()
-    return vim.lsp.rpc.start({ "julia-lsp", env }, dispatchers)
-  end,
-},
-
--- treesitter.lua
-"julia",          -- M.languages
-julia = true,     -- M.enabled_highlights
-
--- conform.lua: formatters_by_ft
-julia = { "runic" },
--- conform.lua: formatters (resuelve ~/.julia/bin/runic si no está en PATH,
--- avisa una vez y se salta el formato si de verdad no está; ver el código
--- completo y por qué NO es la pieza general de Erlang/Solidity)
-runic = { command = function() --[[ ... ]] end, condition = function() --[[ ... ]] end },
-```
-
-El mapping `julials = "julia-lsp"` ya existía. `julia` (el runtime) es dependencia real del
-sistema —sin él, `julia-lsp` no arranca—, disponible en el repo oficial `extra` de Arch, sin
-CAUR/AUR. Verificado con `julia` instalado: el cliente llega a adjuntarse (`ATTACHED
-client=julials`) con el `root_dir` correcto y arranca la precompilación de
-`LanguageServer.jl`/`SymbolServer.jl`, que tarda varios minutos la primera vez.
-
-`runic` **sí entra** en Conform, con una versión mínima y local del "aviso de binario ausente" en
-vez de esperar a la pieza compartida con Erlang y Solidity (todavía sin escribir). `runic` no
-está en el registro de Mason: se instala como Pkg App
-(`julia -e 'using Pkg; Pkg.Apps.add("Runic")'`), que deja el binario en `~/.julia/bin/runic`, un
-directorio que Julia no añade al `PATH`. El `command` del formatter resuelve esa ruta absoluta
-directamente si no está en `PATH`, y el `condition` avisa una vez (`vim.notify_once`) y se salta
-el formato si de verdad no está instalado —sin bloquear el guardado ni fallar en bucle—.
-
-Ojo: **esto no es la pieza general que Erlang y Solidity también necesitan**. Es un condition/
-command a medida, solo para `runic`, escrito para no dejar Julia sin formateador mientras esa
-pieza compartida no exista. Cuando se escriba, generalizar este caso (está anotado en el propio
-`lua/lzy/conform.lua`) en vez de mantener dos mecanismos distintos.
-
-Verificado con `runic` instalado: formatea de verdad (indentación, `return` explícito) sin tocar
-el proyecto de prueba, que debe seguir mal formateado para que se compruebe `<leader>fm` a mano.
-
-Los proyectos deben tener un entorno Julia reconocible (`Project.toml` o `JuliaProject.toml`). El
-config de `nvim-lspconfig` sigue aportando `:LspJuliaActivateEnv` para cambiar el entorno cuando
-sea necesario; no se ha sobrescrito ese `on_attach`, solo `cmd`.
+Sin Tree-sitter: no existe ningún parser de WebAssembly en el catálogo local de `nvim-treesitter`
+(comprobado; ni `wat` ni `wasm` aparecen). Mismo caso que Batch: queda pendiente de que aparezca
+un parser catalogado, sin entrada en `M.languages` mientras tanto.
 
 ## Política de herramientas que Mason no instala
 
 Esta config es pública y hay gente usándola, así que el criterio no es "qué tengo yo instalado"
 sino "qué le pasa a quien la clona". `:MasonInstallAll` instala todo lo que salga de la lista de
 servidores y de Conform, pero **lo que no tiene mapping en Mason se salta en silencio**
-(`lua/hzsr/mason/nvchad/init.lua`). Eso afecta a `erlfmt`, `runic` y `forge_fmt`, y afectaría a `nixd` si
-alguna vez volviera a la propuesta.
+(`lua/hzsr/mason/nvchad/init.lua`). Eso afecta a `erlfmt`, `runic`, `forge_fmt` y `nasmfmt`, y
+afectaría a `nixd` si alguna vez volviera a la propuesta.
 
 Decidido: esas herramientas **sí entran** en la config, pero con `condition` sobre el ejecutable,
 de modo que no se intente formatear con un binario que no existe. **El fallo no puede ser
 silencioso**: si un filetype tiene formateador configurado y su binario falta, hay que decirlo
 —una vez por herramienta y sesión, no en cada guardado— indicando qué falta y cómo se instala.
 
-Esa pieza es común a Erlang, Julia y Solidity: la idea original era escribirla **una vez, antes**
-del primer lenguaje que la necesitara, no tres veces. En la práctica, Julia ya tiene su propio
-`condition`/`command` a medida para `runic` (funcionando, pero sin generalizar) porque no
-compensaba dejar el lenguaje sin formateador esperando a esa pieza compartida —ver la nota para
-quien continúe esto, justo debajo—. Vive en `lua/lzy/conform.lua` junto al resto de `condition`,
-y lo que se documente de cada herramienta va a `docs/language-dependencies.md`.
-
 Los binarios que sí vienen de Mason (`pg_format`, `nixfmt`, `air`, `npm-groovy-lint`) no
 necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejecutado.
 
-### Nota para quien siga con esto (probablemente Opus)
+### La pieza compartida: `hzsr.sys.executable.external`
 
-Dos cosas que 平生三郎 pidió dejar anotadas explícitamente, sin tocarlas ahora:
-
-1. **Sonnet 5 fue metiendo las cosas como pudo**, con condicionales a medida por lenguaje
-   (`runic` en Julia, `forge_fmt` en Solidity, `fish_indent` en Fish, `erlfmt` en Erlang) en vez
-   de esperar a esta pieza general. La prioridad fue dejarlo funcionando ya y lo más limpio
-   posible, no bloquear el progreso. El trabajo que queda es generalizar esos cuatro casos
-   sueltos en el mecanismo compartido de esta sección —una función reutilizable con aviso no
-   silencioso, una vez por herramienta y sesión— y volver a pasar por Julia, Solidity, Fish y
-   Erlang para usarla en vez del condicional suelto de cada uno. Con Erlang hecho, R queda como
-   el único pendiente de la lista original que podría necesitarla —valorar entonces si sigue
-   compensando generalizar para uno solo, o si ya no hace falta.
-2. **`docs/language-dependencies.md` necesita una pasada completa, no solo para los lenguajes de
-   esta iniciativa**. Faltan lenguajes de la matriz que ya estaban configurados en
-   `lspconfig.lua`/`conform.lua` desde antes de "next-languages" y que nunca se documentaron ahí
-   (revisar toda la lista, no dar por buena una comprobación superficial). Y de los lenguajes que
-   sí aparecen mencionados —los de antes de esta tanda de SQL/PowerShell/Groovy/Nix/Julia/
-   Solidity/Fish/Erlang incluidos, no solo los nuevos—, cualquiera que tenga una dependencia
-   externa real (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime
-   específica...) necesita su propia sección `###` explicándola, con el mismo rigor que ya
-   tienen Groovy/Nix/Julia/PowerShell/SQL/Solidity/Fish/Erlang. El criterio de "qué le pasa a
-   quien clona la config sin mi toolchain" se aplica a todo el catálogo, no solo a lo nuevo.
-
-## Bloques consolidados para cuando se implemente
-
-Estos bloques son una referencia, no una invitación a activar todas las alternativas
-simultáneamente.
-
-### `lua/lzy/lspconfig.lua`
+Escrita, y los cinco casos la usan. Vive en `lua/hzsr/sys/executable.lua` porque resolver
+ejecutables no es asunto de Conform; el adaptador que la convierte en `command`/`condition` sí
+está en `lua/lzy/conform.lua`, en la función local `external`.
 
 ```lua
--- Primera tanda
-"powershell_es",
-
--- Segunda tanda
-"fish_lsp",
-"postgres_lsp", -- se autolimita a proyectos con postgres-language-server.jsonc
-"sqls",         -- resto de motores; cede la raíz a postgres_lsp (ver política SQL)
-"nil_ls",
-"solidity_ls_nomicfoundation",
-"elp",
-"groovyls",
-"air",
-"julials", -- cmd propio en M.config; el de nvim-lspconfig no sirve con Mason (ver Julia)
+runic = external {
+  bin = "runic",
+  paths = { "~/.julia/bin" },
+  why = "el formato de Julia no se ejecuta",
+  how = [[Instálalo con `julia -e 'using Pkg; Pkg.Apps.add("Runic")'`.]],
+},
 ```
 
-Batch no aparece porque no hay un LSP recomendable.
+Hace tres cosas que los condicionales sueltos hacían mal o no hacían:
 
-### `lua/lzy/treesitter.lua`
+- **Memoiza la resolución** una vez por sesión, no una por formateo.
+- **Busca fuera del `PATH`**, con los directorios de `paths`. Esto no era un lujo: `forge` solo
+  está en el `PATH` porque el instalador de Foundry lo añade desde el rc de la shell, así que
+  Neovim abierto desde un lanzador de escritorio no lo encontraba aunque estuviera instalado.
+  Ahora se resuelve por ruta.
+- **Avisa una sola vez** (`vim.notify_once`), con el mismo formato para todos:
+  `<label> no está instalado: <why>. <how>`.
 
-```lua
--- M.languages
-"powershell",
-"fish",
-"sql",
-"nix",
-"solidity",
-"erlang",
-"groovy",
-"r",
-"julia",
-```
+Los cinco consumidores actuales:
 
-```lua
--- M.enabled_highlights
-ps1 = true,
-fish = true,
-sql = true,
-nix = true,
-solidity = true,
-erlang = true,
-groovy = true,
-r = true,
-julia = true,
-```
+| Herramienta   | Lenguaje | Fuera del `PATH` en              |
+| ------------- | -------- | -------------------------------- |
+| `runic`       | Julia    | `~/.julia/bin`                   |
+| `erlfmt`      | Erlang   | `~/.local/share/erlfmt/...`      |
+| `forge_fmt`   | Solidity | `~/.config/.foundry/bin`         |
+| `nasmfmt`     | NASM     | `~/go/bin`                       |
+| `fish_indent` | Fish     | —, viene del paquete del sistema |
 
-Todos esos parsers existen en el catálogo local actual de `nvim-treesitter`. Batch es la excepción.
+### Nota para quien siga con esto
 
-### `lua/lzy/conform.lua`
+Queda una sola cosa pendiente de esta iniciativa: **`docs/language-dependencies.md` necesita una
+pasada completa, no solo para los lenguajes que pasaron por aquí**. Faltan lenguajes de la matriz
+que ya estaban configurados en `lspconfig.lua`/`conform.lua` desde antes de "next-languages" y
+que nunca se documentaron ahí (revisar toda la lista, no dar por buena una comprobación
+superficial).
+Y de los que sí aparecen mencionados, cualquiera con una dependencia externa real (toolchain del
+sistema, binario que Mason no instala, versión de JDK/runtime específica...) necesita su propia
+sección `###` explicándola, con el mismo rigor que ya tienen Groovy/Nix/Julia/PowerShell/SQL/
+Solidity/Fish/Erlang. El criterio de "qué le pasa a quien clona la config sin mi toolchain" se
+aplica a todo el catálogo, no solo a lo nuevo.
 
-```lua
-fish = { "fish_indent" },
-sql = { "sqlfluff", "pg_format", stop_after_first = true },
-nix = { "nixfmt" },
-solidity = { "forge_fmt" },
-erlang = { "erlfmt" },
-groovy = { "npm-groovy-lint" },
-r = { "air" },
-julia = { "runic" },
-```
+## Bloques consolidados
 
-`sqlfluff` lleva `condition` de `.sqlfluff` y `pg_format` recoge el resto. `forge_fmt`, `erlfmt` y `runic`
-llevan `condition` de ejecutable con aviso no silencioso: ver la política de herramientas que Mason
-no instala.
-
-PowerShell queda deliberadamente fuera para usar formato LSP. Batch queda fuera porque no hay una
-opción suficientemente sólida.
-
-### `lua/hzsr/mason/nvchad/names.lua`
-
-Mappings que faltan si se adopta la propuesta completa:
-
-```lua
-air = "air",
-fish_lsp = "fish-lsp",
-nixfmt = "nixfmt",
-["npm-groovy-lint"] = "npm-groovy-lint",
-pg_format = "pgformatter",
-postgres_lsp = "postgres-language-server",
-```
-
-No añadir mappings falsos para herramientas que Mason no ofrece (`erlfmt`, `runic`) ni para
-herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` ya está mapeado como
-`nil`.
+Esta sección enumeraba, antes de implementarse, los bloques `lua` a pegar en cada archivo.
+Primera, segunda y tercera tanda ya están implementadas: el contenido real y actualizado vive en
+`lua/lzy/lspconfig.lua`, `lua/lzy/treesitter.lua`, `lua/lzy/conform.lua` y
+`lua/hzsr/mason/nvchad/names.lua`, y el detalle explicado en `docs/language-dependencies.md`. No
+se mantiene una copia aquí para no tener dos fuentes de verdad divergiendo con cada cambio.
 
 ## Orden de implementación propuesto
 
-1. ~~PowerShell~~. Hecho. Se probó en Linux con `pwsh` 7; lo de Windows queda para cuando haya
-   scripts que usen cmdlets exclusivos de esa plataforma.
-2. Mantener `.bat`/`.cmd` con `dosbatch` hasta que el parser batch madure en `nvim-treesitter`.
-3. ~~SQL~~. Hecho, con los dos servidores repartidos por raíz y el formateador condicional.
+Detalle de cada uno en su sección de arriba y en `docs/language-dependencies.md`.
+
+1. ~~PowerShell~~. Hecho, probado en Linux con `pwsh` 7.
+2. Batch: sin cambios, esperando a que madure el parser (ver su sección de arriba).
+3. ~~SQL~~. Hecho, dos servidores repartidos por raíz y formateador condicional.
 4. ~~Groovy~~. Hecho, con el JDK de compilación resuelto por el camino.
-5. ~~Nix~~. Hecho; `nil` necesita `nix` del sistema para compilarse, resuelto por el camino.
-6. ~~Julia~~. Hecho completo: el `cmd` por defecto de `nvim-lspconfig` no servía con el paquete
-   de Mason, resuelto con un `cmd` propio (ver su sección). `runic` entró también, con un
-   `condition`/`command` mínimo escrito a medida en vez de esperar al aviso de binario ausente
-   general —queda anotado para que ese aviso, cuando se escriba, generalice este caso en vez de
-   dejarlo como un mecanismo aparte.
-7. ~~Solidity~~. Hecho: el LSP fue mecánico de verdad (a diferencia de Julia, su `cmd` por
-   defecto ya sirve). `forge_fmt` entró con el mismo `condition` a medida que `runic`, porque
-   Foundry tampoco está en pacman ni en Chaotic-AUR.
-8. ~~Fish~~. Hecho, y el LSP resultó mecánico también: `fish = true` en `M.enabled_highlights`
-   ya estaba del catálogo previo, solo faltaba activarlo. `fish` (la shell, no solo el LSP) no
-   estaba instalada; `fish_indent` lleva el mismo `condition` a medida que `runic`/`forge_fmt`.
-9. ~~Erlang~~. Hecho, con dos vueltas: `elp` necesitó `rebar3` en tiempo de ejecución (no
-   detectado hasta que 平生三郎 probó en vivo), y `erlfmt` —sin binario prebuilt en ningún
-   sitio— se construyó con `rebar3 as release escriptize` tras dar con el perfil correcto (el
-   por defecto revienta porque `erlfmt` deja `getopt` sin declarar ahí).
-10. ~~R~~. Hecho, y el más sencillo de toda la tanda: `air` es un único binario Rust de Mason,
-    con release prebuilt, que hace de LSP y formateador sin ningún `cmd` propio ni `condition` a
-    medida. La segunda tanda queda completa: 平生三郎, cuatro `condition` sueltos (`runic`,
-    `forge_fmt`, `fish_indent`, `erlfmt`) siguen esperando la generalización que se apunta en
-    "Política de herramientas que Mason no instala", si sigue compensando escribirla.
+5. ~~Nix~~. Hecho; `nil` necesita `nix` del sistema para compilarse.
+6. ~~Julia~~. Hecho; `cmd` propio (el de `nvim-lspconfig` no servía con Mason) y `runic`, que
+   Julia deja fuera del `PATH`.
+7. ~~Solidity~~. Hecho; LSP mecánico, `forge_fmt` con el `forge` que instala Foundry.
+8. ~~Fish~~. Hecho; LSP mecánico, `fish_indent` viene con la propia shell.
+9. ~~Erlang~~. Hecho; `elp` necesitó `rebar3` en runtime y `erlfmt` se construyó con
+   `rebar3 as release escriptize` tras dar con el perfil correcto.
+10. ~~R~~. Hecho, el más sencillo de la segunda tanda: `air` sin `cmd` ni `condition` propios.
+11. Assembly. Configurado; `asm_lsp` cubre los dos dialectos, separados por filetype (`asm` para
+    GAS, `nasm` vía directiva `asmsyntax`). `nasmfmt` formatea NASM; GAS se queda sin formatear
+    porque no existe ninguno. Falta instalar con `:MasonInstallAll` y probar en vivo.
+12. GLSL. Configurado; LSP mecánico (`glsl_analyzer`, no `glslls`), formato vía LSP. Falta
+    instalar con `:MasonInstallAll` y probar en vivo.
+13. WebAssembly. Configurado; LSP mecánico (`wasm_language_tools`), formato vía LSP, sin
+    Treesitter porque no hay parser catalogado. Falta instalar con `:MasonInstallAll` y probar en
+    vivo.
+14. ~~Aviso de binario ausente~~. Hecho: `hzsr.sys.executable.external`, con los cinco casos
+    (`runic`, `erlfmt`, `forge_fmt`, `fish_indent`, `nasmfmt`) migrados a él.
 
 ## Referencias principales
 
@@ -739,6 +318,10 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
   [`languageserver` para R](https://github.com/REditorSupport/languageserver)
 - [`LanguageServer.jl`](https://github.com/julia-vscode/LanguageServer.jl) y
   [Runic.jl](https://github.com/fredrikekre/Runic.jl)
+- [`asm-lsp`](https://github.com/bergercookie/asm-lsp)
+- [`glsl_analyzer`](https://github.com/nolanderc/glsl_analyzer) y
+  [`glslls`](https://github.com/svenstaro/glsl-language-server)
+- [`wasm-language-tools`](https://github.com/g-plane/wasm-language-tools)
 
 ## Para 平生三郎: con qué modelo hacer cada lenguaje
 

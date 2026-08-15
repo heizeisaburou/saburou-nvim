@@ -237,6 +237,7 @@ return {
   vue_ls = "vue-language-server",
   vtsls = "vtsls",
   vuels = "vetur-vls",
+  wasm_language_tools = "wasm-language-tools",
   wgsl_analyzer = "wgsl-analyzer",
   yamlls = "yaml-language-server",
   zk = "zk",

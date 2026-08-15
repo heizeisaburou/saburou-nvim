@@ -6,6 +6,7 @@ local line_length = 97
 local scalafmt_fallback_dialect = "scala3"
 local scalafmt_fallback_version = "3.10.6"
 local indent = require "sabunv.indent"
+local executable = require "hzsr.sys.executable"
 local spoiler_format_state = {}
 local frontmatter_format_state = {}
 
@@ -27,38 +28,44 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
-  -- erlfmt no está en el registro de Mason ni tiene binario prebuilt; ver el
-  -- override de `erlfmt` más abajo para cómo se resuelve sin bloquear el
-  -- formato si falta.
-  erlang = { "erlfmt" },
-  -- fish_indent viene con la propia shell Fish, no con Mason; ver el
-  -- override de `fish_indent` más abajo para cómo se resuelve sin bloquear
-  -- el formato si falta.
-  fish = { "fish_indent" },
-  -- npm-groovy-lint entra solo como formateador: los diagnósticos los pone
-  -- groovyls y no interesa duplicarlos (ver docs/language-dependencies.md).
-  --
-  -- 20 s de timeout no es exageración: arranca una JVM con CodeNarc y la
-  -- primera pasada de la sesión se va a más de 10 s según el archivo. Las
-  -- siguientes bajan bastante, pero el límite tiene que aguantar la primera.
-  groovy = { "npm-groovy-lint", timeout_ms = 20000 },
-  -- runic no está en el registro de Mason; ver el override de `runic` más
-  -- abajo para cómo se resuelve sin bloquear el formato si falta.
-  julia = { "runic" },
-  nix = { "nixfmt" },
-  -- air es un único binario de Mason (release prebuilt en Rust): LSP y
-  -- formatter a la vez, sin dependencia de R ni de nada externo.
-  r = { "air" },
-  -- forge_fmt no está en el registro de Mason (viene con Foundry); ver el
-  -- override de `forge_fmt` más abajo para cómo se resuelve sin bloquear el
-  -- formato si falta.
-  solidity = { "forge_fmt" },
-  -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
-  -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
-  sql = { "sqlfluff", "pg_format", stop_after_first = true },
-  --
-  --
-  --
+  -- -- erlfmt no está en el registro de Mason ni tiene binario prebuilt; ver el
+  -- -- override de `erlfmt` más abajo para cómo se resuelve sin bloquear el
+  -- -- formato si falta.
+  -- erlang = { "erlfmt" },
+  -- -- fish_indent viene con la propia shell Fish, no con Mason; ver el
+  -- -- override de `fish_indent` más abajo para cómo se resuelve sin bloquear
+  -- -- el formato si falta.
+  -- fish = { "fish_indent" },
+  -- -- npm-groovy-lint entra solo como formateador: los diagnósticos los pone
+  -- -- groovyls y no interesa duplicarlos (ver docs/language-dependencies.md).
+  -- --
+  -- -- 20 s de timeout no es exageración: arranca una JVM con CodeNarc y la
+  -- -- primera pasada de la sesión se va a más de 10 s según el archivo. Las
+  -- -- siguientes bajan bastante, pero el límite tiene que aguantar la primera.
+  -- groovy = { "npm-groovy-lint", timeout_ms = 20000 },
+  -- -- runic no está en el registro de Mason; ver el override de `runic` más
+  -- -- abajo para cómo se resuelve sin bloquear el formato si falta.
+  -- julia = { "runic" },
+  -- -- Ensamblador, por dialecto. NO existe entrada para el filetype `asm`:
+  -- -- ese es el default de Neovim y corresponde a GAS/AT&T, para el que no hay
+  -- -- ningún formateador (el `asmfmt` de Mason es del ensamblador de Go, con la
+  -- -- misma extensión `.s`, y destrozaría un archivo GAS).
+  -- --
+  -- -- `nasm` es un filetype propio de Neovim: lo activa una directiva
+  -- -- `asmsyntax=nasm` en las 5 primeras líneas, o `g:asmsyntax`. Solo ahí se
+  -- -- sabe con certeza que el dialecto es NASM y se puede formatear.
+  -- nasm = { "nasmfmt" },
+  -- nix = { "nixfmt" },
+  -- -- air es un único binario de Mason (release prebuilt en Rust): LSP y
+  -- -- formatter a la vez, sin dependencia de R ni de nada externo.
+  -- r = { "air" },
+  -- -- forge_fmt no está en el registro de Mason (viene con Foundry); ver el
+  -- -- override de `forge_fmt` más abajo para cómo se resuelve sin bloquear el
+  -- -- formato si falta.
+  -- solidity = { "forge_fmt" },
+  -- -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
+  -- -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
+  -- sql = { "sqlfluff", "pg_format", stop_after_first = true },
   -- bash = { "shfmt" },
   -- c = { "clang_format" },
   -- clojure = { "zprint" }, -- activa edn también
@@ -470,6 +477,25 @@ local function cached_config(name, contents, extension)
   return path
 end
 
+--- Declara un formateador cuyo binario Mason no instala.
+---
+--- Conform fusiona esto con su builtin cuando existe, así que solo se
+--- sustituyen `command` y `condition` y los `args` siguen viniendo de Conform.
+--- El binario se resuelve una vez por sesión —incluyendo los directorios de
+--- `paths`, para herramientas que no se instalan en el `PATH`— y, si falta, se
+--- avisa una sola vez en vez de fallar en silencio o en bucle. La política
+--- completa está en `next-languages.md`.
+---@param spec hzsr.sys.executable.ExternalSpec
+---@return conform.FileFormatterConfig
+local function external(spec)
+  local tool = executable.external(spec)
+
+  return {
+    command = tool.command,
+    condition = tool.available,
+  }
+end
+
 -- ----------------------------------------------------------------------------
 -- Definiciones de formateadores
 -- ----------------------------------------------------------------------------
@@ -570,69 +596,22 @@ local formatters = {
   -- (`erl`/`escript`) puede ya estar instalado sin relación con esto -- lo
   -- usa `elp`, no `erlfmt`.
   --
-  -- Construido y resuelto por ruta absoluta en esta máquina, igual que
-  -- `runic`. Mismo patrón que `runic`/`forge_fmt`/`fish_indent`: condition
-  -- a medida, no la pieza compartida de "aviso de binario ausente" (ver
-  -- next-languages.md).
-  erlfmt = (function()
-    local erlfmt_bin = vim.fs.joinpath(
-      vim.uv.os_homedir() or "",
-      ".local",
-      "share",
-      "erlfmt",
-      "_build",
-      "release",
-      "bin",
-      "erlfmt"
-    )
-    local resolved -- nil sin resolver todavía; luego, el comando o `false` si no se encuentra
-
-    local function resolve()
-      if resolved == nil then
-        if vim.fn.executable "erlfmt" == 1 then
-          resolved = "erlfmt"
-        else
-          resolved = vim.fn.executable(erlfmt_bin) == 1 and erlfmt_bin or false
-        end
-      end
-      return resolved
-    end
-
-    return {
-      command = function()
-        return resolve() or "erlfmt"
-      end,
-      condition = function()
-        if resolve() then
-          return true
-        end
-        vim.notify_once(
-          "erlfmt no está instalado: el formato de Erlang no se ejecuta. Sin binario prebuilt, "
-            .. "se construye con `rebar3 as release escriptize` desde "
-            .. "https://github.com/WhatsApp/erlfmt.",
-          vim.log.levels.WARN
-        )
-        return false
-      end,
-    }
-  end)(),
+  -- No se instala en el PATH: se construye en `~/.local/share/erlfmt` y se
+  -- resuelve por ruta absoluta desde ahí.
+  erlfmt = external {
+    bin = "erlfmt",
+    paths = { "~/.local/share/erlfmt/_build/release/bin" },
+    why = "el formato de Erlang no se ejecuta",
+    how = "Sin binario prebuilt, se construye con `rebar3 as release escriptize` desde "
+      .. "https://github.com/WhatsApp/erlfmt.",
+  },
 
   -- fish_indent viene con la propia shell Fish (paquete `fish` del sistema),
-  -- no con Mason: sin la shell instalada no hay binario que resolver. Mismo
-  -- patrón que `runic`/`forge_fmt`: condition a medida, no la pieza
-  -- compartida de "aviso de binario ausente" (ver next-languages.md).
-  fish_indent = {
-    condition = function()
-      if vim.fn.executable "fish_indent" == 1 then
-        return true
-      end
-      vim.notify_once(
-        "fish_indent no está instalado: el formato de Fish no se ejecuta. "
-          .. "Viene con la shell Fish (`pacman -S fish` en Arch).",
-        vim.log.levels.WARN
-      )
-      return false
-    end,
+  -- no con Mason: sin la shell instalada no hay binario que resolver.
+  fish_indent = external {
+    bin = "fish_indent",
+    why = "el formato de Fish no se ejecuta",
+    how = "Viene con la shell Fish (`pacman -S fish` en Arch).",
   },
 
   -- forge_fmt (Foundry) no está en el registro de Mason: se instala con
@@ -643,22 +622,17 @@ local formatters = {
   -- de Chaotic-AUR (comprobado: solo hay coincidencias de nombre ajenas,
   -- como el "forge" de GNOME Builder).
   --
-  -- Igual que `runic` en Julia: condition/command a medida, NO la pieza
-  -- compartida de "aviso de binario ausente" de Erlang/Solidity que
-  -- describe next-languages.md. Generalizar cuando se escriba esa pieza.
-  forge_fmt = {
-    condition = function()
-      if vim.fn.executable "forge" == 1 then
-        return true
-      end
-      vim.notify_once(
-        "forge (Foundry) no está instalado: el formato de Solidity no se ejecuta. "
-          .. "Instálalo con `curl -L https://foundry.paradigm.xyz | bash` y luego "
-          .. "`foundryup`.",
-        vim.log.levels.WARN
-      )
-      return false
-    end,
+  -- El instalador de Foundry deja `forge` en `$XDG_CONFIG_HOME/.foundry/bin`
+  -- —o en `~/.foundry/bin`, según el sistema— y añade esa ruta al `PATH`
+  -- desde el rc de la shell. Eso basta al abrir Neovim desde una terminal,
+  -- pero no desde un lanzador de escritorio, que no carga ese rc: por eso
+  -- ambas rutas entran como fallback en vez de fiarse solo del `PATH`.
+  forge_fmt = external {
+    bin = "forge",
+    label = "forge (Foundry)",
+    paths = { "~/.config/.foundry/bin", "~/.foundry/bin" },
+    why = "el formato de Solidity no se ejecuta",
+    how = "Instálalo con `curl -L https://foundry.paradigm.xyz | bash` y luego `foundryup`.",
   },
 
   fourmolu = {
@@ -1475,6 +1449,32 @@ local formatters = {
     },
   },
 
+  -- nasmfmt es el único de estos que no tiene builtin en Conform, así que la
+  -- definición va completa. Se instala con
+  -- `go install github.com/yamnikov-oleg/nasmfmt@latest`, que deja el binario
+  -- en `$GOBIN` o, por defecto, en `~/go/bin`.
+  --
+  -- Reescribe el archivo in situ y no lee stdin, de ahí `stdin = false` y
+  -- `$FILENAME`. `-ii` son los espacios de indentación de las instrucciones;
+  -- no admite tabs, así que con estilo tabs se aplica igualmente el ancho
+  -- configurado en espacios. `-ci` (columna de comentarios) se deja en su
+  -- valor por defecto: es una alineación propia de NASM, no nuestro
+  -- `line_length`.
+  --
+  -- Solo atiende al filetype `nasm`, nunca a `asm`: ver la nota de dialectos
+  -- en `formatters_by_ft`.
+  nasmfmt = vim.tbl_extend("error", external {
+    bin = "nasmfmt",
+    paths = { "~/go/bin" },
+    why = "el formato de NASM no se ejecuta",
+    how = "Instálalo con `go install github.com/yamnikov-oleg/nasmfmt@latest`.",
+  }, {
+    args = function(_, ctx)
+      return { "-ii", tostring(indent_for(ctx).width), "$FILENAME" }
+    end,
+    stdin = false,
+  }),
+
   ocamlformat = {
     -- OCamlFormat decide estructuralmente la sangría y usa espacios. Sí expone
     -- el margen, por lo que se mantiene el ancho compartido.
@@ -1571,47 +1571,14 @@ local formatters = {
     end,
   },
 
-  -- runic (Julia) no está en el registro de Mason: se instala como Pkg App
-  -- (`julia -e 'using Pkg; Pkg.Apps.add("Runic")'`), que deja el binario en
+  -- runic (Julia) se instala como Pkg App, que deja el binario en
   -- `~/.julia/bin`, un directorio que Julia no añade al PATH por su cuenta.
-  --
-  -- Esto NO es la pieza compartida de "aviso de binario ausente" que
-  -- necesitan también Erlang y Solidity (next-languages.md): es un
-  -- condition/command mínimo, solo para Julia, para no bloquear el formato
-  -- mientras esa pieza general no exista. Generalizar cuando se escriba.
-  runic = (function()
-    local julia_bin_dir = vim.fs.joinpath(vim.uv.os_homedir() or "", ".julia", "bin")
-    local resolved -- nil sin resolver todavía; luego, el comando o `false` si no se encuentra
-
-    local function resolve()
-      if resolved == nil then
-        if vim.fn.executable "runic" == 1 then
-          resolved = "runic"
-        else
-          local candidate = vim.fs.joinpath(julia_bin_dir, "runic")
-          resolved = vim.fn.executable(candidate) == 1 and candidate or false
-        end
-      end
-      return resolved
-    end
-
-    return {
-      command = function()
-        return resolve() or "runic"
-      end,
-      condition = function()
-        if resolve() then
-          return true
-        end
-        vim.notify_once(
-          "runic no está instalado: el formato de Julia no se ejecuta. Instálalo con "
-            .. "`julia -e 'using Pkg; Pkg.Apps.add(\"Runic\")'`.",
-          vim.log.levels.WARN
-        )
-        return false
-      end,
-    }
-  end)(),
+  runic = external {
+    bin = "runic",
+    paths = { "~/.julia/bin" },
+    why = "el formato de Julia no se ejecuta",
+    how = [[Instálalo con `julia -e 'using Pkg; Pkg.Apps.add("Runic")'`.]],
+  },
 
   rustfmt = {
     append_args = function(_, ctx)

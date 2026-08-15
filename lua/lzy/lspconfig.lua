@@ -40,19 +40,22 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
-  "air", -- R
-  "elp", -- Erlang
-  "fish_lsp", -- Fish
-  "groovyls", -- Groovy, Jenkinsfile y Gradle
-  "julials", -- Julia; cmd propio, ver M.config
-  "nil_ls", -- Nix; no nixd, ver next-languages.md
-  "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
-  "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
-  "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
-  "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
   --
   --
   --
+  -- "air", -- R
+  -- "asm_lsp", -- Assembly (NASM/GAS/Go asm)
+  -- "elp", -- Erlang
+  -- "fish_lsp", -- Fish
+  -- "glsl_analyzer", -- GLSL, no glslls, ver next-languages.md
+  -- "groovyls", -- Groovy, Jenkinsfile y Gradle
+  -- "julials", -- Julia; cmd propio, ver M.config
+  -- "nil_ls", -- Nix; no nixd, ver next-languages.md
+  -- "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
+  -- "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
+  -- "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
+  -- "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
+  -- "wasm_language_tools", -- WebAssembly Text Format (.wat/.wast)
   -- "shuck",
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
   -- "basedpyright", -- python
@@ -154,6 +157,15 @@ M.config = {
         },
       },
     },
+  },
+
+  asm_lsp = {
+    -- asm-lsp entiende NASM, GAS y el ensamblador de Go, pero nvim-lspconfig
+    -- solo declara `asm` y `vmasm`. `nasm` es el filetype que Neovim asigna
+    -- cuando el archivo declara `asmsyntax=nasm` en sus primeras líneas; sin
+    -- añadirlo aquí, esos archivos se quedarían sin servidor precisamente por
+    -- ser explícitos sobre su dialecto.
+    filetypes = { "asm", "vmasm", "nasm" },
   },
 
   bashls = {},
