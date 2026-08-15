@@ -21,7 +21,79 @@ cualquiera pueda adoptarla como punto de partida.
 > si funciona correctamente, esta versión se mantendrá tal cual mientras se prepara la siguiente
 > etapa.
 
-![Lenguajes soportados](./docs/supported-languages.png)
+## Lenguajes soportados
+
+| Lenguaje / formato | Filetype                         | LSP                           | Formatter                    | Tree-sitter                                   |
+| ------------------ | -------------------------------- | ----------------------------- | ---------------------------- | --------------------------------------------- |
+| Ansible            | `yaml.ansible`                   | `ansiblels`                   | `yamlfmt` (vía `yaml`)       | `yaml` (fallback)                             |
+| Assembly (GAS)     | `asm`                            | `asm_lsp`                     | — (no existe)                | `asm`                                         |
+| Assembly (NASM)    | `nasm`                           | `asm_lsp`                     | `nasmfmt`                    | `nasm`                                        |
+| Bash               | `bash`                           | `bashls`                      | `shfmt`                      | `bash`                                        |
+| Batch              | `dosbatch`                       | —                             | —                            | pendiente (`tree-sitter-batch` sin catalogar) |
+| C                  | `c`                              | `clangd`                      | `clang_format`               | `c`                                           |
+| C++                | `cpp`                            | `clangd`                      | `clang_format`               | `cpp`                                         |
+| CMake              | `cmake`                          | `neocmake`                    | —                            | `cmake`                                       |
+| C#                 | `cs`                             | `csharp_ls`                   | `csharpier`                  | `c_sharp`                                     |
+| Clojure            | `clojure`                        | `clojure_lsp`                 | `zprint`                     | `clojure`                                     |
+| EDN                | `edn`                            | —                             | `zprint`                     | `clojure` (alias)                             |
+| CSS                | `css`                            | `cssls`                       | `prettier`                   | `css`                                         |
+| Dart               | `dart`                           | `dartls`                      | `dart_format`                | `dart`                                        |
+| Django templates   | `htmldjango`                     | `djls`                        | `djlint`                     | `htmldjango`                                  |
+| Elixir             | `elixir`                         | `elixirls`                    | `mix`                        | `elixir`                                      |
+| EEx                | `eelixir`                        | `elixirls`                    | `mix`                        | —                                             |
+| HEEx               | `heex`                           | `elixirls`                    | `mix`                        | `heex`                                        |
+| Erlang             | `erlang`                         | `elp`                         | `erlfmt`                     | `erlang`                                      |
+| F#                 | `fsharp`                         | `fsautocomplete`              | `fantomas`                   | `fsharp`                                      |
+| Fish               | `fish`                           | `fish_lsp`                    | `fish_indent`                | `fish`                                        |
+| Gleam              | `gleam`                          | —                             | `gleam`                      | —                                             |
+| GLSL               | `glsl`                           | `glsl_analyzer`               | vía LSP                      | `glsl`                                        |
+| Go                 | `go`                             | `gopls`                       | `gofmt`                      | `go`                                          |
+| Go modules         | `gomod` / `gosum` / `gowork`     | `gopls`                       | —                            | `gomod` / `gosum` / `gowork`                  |
+| Go templates       | `gotmpl`                         | `gopls`                       | `prettier_gotmpl`            | `gotmpl`                                      |
+| Groovy             | `groovy`                         | `groovyls`                    | `npm-groovy-lint`            | `groovy`                                      |
+| Handlebars         | `handlebars`                     | —                             | `prettier_handlebars`        | —                                             |
+| Haskell            | `haskell`                        | `hls`                         | `fourmolu`                   | `haskell`                                     |
+| Literate Haskell   | `lhaskell`                       | `hls`                         | `fourmolu`                   | `haskell` (alias)                             |
+| HTML               | `html`                           | `html`                        | `prettier`                   | `html`                                        |
+| Java               | `java`                           | `jdtls`                       | `google-java-format`         | `java`                                        |
+| JavaScript         | `javascript` / `javascriptreact` | `vtsls`                       | `prettier`                   | `javascript`                                  |
+| Julia              | `julia`                          | `julials`                     | `runic`                      | `julia`                                       |
+| Jinja              | `jinja`                          | `jinja_lsp`                   | `prettier_jinja`             | `jinja` + `jinja_inline`                      |
+| JSON               | `json`                           | `jsonls`                      | `biome`                      | `json` / `json5`                              |
+| Kotlin             | `kotlin`                         | `kotlin_language_server`      | `ktlint`                     | `kotlin`                                      |
+| LaTeX / TeX        | `tex` / `plaintex`               | `texlab`                      | `latexindent`                | —                                             |
+| Liquid / Shopify   | `liquid`                         | `shopify_theme_ls`            | `prettier_liquid`            | `liquid`                                      |
+| Lua                | `lua`                            | `lua_ls`                      | `stylua`                     | `lua` / `luadoc`                              |
+| Make               | `make`                           | —                             | —                            | `make`                                        |
+| Markdown           | `markdown`                       | `marksman`                    | `prettier` + `markdown_tabs` | `markdown` + `markdown_inline`                |
+| Nix                | `nix`                            | `nil_ls`                      | `nixfmt`                     | `nix`                                         |
+| OCaml              | `ocaml`                          | `ocamllsp`                    | `ocamlformat`                | `ocaml`                                       |
+| OCaml interface    | `ocamlinterface`                 | `ocamllsp`                    | `ocamlformat`                | `ocaml_interface`                             |
+| PHP                | `php`                            | `phpactor`                    | `php_cs_fixer`               | `php`                                         |
+| PowerShell         | `ps1`                            | `powershell_es`               | vía LSP                      | `powershell`                                  |
+| Pug / Jade         | `pug`                            | `pug`                         | `prettier_pug`               | `pug`                                         |
+| Python             | `python`                         | `basedpyright` + `ruff`       | `ruff_format`                | `python`                                      |
+| QML                | `qml`                            | `qmlls`                       | `qmlformat` (externo)        | `qmljs`                                       |
+| R                  | `r`                              | `air`                         | `air`                        | `r`                                           |
+| Ruby               | `ruby`                           | `ruby_lsp`                    | `rubocop`                    | `ruby`                                        |
+| Rust               | `rust`                           | `rust_analyzer`               | `rustfmt`                    | `rust`                                        |
+| Scala              | `scala`                          | `metals`                      | `scalafmt`                   | `scala`                                       |
+| SCSS               | `scss`                           | `cssls`                       | `prettier`                   | —                                             |
+| Solidity           | `solidity`                       | `solidity_ls_nomicfoundation` | `forge_fmt`                  | `solidity`                                    |
+| SQL                | `sql`                            | `postgres_lsp` / `sqls`       | `sqlfluff` / `pg_format`     | `sql`                                         |
+| Surface            | `surface`                        | —                             | `mix`                        | —                                             |
+| Svelte             | `svelte`                         | `svelte`                      | `prettier_svelte`            | `svelte`                                      |
+| Swift              | `swift`                          | `sourcekit`                   | `swiftformat`                | `swift`                                       |
+| TOML               | `toml`                           | `taplo`                       | `taplo`                      | `toml`                                        |
+| Twig               | `twig`                           | `twiggy_language_server`      | `prettier_twig`              | `twig`                                        |
+| TypeScript / TSX   | `typescript` / `typescriptreact` | `vtsls`                       | `prettier`                   | `typescript` / `tsx`                          |
+| Typst              | `typst`                          | `tinymist`                    | `typstyle`                   | `typst`                                       |
+| Vim                | `vim`                            | —                             | —                            | `vim`                                         |
+| Vimdoc             | `vimdoc`                         | —                             | —                            | `vimdoc`                                      |
+| Vue                | `vue`                            | `vue_ls`                      | `prettier`                   | `vue`                                         |
+| WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | pendiente (sin parser catalogado)             |
+| YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                                        |
+| Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                                         |
 
 ## Estado del proyecto
 
@@ -105,58 +177,58 @@ estado con otra instalación de Neovim.
 1. Instala los [requisitos](#requisitos), abre PowerShell y clona el repositorio en la ruta que
    Neovim asocia con `NVIM_APPNAME=srnv`:
 
-   ```powershell
-   git clone https://github.com/heizeisaburou/saburou-nvim "$env:LOCALAPPDATA\srnv"
-   ```
+	```powershell
+	git clone https://github.com/heizeisaburou/saburou-nvim "$env:LOCALAPPDATA\srnv"
+	```
 
 2. Para iniciarlo durante la sesión actual de PowerShell:
 
-   ```powershell
-   $env:NVIM_APPNAME = "srnv"
-   nvim
-   ```
+	```powershell
+	$env:NVIM_APPNAME = "srnv"
+	nvim
+	```
 
-   La misma operación en una sola línea:
+	La misma operación en una sola línea:
 
-   ```powershell
-   $env:NVIM_APPNAME="srnv"; nvim
-   ```
+	```powershell
+	$env:NVIM_APPNAME="srnv"; nvim
+	```
 
-3. Para disponer del comando `srnv` en todas las sesiones sin dejar modificado
-   `NVIM_APPNAME`, crea el perfil si todavía no existe y ábrelo:
+3. Para disponer del comando `srnv` en todas las sesiones sin dejar modificado `NVIM_APPNAME`,
+   crea el perfil si todavía no existe y ábrelo:
 
-   ```powershell
-   New-Item -ItemType Directory -Path (Split-Path $PROFILE) -Force | Out-Null
-   New-Item -ItemType File -Path $PROFILE -Force | Out-Null
-   notepad $PROFILE
-   ```
+	```powershell
+	New-Item -ItemType Directory -Path (Split-Path $PROFILE) -Force | Out-Null
+	New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+	notepad $PROFILE
+	```
 
-   Añade esta función al perfil:
+	Añade esta función al perfil:
 
-   ```powershell
-   function srnv {
-       $hadNvimAppName = Test-Path Env:NVIM_APPNAME
-       $oldNvimAppName = $env:NVIM_APPNAME
+	```powershell
+	function srnv {
+		$hadNvimAppName = Test-Path Env:NVIM_APPNAME
+		$oldNvimAppName = $env:NVIM_APPNAME
 
-       try {
-           $env:NVIM_APPNAME = "srnv"
-           nvim @args
-       }
-       finally {
-           if ($hadNvimAppName) {
-               $env:NVIM_APPNAME = $oldNvimAppName
-           }
-           else {
-               Remove-Item Env:NVIM_APPNAME -ErrorAction SilentlyContinue
-           }
-       }
-   }
-   ```
+		try {
+			$env:NVIM_APPNAME = "srnv"
+			nvim @args
+		}
+		finally {
+			if ($hadNvimAppName) {
+				$env:NVIM_APPNAME = $oldNvimAppName
+			}
+			else {
+				Remove-Item Env:NVIM_APPNAME -ErrorAction SilentlyContinue
+			}
+		}
+	}
+	```
 
-   Guarda el archivo y ejecuta `. $PROFILE` para cargarlo sin reiniciar PowerShell. A partir de
-   entonces puedes ejecutar `srnv` o pasarle argumentos, por ejemplo `srnv README.md`. La función
-   restaura el valor anterior de `NVIM_APPNAME` al cerrar Neovim, incluso si la ejecución termina
-   con un error.
+	Guarda el archivo y ejecuta `. $PROFILE` para cargarlo sin reiniciar PowerShell. A partir de
+	entonces puedes ejecutar `srnv` o pasarle argumentos, por ejemplo `srnv README.md`. La
+	función restaura el valor anterior de `NVIM_APPNAME` al cerrar Neovim, incluso si la
+	ejecución termina con un error.
 
 #### Shell de la terminal integrada
 
@@ -171,8 +243,8 @@ return {
 
 Los valores admitidos son:
 
-- `"auto"` (predeterminado): prueba PowerShell 7 (`pwsh`), Windows PowerShell 5.1
-  (`powershell`) y `cmd.exe`, en ese orden.
+- `"auto"` (predeterminado): prueba PowerShell 7 (`pwsh`), Windows PowerShell 5.1 (`powershell`)
+  y `cmd.exe`, en ese orden.
 - `"pwsh"`: solicita PowerShell 7 explícitamente.
 - `"powershell"`: solicita Windows PowerShell 5.1 explícitamente.
 - `"cmd"`: utiliza siempre `cmd.exe`.
@@ -183,8 +255,8 @@ PowerShell 7 es opcional y puede instalarse desde PowerShell o `cmd.exe` con:
 winget install --id Microsoft.PowerShell --source winget
 ```
 
-Si una preferencia explícita no está instalada, se muestra un aviso y se utiliza `cmd.exe` para
-que la terminal siga funcionando. La selección automática prioriza la versión moderna, conserva
+Si una preferencia explícita no está instalada, se muestra un aviso y se utiliza `cmd.exe` para que
+la terminal siga funcionando. La selección automática prioriza la versión moderna, conserva
 Windows PowerShell 5.1 como fallback disponible de fábrica y sólo termina en `cmd.exe` si no
 encuentra ninguna de las dos. `:TerminalInfo` muestra la preferencia, la shell resuelta y el
 ejecutable usado.
@@ -198,22 +270,22 @@ comandos como `:!` y `:make` conservan la shell configurada por Neovim.
 2. Clona el repositorio en `~/.config/nvim` (la ruta por defecto de Neovim) o en
    `~/.config/$NVIM_APPNAME` si prefieres mantener la configuración aislada.
 
-   Configuración por defecto:
+	Configuración por defecto:
 
-   ```bash
-   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim
-   ```
+	```bash
+	git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim
+	```
 
-   Configuración aislada (recomendado, usando `nvim12` como ejemplo de `NVIM_APPNAME`):
+	Configuración aislada (recomendado, usando `nvim12` como ejemplo de `NVIM_APPNAME`):
 
-   ```bash
-   git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
-   ```
+	```bash
+	git clone https://github.com/heizeisaburou/saburou-nvim ~/.config/nvim12
+	```
 
 3. Abre Neovim por primera vez:
 
-   - Con la configuración por defecto: `nvim`.
-   - Con la configuración aislada: `NVIM_APPNAME=nvim12 nvim12`.
+	- Con la configuración por defecto: `nvim`.
+	- Con la configuración aislada: `NVIM_APPNAME=nvim12 nvim12`.
 
 ### Primer inicio
 
@@ -371,8 +443,8 @@ declararlo en `.prettierignore`.
 
 ## Agradecimientos
 
-Gracias a [NvChad](https://github.com/NvChad/NvChad) por haber sido durante mucho tiempo mi editor de cabecera y por servir de base e
-inspiración para varias partes de esta configuración. En concreto, el directorio
+Gracias a [NvChad](https://github.com/NvChad/NvChad) por haber sido durante mucho tiempo mi editor de cabecera y por servir de base
+e inspiración para varias partes de esta configuración. En concreto, el directorio
 `lua/hzsr/mason/nvchad/` contiene código adaptado de NvChad (consulta la sección de licencias).
 
 ## Invítame a un café
