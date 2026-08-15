@@ -520,22 +520,36 @@ general de Conform.
 
 ### Solidity
 
-`solidity_ls_nomicfoundation` no necesita ajustes: su `cmd`/`root_markers` por defecto ya sirven
-(a diferencia de `julials`), y el mapping de Mason ya existía. Sus `root_markers` incluyen
-`foundry.toml`, `hardhat.config.js/ts`, `remappings.txt`, `truffle.js`, `.git` y `package.json`,
-así que se adjunta tanto a proyectos Foundry como Hardhat.
+`solidity_ls_nomicfoundation` no necesita ajustes de config: su `cmd`/`root_markers` por defecto
+ya sirven (a diferencia de `julials`), y el mapping de Mason ya existía. Sus `root_markers`
+incluyen `foundry.toml`, `hardhat.config.js/ts`, `remappings.txt`, `truffle.js`, `.git` y
+`package.json`, así que se adjunta tanto a proyectos Foundry como Hardhat.
 
-`forge_fmt` sí es un caso más: viene con Foundry, y Foundry **no está empaquetado** ni en pacman
-ni en Chaotic-AUR (comprobado; solo hay coincidencias de nombre ajenas a esto, como el `forge` de
-GNOME Builder). Se instala con el instalador oficial:
+Foundry (que trae `forge`) **no está empaquetado** ni en pacman ni en Chaotic-AUR (comprobado;
+solo hay coincidencias de nombre ajenas a esto, como el `forge` de GNOME Builder). Se instala con
+el instalador oficial:
 
 ```sh
 curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
 
+**`forge` no es solo dependencia del formateador**: cuando el servidor detecta `foundry.toml`
+(proyecto Foundry) intenta invocar `forge` él mismo para inicializar el proyecto —resolver
+dependencias, remappings—, y sin él falla con:
+
+```
+LSP[solidity_ls_nomicfoundation] Foundry project '<nombre>' was not able to initialize correctly:
+ Error: Couldn't find forge binary. Performed lookup: ["forge","<ruta>/.foundry/bin/forge"]
+```
+
+Ese error es del propio servidor, no de esta configuración: no hay ningún `cmd`/`root_dir` que
+arreglarlo pueda evitar, solo instalar Foundry. Los proyectos Hardhat sin `foundry.toml` no lo
+disparan.
+
 El `condition` de `forge_fmt` en `lua/lzy/conform.lua` comprueba el ejecutable `forge` y avisa
-una vez (`vim.notify_once`) si falta, sin bloquear el guardado. Es la misma idea a medida que
+una vez (`vim.notify_once`) si falta, sin bloquear el guardado —eso cubre el formateador, no el
+aviso de inicialización del LSP, que es cosa del propio servidor—. Es la misma idea a medida que
 `runic` en Julia, **no** la pieza compartida de "aviso de binario ausente" que también necesita
 Erlang (ver `next-languages.md`).
 
