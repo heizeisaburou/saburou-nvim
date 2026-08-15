@@ -59,7 +59,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | HTML               | `html`                           | `html`                   | `prettier`                   | `html`                         |
 | Java               | `java`                           | `jdtls`                  | `google-java-format`         | `java`                         |
 | JavaScript         | `javascript` / `javascriptreact` | `vtsls`                  | `prettier`                   | `javascript`                   |
-| Julia              | `julia`                          | `julials`                | vía LSP                      | `julia`                        |
+| Julia              | `julia`                          | `julials`                | `runic`                      | `julia`                        |
 | Jinja              | `jinja`                          | `jinja_lsp`              | `prettier_jinja`             | `jinja` + `jinja_inline`       |
 | JSON               | `json`                           | `jsonls`                 | `biome`                      | `json` / `json5`               |
 | Kotlin             | `kotlin`                         | `kotlin_language_server` | `ktlint`                     | `kotlin`                       |
@@ -302,10 +302,16 @@ Chaotic-AUR de por medio. La primera vez que arranca, `julia-lsp` precompila
 `LanguageServer.jl`/`SymbolServer.jl`/`StaticLint.jl`, lo que puede tardar varios minutos; las
 siguientes veces reutiliza esa caché de compilación y arranca mucho más rápido.
 
-No hay entrada en Conform para `julia`: el formato lo resuelve el propio LSP/ecosistema. `runic`
-queda descartado por ahora porque su condición de "binario ausente sin fallo silencioso" depende
-de una pieza compartida con Erlang y Solidity que todavía no existe (ver "Política de
-herramientas que Mason no instala" en `next-languages.md`).
+`runic` formatea `julia` en Conform, y tampoco es un caso mecánico: no está en el registro de
+Mason, se instala como Pkg App (`julia -e 'using Pkg; Pkg.Apps.add("Runic")'`), que deja el
+binario en `~/.julia/bin/runic` —un directorio que Julia no añade al `PATH` por su cuenta—. El
+override de `runic` en `lua/lzy/conform.lua` resuelve la ruta absoluta ahí si no está en `PATH`,
+así que funciona sin tocar el `PATH` del sistema.
+
+Ese override es deliberadamente mínimo: comprueba el ejecutable y avisa una vez si falta, pero
+**no** es la pieza compartida de "aviso de binario ausente" que necesitan también Erlang y
+Solidity (ver "Política de herramientas que Mason no instala" en `next-languages.md`). Queda
+anotado en el propio código para generalizarlo cuando se escriba esa pieza.
 
 ### Kotlin
 

@@ -34,6 +34,9 @@ local formatters_by_ft = {
   -- primera pasada de la sesión se va a más de 10 s según el archivo. Las
   -- siguientes bajan bastante, pero el límite tiene que aguantar la primera.
   groovy = { "npm-groovy-lint", timeout_ms = 20000 },
+  -- runic no está en el registro de Mason; ver el override de `runic` más
+  -- abajo para cómo se resuelve sin bloquear el formato si falta.
+  julia = { "runic" },
   nix = { "nixfmt" },
   -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
   -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
@@ -1453,6 +1456,48 @@ local formatters = {
       }
     end,
   },
+
+  -- runic (Julia) no está en el registro de Mason: se instala como Pkg App
+  -- (`julia -e 'using Pkg; Pkg.Apps.add("Runic")'`), que deja el binario en
+  -- `~/.julia/bin`, un directorio que Julia no añade al PATH por su cuenta.
+  --
+  -- Esto NO es la pieza compartida de "aviso de binario ausente" que
+  -- necesitan también Erlang y Solidity (next-languages.md): es un
+  -- condition/command mínimo, solo para Julia, para no bloquear el formato
+  -- mientras esa pieza general no exista. Generalizar cuando se escriba.
+  runic = (function()
+    local julia_bin_dir = vim.fs.joinpath(vim.uv.os_homedir() or "", ".julia", "bin")
+    local resolved -- nil sin resolver todavía; luego, el comando o `false` si no se encuentra
+
+    local function resolve()
+      if resolved == nil then
+        if vim.fn.executable "runic" == 1 then
+          resolved = "runic"
+        else
+          local candidate = vim.fs.joinpath(julia_bin_dir, "runic")
+          resolved = vim.fn.executable(candidate) == 1 and candidate or false
+        end
+      end
+      return resolved
+    end
+
+    return {
+      command = function()
+        return resolve() or "runic"
+      end,
+      condition = function()
+        if resolve() then
+          return true
+        end
+        vim.notify_once(
+          "runic no está instalado: el formato de Julia no se ejecuta. Instálalo con "
+            .. "`julia -e 'using Pkg; Pkg.Apps.add(\"Runic\")'`.",
+          vim.log.levels.WARN
+        )
+        return false
+      end,
+    }
+  end)(),
 
   rustfmt = {
     append_args = function(_, ctx)

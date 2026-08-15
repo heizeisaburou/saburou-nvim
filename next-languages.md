@@ -14,7 +14,7 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 | PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                    |
 | Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout          |
 | Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo  |
-| Julia          | Hecho el 2026-08-15 | `cmd` propio para `julials`; ver el hallazgo en su sección |
+| Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección |
 | Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`       |
 | El resto       | Pendiente           | Fish, Solidity, Erlang y R                                 |
 
@@ -159,17 +159,17 @@ de mantenimiento manual supera el beneficio inmediato.
 
 ### Resumen recomendado
 
-| Lenguaje     | LSP decidido                  | Treesitter | Conform                | Instalación principal                   |
-| ------------ | ----------------------------- | ---------- | ---------------------- | --------------------------------------- |
-| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL       | Mason                                   |
-| SQL genérico | `sqls`                        | `sql`      | ver política SQL       | Mason                                   |
-| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`          | LSP en Mason; formatter viene con Fish  |
-| Nix          | `nil_ls`                      | `nix`      | `nixfmt`               | Mason (`nil` compila con Cargo + `nix`) |
-| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`            | LSP en Mason; formatter con Foundry     |
-| Erlang       | `elp`                         | `erlang`   | `erlfmt`               | LSP en Mason; formatter externo         |
-| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint`      | Mason                                   |
-| R            | `air`                         | `r`        | `air`                  | Mason                                   |
-| Julia        | `julials`                     | `julia`    | sin entrada, ver Julia | Mason (`cmd` propio, ver Julia)         |
+| Lenguaje     | LSP decidido                  | Treesitter | Conform                              | Instalación principal                   |
+| ------------ | ----------------------------- | ---------- | ------------------------------------ | --------------------------------------- |
+| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL                     | Mason                                   |
+| SQL genérico | `sqls`                        | `sql`      | ver política SQL                     | Mason                                   |
+| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`                        | LSP en Mason; formatter viene con Fish  |
+| Nix          | `nil_ls`                      | `nix`      | `nixfmt`                             | Mason (`nil` compila con Cargo + `nix`) |
+| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`                          | LSP en Mason; formatter con Foundry     |
+| Erlang       | `elp`                         | `erlang`   | `erlfmt`                             | LSP en Mason; formatter externo         |
+| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint`                    | Mason                                   |
+| R            | `air`                         | `r`        | `air`                                | Mason                                   |
+| Julia        | `julials`                     | `julia`    | `runic` (`cmd`/`condition` a medida) | Mason (`cmd` propio, ver Julia)         |
 
 Las excepciones importantes están debajo; no conviene copiar la tabla a ciegas. Los formatters
 que no vienen de Mason (`forge_fmt`, `erlfmt`, `runic`) siguen la política de binarios externos.
@@ -483,6 +483,13 @@ julials = {
 -- treesitter.lua
 "julia",          -- M.languages
 julia = true,     -- M.enabled_highlights
+
+-- conform.lua: formatters_by_ft
+julia = { "runic" },
+-- conform.lua: formatters (resuelve ~/.julia/bin/runic si no está en PATH,
+-- avisa una vez y se salta el formato si de verdad no está; ver el código
+-- completo y por qué NO es la pieza general de Erlang/Solidity)
+runic = { command = function() --[[ ... ]] end, condition = function() --[[ ... ]] end },
 ```
 
 El mapping `julials = "julia-lsp"` ya existía. `julia` (el runtime) es dependencia real del
@@ -491,9 +498,21 @@ CAUR/AUR. Verificado con `julia` instalado: el cliente llega a adjuntarse (`ATTA
 client=julials`) con el `root_dir` correcto y arranca la precompilación de
 `LanguageServer.jl`/`SymbolServer.jl`, que tarda varios minutos la primera vez.
 
-`runic` queda descartado por ahora: su entrada en Conform necesita el "aviso de binario ausente"
-compartido con Erlang y Solidity, que todavía no existe. El formato lo resuelve `julials`/el
-ecosistema Julia mientras tanto.
+`runic` **sí entra** en Conform, con una versión mínima y local del "aviso de binario ausente" en
+vez de esperar a la pieza compartida con Erlang y Solidity (todavía sin escribir). `runic` no
+está en el registro de Mason: se instala como Pkg App
+(`julia -e 'using Pkg; Pkg.Apps.add("Runic")'`), que deja el binario en `~/.julia/bin/runic`, un
+directorio que Julia no añade al `PATH`. El `command` del formatter resuelve esa ruta absoluta
+directamente si no está en `PATH`, y el `condition` avisa una vez (`vim.notify_once`) y se salta
+el formato si de verdad no está instalado —sin bloquear el guardado ni fallar en bucle—.
+
+Ojo: **esto no es la pieza general que Erlang y Solidity también necesitan**. Es un condition/
+command a medida, solo para `runic`, escrito para no dejar Julia sin formateador mientras esa
+pieza compartida no exista. Cuando se escriba, generalizar este caso (está anotado en el propio
+`lua/lzy/conform.lua`) en vez de mantener dos mecanismos distintos.
+
+Verificado con `runic` instalado: formatea de verdad (indentación, `return` explícito) sin tocar
+el proyecto de prueba, que debe seguir mal formateado para que se compruebe `<leader>fm` a mano.
 
 Los proyectos deben tener un entorno Julia reconocible (`Project.toml` o `JuliaProject.toml`). El
 config de `nvim-lspconfig` sigue aportando `:LspJuliaActivateEnv` para cambiar el entorno cuando
@@ -619,12 +638,14 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
 3. ~~SQL~~. Hecho, con los dos servidores repartidos por raíz y el formateador condicional.
 4. ~~Groovy~~. Hecho, con el JDK de compilación resuelto por el camino.
 5. ~~Nix~~. Hecho; `nil` necesita `nix` del sistema para compilarse, resuelto por el camino.
-6. ~~Julia~~. Hecho el LSP y el parser; el `cmd` por defecto de `nvim-lspconfig` no servía con el
-   paquete de Mason, resuelto con un `cmd` propio (ver su sección). `runic` sigue pendiente del
-   aviso de binario ausente, como Erlang y Solidity.
+6. ~~Julia~~. Hecho completo: el `cmd` por defecto de `nvim-lspconfig` no servía con el paquete
+   de Mason, resuelto con un `cmd` propio (ver su sección). `runic` entró también, con un
+   `condition`/`command` mínimo escrito a medida en vez de esperar al aviso de binario ausente
+   general —queda anotado para que ese aviso, cuando se escriba, generalice este caso en vez de
+   dejarlo como un mecanismo aparte.
 7. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
-8. Escribir el aviso de binario ausente antes de tocar Solidity y Erlang, y para añadir `runic` a
-   Julia: los tres dependen de él y solo hay que hacerlo una vez.
+8. Escribir el aviso de binario ausente antes de tocar Solidity y Erlang: los dos dependen de él.
+   De paso, generalizar el `condition` a medida que ya tiene `runic`.
 9. Añadir Solidity, Erlang y R cuando haya un proyecto real con el que verificar roots,
    toolchains y formato.
 
