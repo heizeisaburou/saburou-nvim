@@ -30,6 +30,14 @@ local function horizontal_preview_mappings(mappings)
   return mappings
 end
 
+-- Borra la palabra anterior en el prompt, igual que <C-w> en insert mode
+-- normal. <C-u> por default en Telescope limpia toda la línea; acá lo
+-- pisamos para que sea "borrar palabra" como <C-BS>, no "borrar todo".
+local function delete_word_backward()
+  local keys = vim.api.nvim_replace_termcodes("<C-w>", true, false, true)
+  vim.api.nvim_feedkeys(keys, "n", true)
+end
+
 ---@type table
 M.config = {
   defaults = {
@@ -49,6 +57,8 @@ M.config = {
       i = horizontal_preview_mappings {
         ["<C-p>"] = actions.cycle_history_prev,
         ["<C-n>"] = actions.cycle_history_next,
+        ["<C-u>"] = delete_word_backward,
+        ["<C-BS>"] = delete_word_backward,
       },
       n = horizontal_preview_mappings {
         ["q"] = actions.close,

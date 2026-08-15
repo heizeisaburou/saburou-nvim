@@ -159,7 +159,7 @@ function M.follow()
 	return false
 end
 
-local CHECKBOX_STATES = { " ", "~", "!", ">", "x" }
+local CHECKBOX_STATES = { " ", "x", "~", "!", ">" }
 
 local function next_checkbox_state(current)
 	for idx, state in ipairs(CHECKBOX_STATES) do

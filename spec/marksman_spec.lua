@@ -673,7 +673,7 @@ describe("Marksman adapter", function()
 
 		vim.api.nvim_win_set_cursor(0, { 4, 4 })
 		marksman.toggle_checkbox()
-		assert.are.equal("- [~] Task", vim.api.nvim_buf_get_lines(bufnr, 3, 4, false)[1])
+		assert.are.equal("- [x] Task", vim.api.nvim_buf_get_lines(bufnr, 3, 4, false)[1])
 		vim.api.nvim_win_set_cursor(0, { 5, 3 })
 		marksman.toggle_checkbox()
 		assert.are.equal("- [ ] Paragraph", vim.api.nvim_buf_get_lines(bufnr, 4, 5, false)[1])
