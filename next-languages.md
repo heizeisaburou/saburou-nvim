@@ -17,8 +17,9 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 | Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección  |
 | Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia |
 | Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` con condition a medida          |
+| Erlang         | Hecho el 2026-08-16 | LSP mecánico; `erlfmt` sin binario prebuilt, ver sección    |
 | Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`        |
-| El resto       | Pendiente           | Erlang y R                                                  |
+| El resto       | Pendiente           | R                                                           |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -401,11 +402,22 @@ erlang = true,     -- M.enabled_highlights
 erlang = { "erlfmt" },
 ```
 
-`elp = "elp"` ya está en `names.lua`. `erlfmt` se instala fuera de Mason; no añadir mapping mientras el
-registro no ofrezca el paquete.
+`elp = "elp"` ya está en `names.lua`. `erlfmt` se instala fuera de Mason; no añadir mapping
+mientras el registro no ofrezca el paquete.
 
-Esto no sustituye Elixir: para el BEAM completo quedarían parsers `elixir`, `heex` y `erlang`, más el
-LSP de Elixir que se elija en su momento.
+El LSP fue mecánico de verdad (como Solidity y Fish): `elp` no necesitó ningún ajuste, y no
+depende del runtime de Erlang para adjuntarse (está escrito en Rust). `erl`/`escript`/`erlc` ya
+estaban instalados en esta máquina de todos modos.
+
+`erlfmt` sí es un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: no tiene binario
+prebuilt en ningún sitio, solo se construye desde fuente con `rebar3`
+(`git clone https://github.com/WhatsApp/erlfmt && cd erlfmt && rebar3 escriptize`). Lleva el
+mismo `condition` a medida que los otros tres, pero no se construyó en esta máquina —compilar un
+proyecto Erlang desde cero solo para documentarlo no compensaba, a diferencia de los instaladores
+de un paso de Foundry/`nix`/`fish`/Julia—.
+
+Esto no sustituye Elixir: para el BEAM completo quedarían parsers `elixir`, `heex` y `erlang`,
+más el LSP de Elixir que se elija en su momento.
 
 ### Groovy
 
@@ -559,22 +571,24 @@ necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejec
 Dos cosas que 平生三郎 pidió dejar anotadas explícitamente, sin tocarlas ahora:
 
 1. **Sonnet 5 fue metiendo las cosas como pudo**, con condicionales a medida por lenguaje
-   (`runic` en Julia, `forge_fmt` en Solidity, `fish_indent` en Fish) en vez de esperar a esta
-   pieza general. La prioridad fue dejarlo funcionando ya y lo más limpio posible, no bloquear
-   el progreso. El trabajo que queda es generalizar esos tres casos sueltos en el mecanismo
-   compartido de esta sección —una función reutilizable con aviso no silencioso, una vez por
-   herramienta y sesión— y volver a pasar por Julia, Solidity y Fish (y luego Erlang) para
-   usarla en vez del condicional suelto de cada uno.
+   (`runic` en Julia, `forge_fmt` en Solidity, `fish_indent` en Fish, `erlfmt` en Erlang) en vez
+   de esperar a esta pieza general. La prioridad fue dejarlo funcionando ya y lo más limpio
+   posible, no bloquear el progreso. El trabajo que queda es generalizar esos cuatro casos
+   sueltos en el mecanismo compartido de esta sección —una función reutilizable con aviso no
+   silencioso, una vez por herramienta y sesión— y volver a pasar por Julia, Solidity, Fish y
+   Erlang para usarla en vez del condicional suelto de cada uno. Con Erlang hecho, R queda como
+   el único pendiente de la lista original que podría necesitarla —valorar entonces si sigue
+   compensando generalizar para uno solo, o si ya no hace falta.
 2. **`docs/language-dependencies.md` necesita una pasada completa, no solo para los lenguajes de
    esta iniciativa**. Faltan lenguajes de la matriz que ya estaban configurados en
    `lspconfig.lua`/`conform.lua` desde antes de "next-languages" y que nunca se documentaron ahí
    (revisar toda la lista, no dar por buena una comprobación superficial). Y de los lenguajes que
    sí aparecen mencionados —los de antes de esta tanda de SQL/PowerShell/Groovy/Nix/Julia/
-   Solidity/Fish incluidos, no solo los nuevos—, cualquiera que tenga una dependencia externa
-   real (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime
+   Solidity/Fish/Erlang incluidos, no solo los nuevos—, cualquiera que tenga una dependencia
+   externa real (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime
    específica...) necesita su propia sección `###` explicándola, con el mismo rigor que ya
-   tienen Groovy/Nix/Julia/PowerShell/SQL/Solidity/Fish. El criterio de "qué le pasa a quien
-   clona la config sin mi toolchain" se aplica a todo el catálogo, no solo a lo nuevo.
+   tienen Groovy/Nix/Julia/PowerShell/SQL/Solidity/Fish/Erlang. El criterio de "qué le pasa a
+   quien clona la config sin mi toolchain" se aplica a todo el catálogo, no solo a lo nuevo.
 
 ## Bloques consolidados para cuando se implemente
 
@@ -687,9 +701,15 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
 8. ~~Fish~~. Hecho, y el LSP resultó mecánico también: `fish = true` en `M.enabled_highlights`
    ya estaba del catálogo previo, solo faltaba activarlo. `fish` (la shell, no solo el LSP) no
    estaba instalada; `fish_indent` lleva el mismo `condition` a medida que `runic`/`forge_fmt`.
-9. Añadir Erlang y R cuando haya un proyecto real con el que verificar roots, toolchains y
-   formato. Generalizar entonces el `condition` a medida que ya comparten `runic`, `forge_fmt` y
-   `fish_indent` en la pieza compartida de "aviso de binario ausente" (ver esa sección).
+9. ~~Erlang~~. Hecho: el LSP (`elp`) fue mecánico y no depende del runtime de Erlang para
+   adjuntarse. `erlfmt` es el caso más delicado de los cuatro condicionales a medida: sin
+   binario prebuilt en ningún sitio, se construye con `rebar3 escriptize`; no se construyó en
+   esta máquina, solo se documentó el proceso.
+10. Añadir R cuando haya un proyecto real con el que verificar roots, toolchains y formato.
+    Generalizar entonces el `condition` a medida que ya comparten `runic`, `forge_fmt`,
+    `fish_indent` y `erlfmt` en la pieza compartida de "aviso de binario ausente" (ver esa
+    sección) —el único lenguaje pendiente que la necesitaría ya no la necesitará, así que puede
+    que a esas alturas ya no compense generalizar y baste con dejarlo documentado como está.
 
 ## Referencias principales
 

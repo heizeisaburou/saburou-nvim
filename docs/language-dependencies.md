@@ -46,6 +46,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | Elixir             | `elixir`                         | `elixirls`                    | `mix`                        | `elixir`                       |
 | EEx                | `eelixir`                        | `elixirls`                    | `mix`                        | —                              |
 | HEEx               | `heex`                           | `elixirls`                    | `mix`                        | `heex`                         |
+| Erlang             | `erlang`                         | `elp`                         | `erlfmt`                     | `erlang`                       |
 | F#                 | `fsharp`                         | `fsautocomplete`              | `fantomas`                   | `fsharp`                       |
 | Fish               | `fish`                           | `fish_lsp`                    | `fish_indent`                | `fish`                         |
 | Gleam              | `gleam`                          | —                             | `gleam`                      | —                              |
@@ -203,6 +204,30 @@ dart format --help
 
 Neovim ejecuta el servidor a través de `dart language-server --protocol=lsp`; basta con que
 `dart` esté en `PATH`. Lo mismo aplica al SDK incluido con Flutter.
+
+### Erlang
+
+`elp` es mecánico: su `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason
+(`elp = "elp"`) ya existía. El runtime de Erlang (`erl`, `escript`, `erlc`) no lo necesita el LSP
+en sí —ELP está escrito en Rust—, aunque tenerlo ayuda a compilar y probar los proyectos que
+analiza.
+
+`erlfmt` es un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: **no tiene binario
+prebuilt en ningún sitio**, ni en pacman/Chaotic-AUR ni en sus propios releases de GitHub. Se
+construye desde fuente con `rebar3` (sí empaquetado, `pacman -S rebar3` en Arch):
+
+```sh
+git clone https://github.com/WhatsApp/erlfmt
+cd erlfmt
+rebar3 escriptize
+# el binario queda en _build/default/bin/erlfmt
+```
+
+El `condition` de `erlfmt` en `lua/lzy/conform.lua` comprueba el ejecutable y avisa una vez si
+falta, sin bloquear el guardado —mismo patrón a medida que los otros tres, no la pieza
+compartida de "aviso de binario ausente" (ver `next-languages.md`)—. No se ha construido en esta
+máquina: compilar un proyecto Erlang desde cero para documentarlo no compensaba el esfuerzo, a
+diferencia de instalar Foundry/`nix`/`fish`/Julia, que son un solo comando o script oficial.
 
 ### F#
 

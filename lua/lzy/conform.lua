@@ -27,6 +27,10 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
+  -- erlfmt no está en el registro de Mason ni tiene binario prebuilt; ver el
+  -- override de `erlfmt` más abajo para cómo se resuelve sin bloquear el
+  -- formato si falta.
+  erlang = { "erlfmt" },
   -- fish_indent viene con la propia shell Fish, no con Mason; ver el
   -- override de `fish_indent` más abajo para cómo se resuelve sin bloquear
   -- el formato si falta.
@@ -552,6 +556,31 @@ local formatters = {
         "--max-line-length",
         tostring(line_length),
       }
+    end,
+  },
+
+  -- erlfmt no está en el registro de Mason y, a diferencia de runic/forge,
+  -- no tiene binario prebuilt: se construye con rebar3 (`pacman -S rebar3`
+  -- en Arch) desde https://github.com/WhatsApp/erlfmt
+  -- (`rebar3 escriptize`, el binario queda en `_build/default/bin/erlfmt`).
+  -- El runtime de Erlang (`erl`/`escript`) puede ya estar instalado sin
+  -- relación con esto -- lo usa `elp`, no `erlfmt`.
+  --
+  -- Mismo patrón que `runic`/`forge_fmt`/`fish_indent`: condition a medida,
+  -- no la pieza compartida de "aviso de binario ausente" (ver
+  -- next-languages.md).
+  erlfmt = {
+    condition = function()
+      if vim.fn.executable "erlfmt" == 1 then
+        return true
+      end
+      vim.notify_once(
+        "erlfmt no está instalado: el formato de Erlang no se ejecuta. Sin binario prebuilt, "
+          .. "se construye con `rebar3 escriptize` desde "
+          .. "https://github.com/WhatsApp/erlfmt.",
+        vim.log.levels.WARN
+      )
+      return false
     end,
   },
 

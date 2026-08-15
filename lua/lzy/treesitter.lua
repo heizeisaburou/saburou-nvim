@@ -9,6 +9,7 @@ local install_running = false
 M.languages = {
   "lua",
   "luadoc",
+  "erlang",
   "fish",
   "groovy",
   "julia",
@@ -85,6 +86,7 @@ M.enabled_highlights = {
   dart = true,
   edn = true,
   elixir = true,
+  erlang = true,
   fish = true,
   fsharp = true,
   go = true,
