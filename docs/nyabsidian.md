@@ -288,8 +288,8 @@ la sincronización global de Neovim o `<leader>cs` se ocupan de ello cuando inte
 cursor, de lo más específico a lo más general:
 
 1. Código: el contenido de un `` `code span` `` o el cuerpo de un bloque de código —fence o
-   sangrado—, sin los delimitadores, sin la sangría del propio bloque y sin el salto de línea
-   final. Va primero: dentro de código no hay enlaces ni negritas, solo texto literal.
+   sangrado—, sin los delimitadores y sin la sangría del propio bloque. Va primero: dentro de
+   código no hay enlaces ni negritas, solo texto literal.
 2. El componente exacto del enlace hovereado: label, nota o adjunto de destino, URL, descripción
    o id de referencia, ya sin llaves ni paréntesis.
 3. El contenido de una negrita, cursiva o negrita-cursiva, sin sus marcadores.
@@ -297,6 +297,18 @@ cursor, de lo más específico a lo más general:
 
 Si el cursor está sobre texto plano y no hay nada puntual que copiar, copia `[[Nota]]` de la nota
 actual en lugar de dejar la tecla vacía.
+
+El salto de línea final de un bloque lo decides tú: un fence admite una última línea en blanco,
+así que si la dejas el texto copiado termina en `\n` y si no, termina sin salto. Lo único que se
+descuenta siempre es el salto estructural que precede al cierre. Un bloque sangrado no tiene
+forma de expresar esa última línea —sus líneas en blanco del final son la separación con lo que
+viene después—, así que ahí nunca se copia el salto.
+
+> [!NOTE]
+>
+> Prettier respeta esa línea en blanco en los fences que no sabe formatear (`lua`, sin lenguaje,
+> etc.), pero la borra al guardar en los que sí formatea (`js`, `json`, `css`, `yaml`...). En
+> esos, el `\n` final no sobrevive al formateo.
 
 `<leader>nC` (`:NyabsidianConvertLink`) cambia únicamente la referencia bajo el cursor. No modifica
 otros enlaces de la nota ni del vault. El selector ofrece solo representaciones válidas:

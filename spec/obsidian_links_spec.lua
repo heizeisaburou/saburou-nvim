@@ -1816,6 +1816,27 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal("[[nota]]", copy_at(1, mid "[[nota]]"))
     end)
 
+    it("lets the last blank line of a fence decide the trailing newline", function()
+      write("source.md", {
+        "```lua",
+        "local x = 1",
+        "",
+        "```",
+        "",
+        "- item",
+        "  ```sh",
+        "  echo hola",
+        "",
+        "  ```",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      start_treesitter()
+      -- La línea en blanco que dejó el usuario es contenido; el salto que
+      -- precede al cierre, no.
+      assert.are.equal("local x = 1\n", copy_at(2, 3))
+      assert.are.equal("echo hola\n", copy_at(8, 4))
+    end)
+
     it("copies the body of a code block without fences or trailing newline", function()
       write("source.md", {
         "Antes",

@@ -3,7 +3,9 @@
 -- Orden de prioridad (el más específico gana):
 --   1. Código: el contenido sin delimitadores, tanto inline (`` `x` `` ->
 --      `x`) como de bloque (fence o sangrado -> su cuerpo, sin las líneas
---      de ``` ni el salto de línea final, y sin la sangría del fence).
+--      de ``` y sin la sangría del fence). El salto de línea final lo
+--      decides tú: si dejas una última línea en blanco dentro del fence,
+--      el texto copiado termina en `\n`; si no, termina sin salto.
 --      Va primero a propósito: dentro de código no hay enlaces ni negritas
 --      que copiar, solo texto literal, y el parseo de enlaces es por línea
 --      (`` `[[x]]` `` se vería como un enlace de verdad).
@@ -145,9 +147,13 @@ local function common_indent(lines)
 end
 
 --- Cuerpo de un bloque de código (fence o sangrado) bajo el cursor, sin los
---- delimitadores, sin la sangría del propio bloque y sin el salto de línea
---- final. El cursor vale en cualquier parte del bloque, líneas de ``` y
---- `info string` incluidas.
+--- delimitadores y sin la sangría del propio bloque. El cursor vale en
+--- cualquier parte del bloque, líneas de ``` y `info string` incluidas.
+---
+--- El salto de línea final lo decide el contenido: dentro de un fence, la
+--- última línea en blanco es tuya (el fence la admite), así que si la dejas
+--- el texto copiado termina en `\n` y si no, no. Lo único que se descuenta
+--- siempre es el salto estructural que precede al cierre.
 ---@param bufnr integer
 ---@param row0 integer 0-based
 ---@param col integer 0-based
@@ -193,16 +199,25 @@ local function block_code_at_cursor(bufnr, row0, col)
     lines[index] = lines[index]:sub(math.min(lead, indent) + 1)
   end
 
-  -- Fuera el salto de línea final (y la sangría suelta de la línea de
-  -- cierre, que el nodo de contenido se lleva puesta).
-  while #lines > 0 and not lines[#lines]:match "%S" do
-    table.remove(lines)
-  end
-  if #lines == 0 then
-    return nil
+  if fence_indent then
+    -- El cuerpo termina siempre en el salto de línea que precede al cierre
+    -- (y con la sangría suelta de esa línea, que el nodo se lleva puesta):
+    -- eso es estructura, se va. Lo que quede detrás ya es del usuario, así
+    -- que una última línea en blanco dentro del fence deja el `\n` final.
+    if #lines > 0 and not lines[#lines]:match "%S" then
+      table.remove(lines)
+    end
+  else
+    -- Un bloque sangrado no tiene forma de expresar esa última línea: sus
+    -- líneas en blanco del final son la separación con lo que viene
+    -- después, no contenido.
+    while #lines > 0 and not lines[#lines]:match "%S" do
+      table.remove(lines)
+    end
   end
 
-  return table.concat(lines, "\n")
+  local text = table.concat(lines, "\n")
+  return text:match "%S" and text or nil
 end
 
 ---@param bufnr integer
@@ -317,8 +332,10 @@ function M.smart_copy(opts)
     -- Un bloque entero en la notificación no se lee; basta con saber qué se
     -- copió y cuánto.
     local first = text:match "^[^\n]*"
-    local count = select(2, text:gsub("\n", "")) + 1
-    local shown = count > 1 and ("%s… (%d líneas)"):format(first, count) or text
+    local breaks = select(2, text:gsub("\n", ""))
+    -- Un `\n` final cierra la última línea, no abre otra.
+    local count = breaks + (text:sub(-1) == "\n" and 0 or 1)
+    local shown = breaks > 0 and ("%s… (%d líneas)"):format(first, count) or text
     notify(("Copiado (%s): %s"):format(what, shown))
   end
 
