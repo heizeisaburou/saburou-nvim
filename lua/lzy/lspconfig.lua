@@ -40,6 +40,7 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
+  "fish_lsp", -- Fish
   "groovyls", -- Groovy, Jenkinsfile y Gradle
   "julials", -- Julia; cmd propio, ver M.config
   "nil_ls", -- Nix; no nixd, ver next-languages.md

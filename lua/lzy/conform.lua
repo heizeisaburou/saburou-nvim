@@ -27,6 +27,10 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
+  -- fish_indent viene con la propia shell Fish, no con Mason; ver el
+  -- override de `fish_indent` más abajo para cómo se resuelve sin bloquear
+  -- el formato si falta.
+  fish = { "fish_indent" },
   -- npm-groovy-lint entra solo como formateador: los diagnósticos los pone
   -- groovyls y no interesa duplicarlos (ver docs/language-dependencies.md).
   --
@@ -551,9 +555,28 @@ local formatters = {
     end,
   },
 
+  -- fish_indent viene con la propia shell Fish (paquete `fish` del sistema),
+  -- no con Mason: sin la shell instalada no hay binario que resolver. Mismo
+  -- patrón que `runic`/`forge_fmt`: condition a medida, no la pieza
+  -- compartida de "aviso de binario ausente" (ver next-languages.md).
+  fish_indent = {
+    condition = function()
+      if vim.fn.executable "fish_indent" == 1 then
+        return true
+      end
+      vim.notify_once(
+        "fish_indent no está instalado: el formato de Fish no se ejecuta. "
+          .. "Viene con la shell Fish (`pacman -S fish` en Arch).",
+        vim.log.levels.WARN
+      )
+      return false
+    end,
+  },
+
   -- forge_fmt (Foundry) no está en el registro de Mason: se instala con
   -- `foundryup` (curl -L https://foundry.paradigm.xyz | bash, luego
-  -- `foundryup`), que deja `forge` en `~/.foundry/bin` y añade ese
+  -- `foundryup`), que deja `forge` en `~/.foundry/bin` -o, si el instalador
+  -- respeta XDG_CONFIG_HOME, en `~/.config/.foundry/bin`- y añade ese
   -- directorio al PATH del propio instalador. No es un paquete de pacman ni
   -- de Chaotic-AUR (comprobado: solo hay coincidencias de nombre ajenas,
   -- como el "forge" de GNOME Builder).

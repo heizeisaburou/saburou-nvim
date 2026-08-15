@@ -47,7 +47,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | EEx                | `eelixir`                        | `elixirls`                    | `mix`                        | —                              |
 | HEEx               | `heex`                           | `elixirls`                    | `mix`                        | `heex`                         |
 | F#                 | `fsharp`                         | `fsautocomplete`              | `fantomas`                   | `fsharp`                       |
-| Fish               | `fish`                           | —                             | —                            | `fish`                         |
+| Fish               | `fish`                           | `fish_lsp`                    | `fish_indent`                | `fish`                         |
 | Gleam              | `gleam`                          | —                             | `gleam`                      | —                              |
 | Go                 | `go`                             | `gopls`                       | `gofmt`                      | `go`                           |
 | Go modules         | `gomod` / `gosum` / `gowork`     | `gopls`                       | —                            | `gomod` / `gosum` / `gowork`   |
@@ -215,6 +215,18 @@ dotnet restore
 
 Después, reiniciar el LSP. En F# la lista y el orden de archivos del `.fsproj` forman parte del
 modelo del proyecto.
+
+### Fish
+
+`fish_lsp` es mecánico: su `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason ya
+existía en el catálogo pre-`next-languages` (`fish = true` en `M.enabled_highlights`), solo
+faltaba activarlo en `M.languages` y `M.servers`.
+
+`fish_indent` viene con la propia shell Fish (paquete `fish` del sistema), no con Mason: sin la
+shell instalada no hay binario que resolver, aunque el LSP siga funcionando igual. En Arch,
+`pacman -S fish`. Mismo patrón que `runic`/`forge_fmt`: `condition` a medida en
+`lua/lzy/conform.lua` que avisa una vez si falta, no la pieza compartida de "aviso de binario
+ausente" (ver `next-languages.md`).
 
 ### Haskell
 

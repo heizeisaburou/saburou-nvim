@@ -9,6 +9,7 @@ local install_running = false
 M.languages = {
   "lua",
   "luadoc",
+  "fish",
   "groovy",
   "julia",
   "markdown_inline",

@@ -16,8 +16,9 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 | Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo   |
 | Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección  |
 | Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia |
+| Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` con condition a medida          |
 | Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`        |
-| El resto       | Pendiente           | Fish, Erlang y R                                            |
+| El resto       | Pendiente           | Erlang y R                                                  |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -314,6 +315,13 @@ fish_lsp = "fish-lsp",
 `fish_lsp` también sabe formatear, prefiero `fish_indent`: es la herramienta canónica del propio
 shell y deja el reparto de responsabilidades muy claro.
 
+El LSP resultó mecánico de verdad (como Solidity, no como Julia): `cmd`/`root_markers` por
+defecto ya sirven y `fish = true` en `M.enabled_highlights` ya estaba del catálogo previo a
+`next-languages`, solo faltaba activarlo en `M.languages`/`M.servers`. `fish` (la shell) no
+estaba instalada en esta máquina —era la única forma de tener `fish_indent`—, así que se
+instaló con `pkexec pacman -S --noconfirm fish`. `fish_indent` lleva el mismo `condition` a
+medida que `runic`/`forge_fmt`: avisa una vez si falta, sin bloquear el guardado.
+
 ### Nix
 
 Decidido: **`nil_ls`**, no `nixd`. `nixd` sabe bastante más (opciones, paquetes, navegación con NixOS,
@@ -551,22 +559,22 @@ necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejec
 Dos cosas que 平生三郎 pidió dejar anotadas explícitamente, sin tocarlas ahora:
 
 1. **Sonnet 5 fue metiendo las cosas como pudo**, con condicionales a medida por lenguaje
-   (`runic` en Julia, `forge_fmt` en Solidity) en vez de esperar a esta pieza general. La
-   prioridad fue dejarlo funcionando ya y lo más limpio posible, no bloquear el progreso. El
-   trabajo que queda es generalizar esos casos sueltos en el mecanismo compartido de esta
-   sección —una función reutilizable con aviso no silencioso, una vez por herramienta y
-   sesión— y volver a pasar por Julia y Solidity (y luego Erlang) para usarla en vez del
-   condicional suelto de cada uno.
+   (`runic` en Julia, `forge_fmt` en Solidity, `fish_indent` en Fish) en vez de esperar a esta
+   pieza general. La prioridad fue dejarlo funcionando ya y lo más limpio posible, no bloquear
+   el progreso. El trabajo que queda es generalizar esos tres casos sueltos en el mecanismo
+   compartido de esta sección —una función reutilizable con aviso no silencioso, una vez por
+   herramienta y sesión— y volver a pasar por Julia, Solidity y Fish (y luego Erlang) para
+   usarla en vez del condicional suelto de cada uno.
 2. **`docs/language-dependencies.md` necesita una pasada completa, no solo para los lenguajes de
    esta iniciativa**. Faltan lenguajes de la matriz que ya estaban configurados en
    `lspconfig.lua`/`conform.lua` desde antes de "next-languages" y que nunca se documentaron ahí
    (revisar toda la lista, no dar por buena una comprobación superficial). Y de los lenguajes que
    sí aparecen mencionados —los de antes de esta tanda de SQL/PowerShell/Groovy/Nix/Julia/
-   Solidity incluidos, no solo los nuevos—, cualquiera que tenga una dependencia externa real
-   (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime específica...)
-   necesita su propia sección `###` explicándola, con el mismo rigor que ya tienen Groovy/Nix/
-   Julia/PowerShell/SQL/Solidity. El criterio de "qué le pasa a quien clona la config sin mi
-   toolchain" se aplica a todo el catálogo, no solo a lo nuevo.
+   Solidity/Fish incluidos, no solo los nuevos—, cualquiera que tenga una dependencia externa
+   real (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime
+   específica...) necesita su propia sección `###` explicándola, con el mismo rigor que ya
+   tienen Groovy/Nix/Julia/PowerShell/SQL/Solidity/Fish. El criterio de "qué le pasa a quien
+   clona la config sin mi toolchain" se aplica a todo el catálogo, no solo a lo nuevo.
 
 ## Bloques consolidados para cuando se implemente
 
@@ -676,10 +684,12 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
 7. ~~Solidity~~. Hecho: el LSP fue mecánico de verdad (a diferencia de Julia, su `cmd` por
    defecto ya sirve). `forge_fmt` entró con el mismo `condition` a medida que `runic`, porque
    Foundry tampoco está en pacman ni en Chaotic-AUR.
-8. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
+8. ~~Fish~~. Hecho, y el LSP resultó mecánico también: `fish = true` en `M.enabled_highlights`
+   ya estaba del catálogo previo, solo faltaba activarlo. `fish` (la shell, no solo el LSP) no
+   estaba instalada; `fish_indent` lleva el mismo `condition` a medida que `runic`/`forge_fmt`.
 9. Añadir Erlang y R cuando haya un proyecto real con el que verificar roots, toolchains y
-   formato. Generalizar entonces el `condition` a medida que ya comparten `runic` y `forge_fmt`
-   en la pieza compartida de "aviso de binario ausente" (ver esa sección).
+   formato. Generalizar entonces el `condition` a medida que ya comparten `runic`, `forge_fmt` y
+   `fish_indent` en la pieza compartida de "aviso de binario ausente" (ver esa sección).
 
 ## Referencias principales
 
