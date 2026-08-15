@@ -12,6 +12,7 @@ M.languages = {
   "groovy",
   "markdown_inline",
   "markdown",
+  "nix",
   "powershell",
   "sql",
   --
@@ -105,6 +106,7 @@ M.enabled_highlights = {
   make = true,
   markdown = true,
   markdown_inline = true,
+  nix = true,
   ocaml = true,
   ocamlinterface = true,
   php = true,

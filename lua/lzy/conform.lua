@@ -34,6 +34,7 @@ local formatters_by_ft = {
   -- primera pasada de la sesión se va a más de 10 s según el archivo. Las
   -- siguientes bajan bastante, pero el límite tiene que aguantar la primera.
   groovy = { "npm-groovy-lint", timeout_ms = 20000 },
+  nix = { "nixfmt" },
   -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
   -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
   sql = { "sqlfluff", "pg_format", stop_after_first = true },

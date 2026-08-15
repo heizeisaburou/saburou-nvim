@@ -67,6 +67,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | Lua                | `lua`                            | `lua_ls`                 | `stylua`                     | `lua` / `luadoc`               |
 | Make               | `make`                           | —                        | —                            | `make`                         |
 | Markdown           | `markdown`                       | `marksman`               | `prettier` + `markdown_tabs` | `markdown` + `markdown_inline` |
+| Nix                | `nix`                            | `nil_ls`                 | `nixfmt`                     | `nix`                          |
 | OCaml              | `ocaml`                          | `ocamllsp`               | `ocamlformat`                | `ocaml`                        |
 | OCaml interface    | `ocamlinterface`                 | `ocamllsp`               | `ocamlformat`                | `ocaml_interface`              |
 | PHP                | `php`                            | `phpactor`               | `php_cs_fixer`               | `php`                          |
@@ -102,7 +103,7 @@ aporte el SDK o toolchain del lenguaje**. Un servidor puede estar perfectamente 
 así no poder analizar un proyecto si falta su runtime, compilador, gestor de paquetes o metadata
 de build.
 
-Hay tres casos especialmente importantes:
+Hay varios casos especialmente importantes:
 
 1. **Herramientas incluidas en el toolchain**: por ejemplo `dartls`/`dart format`, `gofmt`,
    `rustfmt`, `zigfmt` o `sourcekit-lsp`.
@@ -110,12 +111,19 @@ Hay tres casos especialmente importantes:
    `qmlformat` y varios plugins de Prettier.
 3. **LSP instalados por Mason que dependen de software del sistema**: C#, Clojure, Kotlin,
    Haskell, OCaml, Ruby, Django/Ansible, etc.
-4. **Paquetes que Mason no descarga sino que compila**: `groovy-language-server` se instala con
-   `./gradlew build`. Ahí el JDK importa antes de que exista el servidor, y las herramientas de
-   build rechazan los JDK más nuevos que ellas mismas. Por eso la configuración fija `JAVA_HOME`
-   a un JDK 21 o 17 —y avisa de cuál eligió— antes de lanzar **cualquier** instalación, incluidas
-   las de la interfaz de Mason: se engancha al evento `package:install:handle`, que se emite
-   justo antes de ejecutar el instalador. Un `JAVA_HOME` explícito del entorno manda sobre esto.
+4. **Paquetes que Mason no descarga sino que compila, y su build rechaza el toolchain del
+   sistema**: `groovy-language-server` se instala con `./gradlew build`. Ahí el JDK importa antes
+   de que exista el servidor, y las herramientas de build rechazan los JDK más nuevos que ellas
+   mismas. Por eso la configuración fija `JAVA_HOME` a un JDK 21 o 17 —y avisa de cuál eligió—
+   antes de lanzar **cualquier** instalación, incluidas las de la interfaz de Mason: se engancha
+   al evento `package:install:handle`, que se emite justo antes de ejecutar el instalador. Un
+   `JAVA_HOME` explícito del entorno manda sobre esto.
+5. **Paquetes que Mason compila y cuyo build necesita el propio lenguaje ya instalado**: `nil`
+   (Nix) ejecuta el binario `nix` desde su `build.rs` para generar la tabla de funciones
+   integradas del lenguaje; sin `nix` en el sistema, la compilación falla directamente, antes de
+   que exista el LSP. A diferencia del caso anterior, no hace falta ningún hook: es una
+   dependencia del sistema que se instala una vez (ver la sección de Nix) y no vuelve a hacer
+   falta después de compilar.
 
 Cuando algo no arranca, conviene comprobar en este orden: ejecutable disponible, filetype
 correcto, raíz de proyecto detectada y toolchain del proyecto instalado/restaurado.
@@ -281,6 +289,31 @@ export KOTLIN_LSP_JAVA_HOME="/ruta/al/jdk-21"
 
 En Windows puede definirse la misma variable de entorno apuntando al directorio del JDK. El
 resolver también contempla `extra_homes` y `extra_roots` desde la configuración.
+
+### Nix
+
+`nil_ls`, no `nixd`: la alternativa que sabe más de NixOS/Home Manager/flakes no está en el
+registro de Mason y se instala con Nix o desde el sistema, lo que en una config pública deja al
+que la clona con un LSP configurado que no tiene. `nil_ls` ya está mapeado en Mason como `nil` y
+entra solo con `:MasonInstallAll`.
+
+`nil` es el único paquete de este lenguaje que **se compila en vez de descargarse**: Mason lo
+construye con Cargo (`pkg:cargo/nil`). Necesita `cargo`/`rustc` en el sistema, pero eso no basta:
+su `build.rs` además ejecuta el binario **`nix`** (el gestor de paquetes, no solo el lenguaje)
+para volcar `builtins.attrNames builtins` y generar la tabla de funciones integradas que empotra
+en el binario final. Sin `nix` en el `PATH`, la compilación falla con:
+
+```
+thread 'main' panicked at crates/builtin/build.rs:24:10:
+Failed to get builtins. Is `nix` accessible?: ... "No such file or directory"
+```
+
+Es dependencia **solo de compilación**: la tabla generada queda incrustada vía `include!`, así
+que una vez compilado `nil` no vuelve a necesitar `nix` para funcionar. En Arch, `nix` está en el
+repo oficial `extra` (`pacman -S nix`), sin pasar por AUR ni Chaotic-AUR. `nixfmt` sí es un
+binario descargado y no tiene ninguna de estas dos dependencias.
+
+No usar `nil_ls` y `nixd` a la vez.
 
 ### OCaml
 

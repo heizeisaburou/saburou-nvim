@@ -41,6 +41,7 @@ M.servers = {
   "lua_ls",
   "marksman", -- markdown
   "groovyls", -- Groovy, Jenkinsfile y Gradle
+  "nil_ls", -- Nix; no nixd, ver next-languages.md
   "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
   "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
   "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp

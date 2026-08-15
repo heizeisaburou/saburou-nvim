@@ -301,7 +301,7 @@ return {
   mdformat = "mdformat",
   mdslw = "mdslw",
   -- mix
-  -- nixfmt
+  nixfmt = "nixfmt",
   ["nixpkgs_fmt"] = "nixpkgs-fmt",
   ["npm-groovy-lint"] = "npm-groovy-lint",
   ocamlformat = "ocamlformat",

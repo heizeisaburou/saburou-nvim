@@ -8,13 +8,14 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 
 ## Estado
 
-| Lenguaje       | Estado                | Notas                                                      |
-| -------------- | --------------------- | ---------------------------------------------------------- |
-| PowerShell     | Hecho el 2026-08-15   | Probado en Linux con `pwsh` 7                              |
-| PostgreSQL/SQL | Hecho el 2026-08-15   | Los dos servidores, repartidos por raíz                    |
-| Groovy         | Hecho el 2026-08-15   | Ver los avisos de su sección: el JDK y el timeout          |
-| Batch          | Nada que hacer        | Esperando a que el parser entre en `nvim-treesitter`       |
-| El resto       | Pendiente             | Fish, Nix, Solidity, Erlang, R y Julia                     |
+| Lenguaje       | Estado              | Notas                                                     |
+| -------------- | ------------------- | --------------------------------------------------------- |
+| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                             |
+| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                   |
+| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout         |
+| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo |
+| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`      |
+| El resto       | Pendiente           | Fish, Solidity, Erlang, R y Julia                         |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -28,8 +29,8 @@ Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya e
 
 Los lenguajes se activan **de uno en uno**, nunca varios a la vez: se termina uno, se entrega al
 usuario para que lo pruebe y solo entonces se empieza el siguiente. Antes de tocar nada,
-comprobar que el lenguaje ya está descrito en este documento; si no lo está, añadirlo aquí con
-su stack —LSP, Treesitter, formateador y dependencias— antes de configurarlo.
+comprobar que el lenguaje ya está descrito en este documento; si no lo está, añadirlo aquí con su
+stack —LSP, Treesitter, formateador y dependencias— antes de configurarlo.
 
 No dar un lenguaje por terminado hasta completar este checklist:
 
@@ -73,9 +74,9 @@ de Windows/.NET Framework.
 La preferencia `auto`/`pwsh`/`powershell`/`cmd` de `lua/user/terminal.lua` elige el **proceso de la
 terminal integrada**. No configura los filetypes ni el LSP.
 
-Corrección de la tabla de arriba, comprobada al implementarlo: Neovim detecta `.ps1` y `.psm1`,
-pero **no `.psd1`**. Los manifiestos de módulo se quedaban sin filetype y `powershell_es` —que
-solo atiende `ps1`— no se adjuntaba a ellos. Lo mapea `lua/user/opts.lua`.
+Corrección de la tabla de arriba, comprobada al implementarlo: Neovim detecta `.ps1` y `.psm1`, pero
+**no `.psd1`**. Los manifiestos de módulo se quedaban sin filetype y `powershell_es` —que solo
+atiende `ps1`— no se adjuntaba a ellos. Lo mapea `lua/user/opts.lua`.
 
 ### PowerShell: stack recomendado
 
@@ -157,17 +158,17 @@ de mantenimiento manual supera el beneficio inmediato.
 
 ### Resumen recomendado
 
-| Lenguaje     | LSP decidido                  | Treesitter | Conform           | Instalación principal                  |
-| ------------ | ----------------------------- | ---------- | ----------------- | -------------------------------------- |
-| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL  | Mason                                  |
-| SQL genérico | `sqls`                        | `sql`      | ver política SQL  | Mason                                  |
-| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`     | LSP en Mason; formatter viene con Fish |
-| Nix          | `nil_ls`                      | `nix`      | `nixfmt`          | Todo en Mason                          |
-| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`       | LSP en Mason; formatter con Foundry    |
-| Erlang       | `elp`                         | `erlang`   | `erlfmt`          | LSP en Mason; formatter externo        |
-| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint` | Mason                                  |
-| R            | `air`                         | `r`        | `air`             | Mason                                  |
-| Julia        | `julials`                     | `julia`    | `runic`           | LSP en Mason; formatter externo        |
+| Lenguaje     | LSP decidido                  | Treesitter | Conform           | Instalación principal                   |
+| ------------ | ----------------------------- | ---------- | ----------------- | --------------------------------------- |
+| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL  | Mason                                   |
+| SQL genérico | `sqls`                        | `sql`      | ver política SQL  | Mason                                   |
+| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`     | LSP en Mason; formatter viene con Fish  |
+| Nix          | `nil_ls`                      | `nix`      | `nixfmt`          | Mason (`nil` compila con Cargo + `nix`) |
+| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`       | LSP en Mason; formatter con Foundry     |
+| Erlang       | `elp`                         | `erlang`   | `erlfmt`          | LSP en Mason; formatter externo         |
+| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint` | Mason                                   |
+| R            | `air`                         | `r`        | `air`             | Mason                                   |
+| Julia        | `julials`                     | `julia`    | `runic`           | LSP en Mason; formatter externo         |
 
 Las excepciones importantes están debajo; no conviene copiar la tabla a ciegas. Los formatters
 que no vienen de Mason (`forge_fmt`, `erlfmt`, `runic`) siguen la política de binarios externos.
@@ -182,11 +183,11 @@ plugins no se pelearan por el buffer; aquí no hay plugins, solo dos clientes LS
 comprobación de raíz.
 
 Media pieza viene hecha de fábrica. `nvim-lspconfig` ya publica `postgres_lsp` con
-`root_markers = { "postgres-language-server.jsonc" }` y `workspace_required = true`, así que
-**se autolimita**: fuera de un proyecto Postgres ni arranca. El que se pasa de la raya es `sqls`,
-que trae `root_markers = { "config.yml" }` y ningún `workspace_required`, de modo que se
-engancharía también dentro del proyecto Postgres. Todo el arbitraje es hacerle sitio, con el
-mismo patrón que ya usa `marksman` en `lua/lzy/lspconfig.lua`:
+`root_markers = { "postgres-language-server.jsonc" }` y `workspace_required = true`, así que **se
+autolimita**: fuera de un proyecto Postgres ni arranca. El que se pasa de la raya es `sqls`, que
+trae `root_markers = { "config.yml" }` y ningún `workspace_required`, de modo que se engancharía
+también dentro del proyecto Postgres. Todo el arbitraje es hacerle sitio, con el mismo patrón que
+ya usa `marksman` en `lua/lzy/lspconfig.lua`:
 
 ```lua
 sqls = {
@@ -211,13 +212,13 @@ sqls = {
 },
 ```
 
-Contrapartida aceptada: con `workspace_required`, un `.sql` suelto sin `.git` ni raíz se queda
-sin `sqls`. En la práctica casi no ocurre, y `sqls` sin proyecto aporta poco.
+Contrapartida aceptada: con `workspace_required`, un `.sql` suelto sin `.git` ni raíz se queda sin
+`sqls`. En la práctica casi no ocurre, y `sqls` sin proyecto aporta poco.
 
-Formato: `sqlfluff` cuando el proyecto declara su dialecto y `pg_format` cuando no. `sqlfluff` es
-mejor —formatea y hace de linter— pero exige un `.sqlfluff` por proyecto y sin él se queja; en
-una config pública eso castiga a quien solo abre un `.sql`. Conform lo resuelve con `condition`,
-el mismo patrón que ya usa `markdown_tabs` en `lua/lzy/conform.lua`:
+Formato: `sqlfluff` cuando el proyecto declara su dialecto y `pg_format` cuando no. `sqlfluff` es mejor
+—formatea y hace de linter— pero exige un `.sqlfluff` por proyecto y sin él se queja; en una config
+pública eso castiga a quien solo abre un `.sql`. Conform lo resuelve con `condition`, el mismo patrón
+que ya usa `markdown_tabs` en `lua/lzy/conform.lua`:
 
 ```lua
 sql = { "sqlfluff", "pg_format", stop_after_first = true },
@@ -271,12 +272,12 @@ que `sqlls`:
 la conexión a base de datos para completado y navegación. Sin configurar la conexión, su valor
 baja bastante.
 
-`sqlfluff` necesita que cada proyecto declare su dialecto, normalmente en `.sqlfluff`; por eso
-entra con `condition` y `pg_format` recoge el resto. `sql_formatter` queda como alternativa
-descartada: más sencillo, pero peor linter y menos consciente de cada motor.
+`sqlfluff` necesita que cada proyecto declare su dialecto, normalmente en `.sqlfluff`; por eso entra
+con `condition` y `pg_format` recoge el resto. `sql_formatter` queda como alternativa descartada: más
+sencillo, pero peor linter y menos consciente de cada motor.
 
-`postgres_lsp` y `sqls` conviven porque se reparten por raíz, no porque se activen los dos sobre
-el mismo buffer: eso sigue estando prohibido y es lo que evita el `root_dir` de la política.
+`postgres_lsp` y `sqls` conviven porque se reparten por raíz, no porque se activen los dos sobre el
+mismo buffer: eso sigue estando prohibido y es lo que evita el `root_dir` de la política.
 
 Mapping de Mason que falta para PostgreSQL:
 
@@ -313,11 +314,10 @@ shell y deja el reparto de responsabilidades muy claro.
 
 ### Nix
 
-Decidido: **`nil_ls`**, no `nixd`. `nixd` sabe bastante más (opciones, paquetes, navegación con
-NixOS, Home Manager y flakes), pero no está en el registro de Mason: se instala con Nix o desde
-el sistema. En una config pública eso significa que quien la clona y ejecuta `:MasonInstallAll`
-se queda con un LSP configurado que no tiene. `nil_ls` ya está mapeado en Mason como `nil` y
-entra solo.
+Decidido: **`nil_ls`**, no `nixd`. `nixd` sabe bastante más (opciones, paquetes, navegación con NixOS,
+Home Manager y flakes), pero no está en el registro de Mason: se instala con Nix o desde el
+sistema. En una config pública eso significa que quien la clona y ejecuta `:MasonInstallAll` se
+queda con un LSP configurado que no tiene. `nil_ls` ya está mapeado en Mason como `nil` y entra solo.
 
 ```lua
 -- lspconfig.lua: M.servers
@@ -336,6 +336,18 @@ nixfmt = "nixfmt",
 
 Quien trabaje en serio con NixOS puede cambiar `nil_ls` por `nixd` en su fork; queda documentado
 como mejora opcional, no como default. No usar ambos a la vez.
+
+Lo que se aprendió al implementarlo, que no estaba anticipado en la propuesta original:
+
+- **`nil` necesita el binario `nix` para compilarse**, no solo `cargo`/`rustc`. Su `build.rs`
+  ejecuta `nix eval` para volcar la tabla de funciones integradas del lenguaje y la empotra en el
+  binario; sin `nix` en el `PATH` la instalación de Mason falla con
+  `Failed to get builtins. Is nix accessible?`. Es dependencia solo de compilación: una vez
+  construido, `nil` no vuelve a necesitar `nix` para funcionar. En Arch está en el repo oficial
+  `extra` (`pacman -S nix`), sin pasar por AUR ni Chaotic-AUR.
+- Por eso "Instalación principal: Mason" de la tabla de arriba es una simplificación: hace falta
+  ese paquete del sistema una vez, igual que Groovy necesita un JDK compatible. Ver el caso 5 de
+  "Qué instala Mason y qué no" en `docs/language-dependencies.md`.
 
 ### Solidity
 
@@ -433,9 +445,9 @@ air = "air",
 ```
 
 Alternativa descartada por ahora: `r_language_server`, ya mapeado como `r-languageserver`. Es el
-servidor establecido y cubre además `rmd` y `quarto` en la config de `nvim-lspconfig`; necesita
-el paquete R `languageserver`. Merecería el cambio si aparece mucho trabajo con R Markdown o
-Quarto, o si Air se queda corto en funciones de paquete/proyecto.
+servidor establecido y cubre además `rmd` y `quarto` en la config de `nvim-lspconfig`; necesita el
+paquete R `languageserver`. Merecería el cambio si aparece mucho trabajo con R Markdown o Quarto, o
+si Air se queda corto en funciones de paquete/proyecto.
 
 No activar `air` y `r_language_server` a la vez para `.R` sin una razón concreta.
 
@@ -469,8 +481,8 @@ cuando sea necesario.
 Esta config es pública y hay gente usándola, así que el criterio no es "qué tengo yo instalado"
 sino "qué le pasa a quien la clona". `:MasonInstallAll` instala todo lo que salga de la lista de
 servidores y de Conform, pero **lo que no tiene mapping en Mason se salta en silencio**
-(`lua/hzsr/mason/nvchad/init.lua`). Eso afecta a `erlfmt`, `runic` y `forge_fmt`, y afectaría a
-`nixd` si alguna vez volviera a la propuesta.
+(`lua/hzsr/mason/nvchad/init.lua`). Eso afecta a `erlfmt`, `runic` y `forge_fmt`, y afectaría a `nixd` si
+alguna vez volviera a la propuesta.
 
 Decidido: esas herramientas **sí entran** en la config, pero con `condition` sobre el ejecutable,
 de modo que no se intente formatear con un binario que no existe. **El fallo no puede ser
@@ -478,11 +490,11 @@ silencioso**: si un filetype tiene formateador configurado y su binario falta, h
 —una vez por herramienta y sesión, no en cada guardado— indicando qué falta y cómo se instala.
 
 Esa pieza es común a Erlang, Julia y Solidity: hay que escribirla **una vez, antes** del primer
-lenguaje que la necesite, no tres veces. Vive en `lua/lzy/conform.lua` junto al resto de
-`condition`, y lo que se documente de cada herramienta va a `docs/language-dependencies.md`.
+lenguaje que la necesite, no tres veces. Vive en `lua/lzy/conform.lua` junto al resto de `condition`,
+y lo que se documente de cada herramienta va a `docs/language-dependencies.md`.
 
-Los binarios que sí vienen de Mason (`pg_format`, `nixfmt`, `air`, `npm-groovy-lint`) no
-necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejecutado.
+Los binarios que sí vienen de Mason (`pg_format`, `nixfmt`, `air`, `npm-groovy-lint`) no necesitan nada
+de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejecutado.
 
 ## Bloques consolidados para cuando se implemente
 
@@ -552,9 +564,9 @@ r = { "air" },
 julia = { "runic" },
 ```
 
-`sqlfluff` lleva `condition` de `.sqlfluff` y `pg_format` recoge el resto. `forge_fmt`, `erlfmt`
-y `runic` llevan `condition` de ejecutable con aviso no silencioso: ver la política de
-herramientas que Mason no instala.
+`sqlfluff` lleva `condition` de `.sqlfluff` y `pg_format` recoge el resto. `forge_fmt`, `erlfmt` y `runic`
+llevan `condition` de ejecutable con aviso no silencioso: ver la política de herramientas que Mason
+no instala.
 
 PowerShell queda deliberadamente fuera para usar formato LSP. Batch queda fuera porque no hay una
 opción suficientemente sólida.
@@ -573,8 +585,8 @@ postgres_lsp = "postgres-language-server",
 ```
 
 No añadir mappings falsos para herramientas que Mason no ofrece (`erlfmt`, `runic`) ni para
-herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` ya está mapeado
-como `nil`.
+herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` ya está mapeado como
+`nil`.
 
 ## Orden de implementación propuesto
 
@@ -583,11 +595,11 @@ como `nil`.
 2. Mantener `.bat`/`.cmd` con `dosbatch` hasta que el parser batch madure en `nvim-treesitter`.
 3. ~~SQL~~. Hecho, con los dos servidores repartidos por raíz y el formateador condicional.
 4. ~~Groovy~~. Hecho, con el JDK de compilación resuelto por el camino.
-5. Añadir Fish y Nix (`nil_ls`): stacks pequeños, todo de Mason y fáciles de validar. Son los
-   siguientes por ser los más baratos.
-6. Escribir el aviso de binario ausente antes de tocar Solidity, Erlang y Julia: los tres
+5. ~~Nix~~. Hecho; `nil` necesita `nix` del sistema para compilarse, resuelto por el camino.
+6. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
+7. Escribir el aviso de binario ausente antes de tocar Solidity, Erlang y Julia: los tres
    dependen de él y solo hay que hacerlo una vez.
-7. Añadir Solidity, Erlang, R y Julia cuando haya un proyecto real con el que verificar roots,
+8. Añadir Solidity, Erlang, R y Julia cuando haya un proyecto real con el que verificar roots,
    toolchains y formato.
 
 ## Referencias principales
@@ -619,11 +631,11 @@ como `nil`.
 
 Lo que decide el modelo no es el lenguaje, es el trabajo que queda pendiente en él. Pide **Opus**
 cuando haya una decisión abierta entre herramientas que se excluyen, cuando el LSP necesite
-código propio en `lspconfig.lua` (más que añadirlo a `M.servers`), cuando la instalación se salga
-de Mason (toolchains, `pkexec`, Yay) o cuando dos herramientas puedan pelearse por el mismo
-buffer. Con **Sonnet** basta cuando el stack ya está decidido y escrito aquí, todo sale de Mason
-o de la propia toolchain, y el trabajo es rellenar tres tablas, montar el proyecto de prueba y
-seguir el checklist.
+código propio en `lspconfig.lua` (más que añadirlo a `M.servers`), cuando la instalación se salga de
+Mason (toolchains, `pkexec`, Yay) o cuando dos herramientas puedan pelearse por el mismo buffer.
+Con **Sonnet** basta cuando el stack ya está decidido y escrito aquí, todo sale de Mason o de la
+propia toolchain, y el trabajo es rellenar tres tablas, montar el proyecto de prueba y seguir el
+checklist.
 
 | Lenguaje                 | Modelo  | Por qué                                                                                                                      |
 | ------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
