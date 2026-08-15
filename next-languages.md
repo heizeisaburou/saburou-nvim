@@ -135,21 +135,78 @@ de mantenimiento manual supera el beneficio inmediato.
 
 ### Resumen recomendado
 
-| Lenguaje     | LSP recomendado               | Treesitter | Conform                   | Instalación principal                  |
-| ------------ | ----------------------------- | ---------- | ------------------------- | -------------------------------------- |
-| PostgreSQL   | `postgres_lsp`                | `sql`      | formato LSP o `pg_format` | Mason                                  |
-| SQL genérico | `sqls`                        | `sql`      | `sqlfluff`                | Mason                                  |
-| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`             | LSP en Mason; formatter viene con Fish |
-| Nix          | `nixd`                        | `nix`      | `nixfmt`                  | `nixd` externo; `nixfmt` en Mason      |
-| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`               | LSP en Mason; formatter con Foundry    |
-| Erlang       | `elp`                         | `erlang`   | `erlfmt`                  | LSP en Mason; formatter externo        |
-| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint`         | Mason                                  |
-| R            | `air`                         | `r`        | `air`                     | Mason                                  |
-| Julia        | `julials`                     | `julia`    | `runic`                   | LSP en Mason; formatter externo        |
+| Lenguaje     | LSP decidido                  | Treesitter | Conform           | Instalación principal                  |
+| ------------ | ----------------------------- | ---------- | ----------------- | -------------------------------------- |
+| PostgreSQL   | `postgres_lsp`                | `sql`      | ver política SQL  | Mason                                  |
+| SQL genérico | `sqls`                        | `sql`      | ver política SQL  | Mason                                  |
+| Fish         | `fish_lsp`                    | `fish`     | `fish_indent`     | LSP en Mason; formatter viene con Fish |
+| Nix          | `nil_ls`                      | `nix`      | `nixfmt`          | Todo en Mason                          |
+| Solidity     | `solidity_ls_nomicfoundation` | `solidity` | `forge_fmt`       | LSP en Mason; formatter con Foundry    |
+| Erlang       | `elp`                         | `erlang`   | `erlfmt`          | LSP en Mason; formatter externo        |
+| Groovy       | `groovyls`                    | `groovy`   | `npm-groovy-lint` | Mason                                  |
+| R            | `air`                         | `r`        | `air`             | Mason                                  |
+| Julia        | `julials`                     | `julia`    | `runic`           | LSP en Mason; formatter externo        |
 
-Las alternativas y excepciones importantes están debajo; no conviene copiar la tabla a ciegas.
+Las excepciones importantes están debajo; no conviene copiar la tabla a ciegas. Los formatters
+que no vienen de Mason (`forge_fmt`, `erlfmt`, `runic`) siguen la política de binarios externos.
 
 ### PostgreSQL y SQL genérico
+
+#### Política decidida
+
+Entran **los dos**, y se reparten por raíz de proyecto. No es la coexistencia cara de
+obsidian.nvim/marksman: allí lo caro fue reimplementar las funciones del vault para que dos
+plugins no se pelearan por el buffer; aquí no hay plugins, solo dos clientes LSP y una
+comprobación de raíz.
+
+Media pieza viene hecha de fábrica. `nvim-lspconfig` ya publica `postgres_lsp` con
+`root_markers = { "postgres-language-server.jsonc" }` y `workspace_required = true`, así que
+**se autolimita**: fuera de un proyecto Postgres ni arranca. El que se pasa de la raya es `sqls`,
+que trae `root_markers = { "config.yml" }` y ningún `workspace_required`, de modo que se
+engancharía también dentro del proyecto Postgres. Todo el arbitraje es hacerle sitio, con el
+mismo patrón que ya usa `marksman` en `lua/lzy/lspconfig.lua`:
+
+```lua
+sqls = {
+  -- Dentro de un proyecto Postgres manda postgres_lsp. root_dir devuelve nil
+  -- ahí y workspace_required impide arrancar sin root, igual que marksman
+  -- dentro de un vault.
+  workspace_required = true,
+  root_dir = function(bufnr, on_dir)
+	local name = vim.api.nvim_buf_get_name(bufnr)
+	if name == "" then
+	  return on_dir(nil)
+	end
+	local postgres = #vim.fs.find({ "postgres-language-server.jsonc" }, {
+	  upward = true,
+	  path = vim.fs.dirname(name),
+	}) > 0
+	if postgres then
+	  return on_dir(nil)
+	end
+	on_dir(vim.fs.root(bufnr, { "config.yml", ".git" }))
+  end,
+},
+```
+
+Contrapartida aceptada: con `workspace_required`, un `.sql` suelto sin `.git` ni raíz se queda
+sin `sqls`. En la práctica casi no ocurre, y `sqls` sin proyecto aporta poco.
+
+Formato: `sqlfluff` cuando el proyecto declara su dialecto y `pg_format` cuando no. `sqlfluff` es
+mejor —formatea y hace de linter— pero exige un `.sqlfluff` por proyecto y sin él se queja; en
+una config pública eso castiga a quien solo abre un `.sql`. Conform lo resuelve con `condition`,
+el mismo patrón que ya usa `markdown_tabs` en `lua/lzy/conform.lua`:
+
+```lua
+sql = { "sqlfluff", "pg_format", stop_after_first = true },
+
+-- formatters
+sqlfluff = {
+  condition = function(_, ctx)
+	return vim.fs.root(ctx.filename, { ".sqlfluff" }) ~= nil
+  end,
+},
+```
 
 #### PostgreSQL
 
@@ -167,15 +224,11 @@ sql = true,     -- M.enabled_highlights
 ```
 
 El servidor tiene `workspace_required = true`: cada proyecto debe tener una raíz reconocible,
-normalmente `postgres-language-server.jsonc`. No esperaría que se adjunte correctamente a un `.sql`
-suelto en cualquier directorio.
+normalmente `postgres-language-server.jsonc`. No se adjunta a un `.sql` suelto en cualquier
+directorio, y eso es justamente lo que hace barato el reparto con `sqls`.
 
-Opciones de formato:
-
-- Primera prueba: no poner `sql` en Conform y usar el formato LSP.
-- Alternativa independiente: `sql = { "pg_format" }`.
-
-Si usamos `pg_format`, añadir a `names.lua`:
+El formato no lo lleva el LSP sino Conform, según la política decidida arriba. `pg_format` es el
+que atiende a quien no declara dialecto, así que hace falta su mapping en `names.lua`:
 
 ```lua
 pg_format = "pgformatter",
@@ -189,9 +242,6 @@ que `sqlls`:
 ```lua
 -- lspconfig.lua: M.servers
 "sqls",
-
--- conform.lua: formatters_by_ft
-sql = { "sqlfluff" },
 ```
 
 `sqls` y `sqlls` son proyectos diferentes. `sqlls` es el nombre de config para `sql-language-server`;
@@ -199,12 +249,12 @@ sql = { "sqlfluff" },
 la conexión a base de datos para completado y navegación. Sin configurar la conexión, su valor
 baja bastante.
 
-`sqlfluff` necesita que cada proyecto declare su dialecto, normalmente en `.sqlfluff`. Si no queremos
-esa disciplina, `sql_formatter` es más sencillo pero menos útil como linter y menos consciente de
-cada dialecto.
+`sqlfluff` necesita que cada proyecto declare su dialecto, normalmente en `.sqlfluff`; por eso
+entra con `condition` y `pg_format` recoge el resto. `sql_formatter` queda como alternativa
+descartada: más sencillo, pero peor linter y menos consciente de cada motor.
 
-No activaría `postgres_lsp` y `sqls` globalmente a la vez para `sql`: ambos se adjuntarían al mismo
-buffer. La selección debe ser por tipo de proyecto o se debe elegir uno como política general.
+`postgres_lsp` y `sqls` conviven porque se reparten por raíz, no porque se activen los dos sobre
+el mismo buffer: eso sigue estando prohibido y es lo que evita el `root_dir` de la política.
 
 Mapping de Mason que falta para PostgreSQL:
 
@@ -241,18 +291,15 @@ shell y deja el reparto de responsabilidades muy claro.
 
 ### Nix
 
-Hay que elegir uno:
-
-- `nixd`: recomendación para uso serio de NixOS, Home Manager y flakes. Tiene mejor conocimiento
-  de opciones, paquetes y navegación entre archivos, a costa de ser más pesado y depender del
-  ecosistema Nix.
-- `nil_ls`: alternativa más sencilla y ya mapeada en Mason como `nil`.
-
-Propuesta principal:
+Decidido: **`nil_ls`**, no `nixd`. `nixd` sabe bastante más (opciones, paquetes, navegación con
+NixOS, Home Manager y flakes), pero no está en el registro de Mason: se instala con Nix o desde
+el sistema. En una config pública eso significa que quien la clona y ejecuta `:MasonInstallAll`
+se queda con un LSP configurado que no tiene. `nil_ls` ya está mapeado en Mason como `nil` y
+entra solo.
 
 ```lua
 -- lspconfig.lua: M.servers
-"nixd",
+"nil_ls",
 
 -- treesitter.lua
 "nix",          -- M.languages
@@ -265,11 +312,8 @@ nix = { "nixfmt" },
 nixfmt = "nixfmt",
 ```
 
-`nixd` no está en el registro local de Mason y debe instalarse con Nix; no hay que inventarle un
-mapping. Si preferimos instalación totalmente automática con Mason, cambiar `nixd` por `nil_ls` y
-mantener el resto.
-
-No usar ambos LSP a la vez.
+Quien trabaje en serio con NixOS puede cambiar `nil_ls` por `nixd` en su fork; queda documentado
+como mejora opcional, no como default. No usar ambos a la vez.
 
 ### Solidity
 
@@ -341,8 +385,7 @@ diagnósticos que queramos obtener por otra vía.
 
 ### R
 
-La recomendación inicial para archivos `.R` es Air: un único binario moderno que ofrece LSP y
-formato.
+Decidido: **Air**, un único binario moderno de Mason que ofrece LSP y formato.
 
 ```lua
 -- lspconfig.lua: M.servers
@@ -359,10 +402,10 @@ r = { "air" },
 air = "air",
 ```
 
-Alternativa: `r_language_server`, ya mapeado como `r-languageserver`. Es el servidor establecido y
-cubre además `rmd` y `quarto` en la config de `nvim-lspconfig`; necesita el paquete R `languageserver`.
-Lo preferiría si trabajamos mucho con R Markdown/Quarto o si Air se queda corto en funciones de
-paquete/proyecto.
+Alternativa descartada por ahora: `r_language_server`, ya mapeado como `r-languageserver`. Es el
+servidor establecido y cubre además `rmd` y `quarto` en la config de `nvim-lspconfig`; necesita
+el paquete R `languageserver`. Merecería el cambio si aparece mucho trabajo con R Markdown o
+Quarto, o si Air se queda corto en funciones de paquete/proyecto.
 
 No activar `air` y `r_language_server` a la vez para `.R` sin una razón concreta.
 
@@ -391,6 +434,26 @@ Los proyectos deben tener un entorno Julia reconocible (`Project.toml` o `JuliaP
 config actual de `nvim-lspconfig` incluye el comando `:LspJuliaActivateEnv` para cambiar el entorno
 cuando sea necesario.
 
+## Política de herramientas que Mason no instala
+
+Esta config es pública y hay gente usándola, así que el criterio no es "qué tengo yo instalado"
+sino "qué le pasa a quien la clona". `:MasonInstallAll` instala todo lo que salga de la lista de
+servidores y de Conform, pero **lo que no tiene mapping en Mason se salta en silencio**
+(`lua/hzsr/mason/nvchad/init.lua`). Eso afecta a `erlfmt`, `runic` y `forge_fmt`, y afectaría a
+`nixd` si alguna vez volviera a la propuesta.
+
+Decidido: esas herramientas **sí entran** en la config, pero con `condition` sobre el ejecutable,
+de modo que no se intente formatear con un binario que no existe. **El fallo no puede ser
+silencioso**: si un filetype tiene formateador configurado y su binario falta, hay que decirlo
+—una vez por herramienta y sesión, no en cada guardado— indicando qué falta y cómo se instala.
+
+Esa pieza es común a Erlang, Julia y Solidity: hay que escribirla **una vez, antes** del primer
+lenguaje que la necesite, no tres veces. Vive en `lua/lzy/conform.lua` junto al resto de
+`condition`, y lo que se documente de cada herramienta va a `docs/language-dependencies.md`.
+
+Los binarios que sí vienen de Mason (`pg_format`, `nixfmt`, `air`, `npm-groovy-lint`) no
+necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejecutado.
+
 ## Bloques consolidados para cuando se implemente
 
 Estos bloques son una referencia, no una invitación a activar todas las alternativas
@@ -404,13 +467,13 @@ simultáneamente.
 
 -- Segunda tanda
 "fish_lsp",
-"postgres_lsp", -- PostgreSQL; no combinar globalmente con sqls
--- "sqls",      -- alternativa para SQL genérico
-"nixd",         -- o nil_ls, nunca ambos
+"postgres_lsp", -- se autolimita a proyectos con postgres-language-server.jsonc
+"sqls",         -- resto de motores; cede la raíz a postgres_lsp (ver política SQL)
+"nil_ls",
 "solidity_ls_nomicfoundation",
 "elp",
 "groovyls",
-"air",          -- o r_language_server, nunca ambos
+"air",
 "julials",
 ```
 
@@ -450,8 +513,7 @@ Todos esos parsers existen en el catálogo local actual de `nvim-treesitter`. Ba
 
 ```lua
 fish = { "fish_indent" },
--- sql = { "pg_format" }, -- PostgreSQL
-sql = { "sqlfluff" },     -- SQL genérico; configurar dialecto por proyecto
+sql = { "sqlfluff", "pg_format", stop_after_first = true },
 nix = { "nixfmt" },
 solidity = { "forge_fmt" },
 erlang = { "erlfmt" },
@@ -459,6 +521,10 @@ groovy = { "npm-groovy-lint" },
 r = { "air" },
 julia = { "runic" },
 ```
+
+`sqlfluff` lleva `condition` de `.sqlfluff` y `pg_format` recoge el resto. `forge_fmt`, `erlfmt`
+y `runic` llevan `condition` de ejecutable con aviso no silencioso: ver la política de
+herramientas que Mason no instala.
 
 PowerShell queda deliberadamente fuera para usar formato LSP. Batch queda fuera porque no hay una
 opción suficientemente sólida.
@@ -476,17 +542,22 @@ pg_format = "pgformatter",
 postgres_lsp = "postgres-language-server",
 ```
 
-No añadir mappings falsos para herramientas que Mason no ofrece (`nixd`, `erlfmt`, `runic`) ni para
-herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`).
+No añadir mappings falsos para herramientas que Mason no ofrece (`erlfmt`, `runic`) ni para
+herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` ya está mapeado
+como `nil`.
 
 ## Orden de implementación propuesto
 
 1. Añadir PowerShell completo y probar `.ps1`, `.psm1` y `.psd1` en Windows y, si interesa,
    también con `pwsh` en Linux.
 2. Mantener `.bat`/`.cmd` con `dosbatch` hasta que el parser batch madure en `nvim-treesitter`.
-3. Añadir Fish y Nix: son stacks pequeños y fáciles de validar.
-4. Elegir una política SQL antes de habilitar nada: PostgreSQL específico o SQL genérico.
-5. Añadir Solidity, Erlang, Groovy, R y Julia cuando haya un proyecto real con el que verificar
+3. Añadir Fish y Nix (`nil_ls`): stacks pequeños, todo de Mason y fáciles de validar.
+4. Añadir SQL con su política ya decidida: los dos servidores, `sqls` cediendo la raíz a
+   `postgres_lsp`, y el formateador condicional. Hacen falta dos proyectos de prueba, uno con
+   `postgres-language-server.jsonc` y otro sin él.
+5. Escribir el aviso de binario ausente antes de tocar Solidity, Erlang y Julia: los tres
+   dependen de él y solo hay que hacerlo una vez.
+6. Añadir Solidity, Erlang, Groovy, R y Julia cuando haya un proyecto real con el que verificar
    roots, toolchains y formato.
 
 ## Referencias principales
@@ -524,22 +595,25 @@ buffer. Con **Sonnet** basta cuando el stack ya está decidido y escrito aquí, 
 o de la propia toolchain, y el trabajo es rellenar tres tablas, montar el proyecto de prueba y
 seguir el checklist.
 
-| Lenguaje       | Modelo                | Por qué                                                                                                                      |
-| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| PowerShell     | Opus                  | `powershell_es` necesita config propia: `bundle_path` a la raíz del ZIP de Mason (que no expone binario) y fallback de shell |
-| Batch          | Ninguno               | No hay nada que instalar; la decisión ya está tomada: esperar al parser                                                      |
-| PostgreSQL/SQL | Opus                  | La política sigue sin decidir y `postgres_lsp` y `sqls` se excluyen; más `workspace_required` y el dialecto de `sqlfluff`    |
-| Nix            | Opus                  | Elegir entre `nixd` (fuera de Mason, instalación del sistema) y `nil_ls` (Mason) es la mitad del trabajo                     |
-| Groovy         | Opus                  | Hay que comprobar el Java que pide `groovyls` y que `npm-groovy-lint` no duplique diagnósticos                               |
-| Julia          | Sonnet, Opus si Runic | `julials` es mecánico; lo que se complica es `runic`, que se instala desde Julia                                             |
-| Fish           | Sonnet                | Todo decidido: `fish_lsp` en Mason y `fish_indent` viene con el shell                                                        |
-| Solidity       | Sonnet                | Mason para el LSP y `forge_fmt` desde Foundry en el `PATH`; ninguna decisión pendiente                                       |
-| Erlang         | Sonnet                | `elp` ya está mapeado; `erlfmt` se queda fuera hasta que el registro lo ofrezca                                              |
-| R              | Sonnet                | Air es un único binario de Mason que hace LSP y formato                                                                      |
+| Lenguaje                 | Modelo  | Por qué                                                                                                                      |
+| ------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| PowerShell               | Opus    | `powershell_es` necesita config propia: `bundle_path` a la raíz del ZIP de Mason (que no expone binario) y fallback de shell |
+| Batch                    | Ninguno | No hay nada que instalar; la decisión ya está tomada: esperar al parser                                                      |
+| PostgreSQL/SQL           | Opus    | La decisión ya está tomada, pero hay que escribir el arbitraje de raíz y el formateador condicional                          |
+| Nix                      | Sonnet  | `nil_ls` decidido y todo sale de Mason: es rellenar las tres tablas y probar                                                 |
+| Groovy                   | Opus    | Hay que comprobar el Java que pide `groovyls` y que `npm-groovy-lint` no duplique diagnósticos                               |
+| Julia                    | Sonnet  | `julials` es mecánico y `runic` ya tiene política: entra con condition. Depende del aviso compartido                         |
+| Fish                     | Sonnet  | Todo decidido: `fish_lsp` en Mason y `fish_indent` viene con el shell                                                        |
+| Solidity                 | Sonnet  | Mason para el LSP y `forge_fmt` con condition; depende del aviso compartido                                                  |
+| Erlang                   | Sonnet  | `elp` ya está mapeado y `erlfmt` entra con condition; depende del aviso compartido                                           |
+| R                        | Sonnet  | Air es un único binario de Mason que hace LSP y formato                                                                      |
+| Aviso de binario ausente | Opus    | Pieza compartida por Solidity, Erlang y Julia; se escribe una vez y antes que ellos                                          |
 
 Dos avisos para cuando lo lance Sonnet:
 
-- SQL y Nix no se le pueden delegar "para que elija": decide tú antes cuál de los dos LSP entra,
-  y entonces ya es un trabajo mecánico.
-- Si se topa con una decisión que no esté escrita aquí, lo que debe hacer es parar y preguntarte,
-  no elegir por su cuenta. Merece la pena decírselo en el propio prompt.
+- Las elecciones de herramienta ya están tomadas y escritas arriba; no hay que dejarle "elegir".
+  Si se topa con una decisión que no esté en este documento, lo que debe hacer es parar y
+  preguntarte, no elegir por su cuenta. Merece la pena decírselo en el propio prompt.
+- Recordarle que esta config es pública: lo que rompa a quien la clone sin tu toolchain es un
+  fallo, no un detalle. Ese es el criterio que decidió `nil_ls`, el formateador SQL condicional y
+  el aviso de binario ausente.
