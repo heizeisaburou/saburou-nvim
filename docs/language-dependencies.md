@@ -52,6 +52,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | Go                 | `go`                             | `gopls`                  | `gofmt`                      | `go`                           |
 | Go modules         | `gomod` / `gosum` / `gowork`     | `gopls`                  | —                            | `gomod` / `gosum` / `gowork`   |
 | Go templates       | `gotmpl`                         | `gopls`                  | `prettier_gotmpl`            | `gotmpl`                       |
+| Groovy             | `groovy`                         | `groovyls`               | `npm-groovy-lint`            | `groovy`                       |
 | Handlebars         | `handlebars`                     | —                        | `prettier_handlebars`        | —                              |
 | Haskell            | `haskell`                        | `hls`                    | `fourmolu`                   | `haskell`                      |
 | Literate Haskell   | `lhaskell`                       | `hls`                    | `fourmolu`                   | `haskell` (alias)              |
@@ -109,6 +110,12 @@ Hay tres casos especialmente importantes:
    `qmlformat` y varios plugins de Prettier.
 3. **LSP instalados por Mason que dependen de software del sistema**: C#, Clojure, Kotlin,
    Haskell, OCaml, Ruby, Django/Ansible, etc.
+4. **Paquetes que Mason no descarga sino que compila**: `groovy-language-server` se instala con
+   `./gradlew build`. Ahí el JDK importa antes de que exista el servidor, y las herramientas de
+   build rechazan los JDK más nuevos que ellas mismas. Por eso la configuración fija `JAVA_HOME`
+   a un JDK 21 o 17 —y avisa de cuál eligió— antes de lanzar **cualquier** instalación, incluidas
+   las de la interfaz de Mason: se engancha al evento `package:install:handle`, que se emite
+   justo antes de ejecutar el instalador. Un `JAVA_HOME` explícito del entorno manda sobre esto.
 
 Cuando algo no arranca, conviene comprobar en este orden: ejecutable disponible, filetype
 correcto, raíz de proyecto detectada y toolchain del proyecto instalado/restaurado.
@@ -214,6 +221,32 @@ gestionado por Mason para evitar duplicados.
 
 Los `.lhs` usan el filetype `lhaskell`: Conform aplica `fourmolu` y Tree-sitter reutiliza el
 parser `haskell` mediante alias.
+
+### Groovy
+
+Groovy casi nunca se escribe llamándose Groovy: el filetype `groovy` cubre también los
+`build.gradle` del DSL de Gradle y los `Jenkinsfile`. Neovim detecta los tres de serie.
+
+`groovy-language-server` es el caso más delicado de todo el catálogo por el JDK, y por partida
+doble:
+
+- **Al instalar**: Mason no lo descarga, lo compila con `./gradlew build`, y el wrapper del
+  proyecto fija Gradle 9.1 (septiembre de 2025). Gradle rechaza cualquier JDK posterior a él: con
+  un JDK 26 el build muere con `Unsupported class file major version 70`. Por eso la
+  configuración fija `JAVA_HOME` a un JDK 21 o 17 antes de cualquier instalación de Mason.
+- **Al ejecutar**: el jar tiene bytecode Java 8 y arrancaría en cualquier JDK, pero lo mueve
+  Groovy 4.0.26. Se le pasa el mismo JDK con `cmd_env`, igual que a `kotlin-language-server`,
+  para no depender de que el del sistema siga siendo compatible. `GROOVY_LSP_JAVA_HOME` fuerza
+  otro.
+
+`npm-groovy-lint` entra **solo como formateador**. Sabe también linteear, pero los diagnósticos
+ya los da `groovyls`, y dos fuentes diciendo cosas parecidas sobre el mismo buffer es justo lo
+que esta configuración evita. Si `groovyls` se queda corto en reglas de estilo, el sitio para
+añadirlo es la capa de nvim-lint, no Conform.
+
+Su entrada en Conform lleva `timeout_ms = 20000` por necesidad: arranca una JVM con CodeNarc y la
+primera pasada de la sesión supera los 10 s en archivos normales. Las siguientes son bastante más
+rápidas, pero el límite tiene que aguantar la primera o el formato falla por timeout.
 
 ### Java
 

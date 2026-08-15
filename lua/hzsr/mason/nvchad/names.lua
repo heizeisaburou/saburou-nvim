@@ -303,6 +303,7 @@ return {
   -- mix
   -- nixfmt
   ["nixpkgs_fmt"] = "nixpkgs-fmt",
+  ["npm-groovy-lint"] = "npm-groovy-lint",
   ocamlformat = "ocamlformat",
   opa_fmt = "opa",
   -- packer_fmt

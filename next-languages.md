@@ -6,6 +6,24 @@ Este documento es una hoja de ruta. No implica que todos estos servidores deban 
 vez. En especial, conviene elegir **un LSP principal** y **un formateador principal** por
 filetype para evitar diagnósticos duplicados y dos herramientas peleándose por el mismo buffer.
 
+## Estado
+
+| Lenguaje       | Estado                | Notas                                                      |
+| -------------- | --------------------- | ---------------------------------------------------------- |
+| PowerShell     | Hecho el 2026-08-15   | Probado en Linux con `pwsh` 7                              |
+| PostgreSQL/SQL | Hecho el 2026-08-15   | Los dos servidores, repartidos por raíz                    |
+| Groovy         | Hecho el 2026-08-15   | Ver los avisos de su sección: el JDK y el timeout          |
+| Batch          | Nada que hacer        | Esperando a que el parser entre en `nvim-treesitter`       |
+| El resto       | Pendiente             | Fish, Nix, Solidity, Erlang, R y Julia                     |
+
+Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
+
+- **Capa de linting** (`lua/lzy/lint.lua`, nvim-lint) para lo que ningún LSP cubre, con
+  condiciones por proyecto. Nació porque `sqls` no publica diagnósticos.
+- **JDK de compilación para Mason** (`lua/hzsr/mason/init.lua`): algunos paquetes se compilan al
+  instalar y su herramienta de build rechaza los JDK modernos. Se fija `JAVA_HOME` antes de
+  cualquier instalación.
+
 ## Qué hacer con cada lenguaje
 
 Los lenguajes se activan **de uno en uno**, nunca varios a la vez: se termina uno, se entrega al
@@ -54,6 +72,10 @@ de Windows/.NET Framework.
 
 La preferencia `auto`/`pwsh`/`powershell`/`cmd` de `lua/user/terminal.lua` elige el **proceso de la
 terminal integrada**. No configura los filetypes ni el LSP.
+
+Corrección de la tabla de arriba, comprobada al implementarlo: Neovim detecta `.ps1` y `.psm1`,
+pero **no `.psd1`**. Los manifiestos de módulo se quedaban sin filetype y `powershell_es` —que
+solo atiende `ps1`— no se adjuntaba a ellos. Lo mapea `lua/user/opts.lua`.
 
 ### PowerShell: stack recomendado
 
@@ -378,10 +400,18 @@ groovy = { "npm-groovy-lint" },
 ["npm-groovy-lint"] = "npm-groovy-lint",
 ```
 
-El mapping `groovyls = "groovy-language-server"` ya existe. Hay que comprobar también el Java
-requerido por la versión instalada de Groovy Language Server. `npm-groovy-lint` formatea y además
-puede producir reglas de lint; al integrarlo inicialmente conviene comprobar que no duplica
-diagnósticos que queramos obtener por otra vía.
+El mapping `groovyls = "groovy-language-server"` ya existe.
+
+Lo que se aprendió al implementarlo, que era justo lo que la nota marcaba como riesgo:
+
+- **El Java importa antes de que exista el servidor.** Mason no descarga este paquete, lo compila
+  con `./gradlew build`, y el wrapper fija Gradle 9.1 (septiembre de 2025). Con el JDK 26 del
+  sistema el build muere con `Unsupported class file major version 70`. Por eso se fija
+  `JAVA_HOME` a un JDK 21 o 17 antes de cualquier instalación de Mason, y el servidor se arranca
+  luego con ese mismo JDK vía `cmd_env`.
+- **`npm-groovy-lint` entra solo como formateador**, para no duplicar los diagnósticos de
+  `groovyls`. Necesita `timeout_ms = 20000`: arranca una JVM con CodeNarc y la primera pasada de
+  la sesión pasa de 10 s.
 
 ### R
 
@@ -548,17 +578,17 @@ como `nil`.
 
 ## Orden de implementación propuesto
 
-1. Añadir PowerShell completo y probar `.ps1`, `.psm1` y `.psd1` en Windows y, si interesa,
-   también con `pwsh` en Linux.
+1. ~~PowerShell~~. Hecho. Se probó en Linux con `pwsh` 7; lo de Windows queda para cuando haya
+   scripts que usen cmdlets exclusivos de esa plataforma.
 2. Mantener `.bat`/`.cmd` con `dosbatch` hasta que el parser batch madure en `nvim-treesitter`.
-3. Añadir Fish y Nix (`nil_ls`): stacks pequeños, todo de Mason y fáciles de validar.
-4. Añadir SQL con su política ya decidida: los dos servidores, `sqls` cediendo la raíz a
-   `postgres_lsp`, y el formateador condicional. Hacen falta dos proyectos de prueba, uno con
-   `postgres-language-server.jsonc` y otro sin él.
-5. Escribir el aviso de binario ausente antes de tocar Solidity, Erlang y Julia: los tres
+3. ~~SQL~~. Hecho, con los dos servidores repartidos por raíz y el formateador condicional.
+4. ~~Groovy~~. Hecho, con el JDK de compilación resuelto por el camino.
+5. Añadir Fish y Nix (`nil_ls`): stacks pequeños, todo de Mason y fáciles de validar. Son los
+   siguientes por ser los más baratos.
+6. Escribir el aviso de binario ausente antes de tocar Solidity, Erlang y Julia: los tres
    dependen de él y solo hay que hacerlo una vez.
-6. Añadir Solidity, Erlang, Groovy, R y Julia cuando haya un proyecto real con el que verificar
-   roots, toolchains y formato.
+7. Añadir Solidity, Erlang, R y Julia cuando haya un proyecto real con el que verificar roots,
+   toolchains y formato.
 
 ## Referencias principales
 
@@ -597,11 +627,11 @@ seguir el checklist.
 
 | Lenguaje                 | Modelo  | Por qué                                                                                                                      |
 | ------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| PowerShell               | Opus    | `powershell_es` necesita config propia: `bundle_path` a la raíz del ZIP de Mason (que no expone binario) y fallback de shell |
+| PowerShell               | Hecho   | `powershell_es` necesita config propia: `bundle_path` a la raíz del ZIP de Mason (que no expone binario) y fallback de shell |
 | Batch                    | Ninguno | No hay nada que instalar; la decisión ya está tomada: esperar al parser                                                      |
-| PostgreSQL/SQL           | Opus    | La decisión ya está tomada, pero hay que escribir el arbitraje de raíz y el formateador condicional                          |
+| PostgreSQL/SQL           | Hecho   | La decisión ya está tomada, pero hay que escribir el arbitraje de raíz y el formateador condicional                          |
 | Nix                      | Sonnet  | `nil_ls` decidido y todo sale de Mason: es rellenar las tres tablas y probar                                                 |
-| Groovy                   | Opus    | Hay que comprobar el Java que pide `groovyls` y que `npm-groovy-lint` no duplique diagnósticos                               |
+| Groovy                   | Hecho   | Hay que comprobar el Java que pide `groovyls` y que `npm-groovy-lint` no duplique diagnósticos                               |
 | Julia                    | Sonnet  | `julials` es mecánico y `runic` ya tiene política: entra con condition. Depende del aviso compartido                         |
 | Fish                     | Sonnet  | Todo decidido: `fish_lsp` en Mason y `fish_indent` viene con el shell                                                        |
 | Solidity                 | Sonnet  | Mason para el LSP y `forge_fmt` con condition; depende del aviso compartido                                                  |

@@ -40,6 +40,7 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
+  "groovyls", -- Groovy, Jenkinsfile y Gradle
   "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
   "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
   "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
@@ -199,6 +200,29 @@ M.config = {
   fsautocomplete = {},
 
   gopls = {},
+
+  groovyls = function()
+    -- El jar se compila con `targetCompatibility 1.8`, así que arranca en
+    -- cualquier JDK, pero lo mueve Groovy 4.0.26: se le fija el mismo JDK con
+    -- el que Mason lo construyó para no depender de que el del sistema siga
+    -- siendo compatible. Mismo criterio que kotlin_language_server.
+    local java_home = require("hzsr.sys.java").resolve_home {
+      env = { "GROOVY_LSP_JAVA_HOME", "JAVA_HOME", "JDK_HOME" },
+      versions = { 21, 17 },
+    }
+
+    if not java_home then
+      vim.notify_once(
+        "groovy-language-server necesita Java 21 o 17. "
+          .. "Instala un JDK compatible o define GROOVY_LSP_JAVA_HOME.",
+        vim.log.levels.WARN
+      )
+      return {}
+    end
+
+    -- El launcher de Mason respeta JAVA_HOME tanto en Unix como en Windows.
+    return { cmd_env = { JAVA_HOME = java_home } }
+  end,
 
   hls = {
     -- Mantiene alineado el proveedor LSP con el formateador de Conform.

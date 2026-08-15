@@ -40,6 +40,11 @@ function M.init_setup()
   end
 
   vim.api.nvim_create_user_command("MasonInstallAll", function()
+    -- El JDK de compilación se prepara antes de cargar Mason: los paquetes que
+    -- se construyen al instalar heredan el entorno vivo, y Mason fotografía el
+    -- suyo al cargarse. Preparar después deja fuera parte de los caminos.
+    require("hzsr.mason").prepare_build_env()
+
     -- Carga mason.nvim si sigue lazy.
     local ok_lazy, lazy = pcall(require, "lazy")
     if ok_lazy then
@@ -53,6 +58,18 @@ end
 function M.setup()
   ---@diagnostic disable-next-line
   require("mason").setup(M.opts)
+
+  -- Cualquier instalación prepara antes el JDK de compilación, venga de
+  -- :MasonInstallAll o de la UI de Mason. El evento se emite justo antes de
+  -- ejecutar el instalador, y el build hereda el entorno vivo del proceso, así
+  -- que llega a tiempo. `prepare_build_env` es idempotente: la sonda de JDK se
+  -- paga una vez por sesión y solo si se instala algo.
+  local ok_registry, registry = pcall(require, "mason-registry")
+  if ok_registry then
+    registry:on("package:install:handle", function()
+      require("hzsr.mason").prepare_build_env()
+    end)
+  end
 end
 
 return M

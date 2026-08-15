@@ -9,6 +9,7 @@ local install_running = false
 M.languages = {
   "lua",
   "luadoc",
+  "groovy",
   "markdown_inline",
   "markdown",
   "powershell",
@@ -87,6 +88,7 @@ M.enabled_highlights = {
   gosum = true,
   gotmpl = true,
   gowork = true,
+  groovy = true,
   haskell = true,
   html = true,
   htmldjango = true,
