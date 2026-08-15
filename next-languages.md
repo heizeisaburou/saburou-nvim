@@ -508,3 +508,38 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`).
   [`languageserver` para R](https://github.com/REditorSupport/languageserver)
 - [`LanguageServer.jl`](https://github.com/julia-vscode/LanguageServer.jl) y
   [Runic.jl](https://github.com/fredrikekre/Runic.jl)
+
+## Para 平生三郎: con qué modelo hacer cada lenguaje
+
+> [!IMPORTANT]
+>
+> Sección personal de 平生三郎. La IA no entra aquí: no son instrucciones para ella, no forma
+> parte del plan de implementación y no debe editarla.
+
+Lo que decide el modelo no es el lenguaje, es el trabajo que queda pendiente en él. Pide **Opus**
+cuando haya una decisión abierta entre herramientas que se excluyen, cuando el LSP necesite
+código propio en `lspconfig.lua` (más que añadirlo a `M.servers`), cuando la instalación se salga
+de Mason (toolchains, `pkexec`, Yay) o cuando dos herramientas puedan pelearse por el mismo
+buffer. Con **Sonnet** basta cuando el stack ya está decidido y escrito aquí, todo sale de Mason
+o de la propia toolchain, y el trabajo es rellenar tres tablas, montar el proyecto de prueba y
+seguir el checklist.
+
+| Lenguaje       | Modelo                | Por qué                                                                                                                      |
+| -------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| PowerShell     | Opus                  | `powershell_es` necesita config propia: `bundle_path` a la raíz del ZIP de Mason (que no expone binario) y fallback de shell |
+| Batch          | Ninguno               | No hay nada que instalar; la decisión ya está tomada: esperar al parser                                                      |
+| PostgreSQL/SQL | Opus                  | La política sigue sin decidir y `postgres_lsp` y `sqls` se excluyen; más `workspace_required` y el dialecto de `sqlfluff`    |
+| Nix            | Opus                  | Elegir entre `nixd` (fuera de Mason, instalación del sistema) y `nil_ls` (Mason) es la mitad del trabajo                     |
+| Groovy         | Opus                  | Hay que comprobar el Java que pide `groovyls` y que `npm-groovy-lint` no duplique diagnósticos                               |
+| Julia          | Sonnet, Opus si Runic | `julials` es mecánico; lo que se complica es `runic`, que se instala desde Julia                                             |
+| Fish           | Sonnet                | Todo decidido: `fish_lsp` en Mason y `fish_indent` viene con el shell                                                        |
+| Solidity       | Sonnet                | Mason para el LSP y `forge_fmt` desde Foundry en el `PATH`; ninguna decisión pendiente                                       |
+| Erlang         | Sonnet                | `elp` ya está mapeado; `erlfmt` se queda fuera hasta que el registro lo ofrezca                                              |
+| R              | Sonnet                | Air es un único binario de Mason que hace LSP y formato                                                                      |
+
+Dos avisos para cuando lo lance Sonnet:
+
+- SQL y Nix no se le pueden delegar "para que elija": decide tú antes cuál de los dos LSP entra,
+  y entonces ya es un trabajo mecánico.
+- Si se topa con una decisión que no esté escrita aquí, lo que debe hacer es parar y preguntarte,
+  no elegir por su cuenta. Merece la pena decírselo en el propio prompt.
