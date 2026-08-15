@@ -531,12 +531,36 @@ de modo que no se intente formatear con un binario que no existe. **El fallo no 
 silencioso**: si un filetype tiene formateador configurado y su binario falta, hay que decirlo
 —una vez por herramienta y sesión, no en cada guardado— indicando qué falta y cómo se instala.
 
-Esa pieza es común a Erlang, Julia y Solidity: hay que escribirla **una vez, antes** del primer
-lenguaje que la necesite, no tres veces. Vive en `lua/lzy/conform.lua` junto al resto de `condition`,
+Esa pieza es común a Erlang, Julia y Solidity: la idea original era escribirla **una vez, antes**
+del primer lenguaje que la necesitara, no tres veces. En la práctica, Julia ya tiene su propio
+`condition`/`command` a medida para `runic` (funcionando, pero sin generalizar) porque no
+compensaba dejar el lenguaje sin formateador esperando a esa pieza compartida —ver la nota para
+quien continúe esto, justo debajo—. Vive en `lua/lzy/conform.lua` junto al resto de `condition`,
 y lo que se documente de cada herramienta va a `docs/language-dependencies.md`.
 
-Los binarios que sí vienen de Mason (`pg_format`, `nixfmt`, `air`, `npm-groovy-lint`) no necesitan nada
-de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejecutado.
+Los binarios que sí vienen de Mason (`pg_format`, `nixfmt`, `air`, `npm-groovy-lint`) no
+necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejecutado.
+
+### Nota para quien siga con esto (probablemente Opus)
+
+Dos cosas que 平生三郎 pidió dejar anotadas explícitamente, sin tocarlas ahora:
+
+1. **Sonnet 5 fue metiendo las cosas como pudo**, con condicionales a medida por lenguaje
+   (`runic` en Julia es el primer caso) en vez de esperar a esta pieza general. La prioridad fue
+   dejarlo funcionando ya y lo más limpio posible, no bloquear el progreso. El trabajo que queda
+   es generalizar esos casos sueltos en el mecanismo compartido de esta sección —una función
+   reutilizable con aviso no silencioso, una vez por herramienta y sesión— y volver a pasar por
+   Julia (y luego Erlang/Solidity) para usarla en vez del condicional suelto.
+2. **`docs/language-dependencies.md` necesita una pasada completa, no solo para Julia/Erlang/
+   Solidity**. Faltan lenguajes de la matriz que ya estaban configurados en `lspconfig.lua`/
+   `conform.lua` desde antes de este esfuerzo de "next-languages" y que nunca se documentaron ahí
+   (revisar toda la lista, no dar por buena una comprobación superficial). Y de los lenguajes que
+   sí aparecen mencionados —los de antes de esta tanda de SQL/PowerShell/Groovy/Nix/Julia
+   incluidos, no solo los tres nuevos—, cualquiera que tenga una dependencia externa real
+   (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime específica...)
+   necesita su propia sección `###` explicándola, con el mismo rigor que ya tienen Groovy/Nix/
+   Julia/PowerShell/SQL. El criterio de "qué le pasa a quien clona la config sin mi toolchain" se
+   aplica a todo el catálogo, no solo a lo nuevo.
 
 ## Bloques consolidados para cuando se implemente
 
