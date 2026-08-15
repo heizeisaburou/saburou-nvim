@@ -26,14 +26,20 @@ local generations = {}
 --- workspace lookup que usa link_actions.lua, así que también funciona nada
 --- más abrir el buffer (o en tests que no montan el pipeline de filetype).
 ---@param bufnr integer
----@return boolean
-local function in_vault(bufnr)
+---@return string|nil
+local function vault_root(bufnr)
   local name = vim.api.nvim_buf_get_name(bufnr)
   if name == "" then
-    return false
+    return nil
   end
   local ok, ws = pcall(require("obsidian.api").find_workspace, name)
-  return ok and ws ~= nil
+  return ok and ws and tostring(ws.root) or nil
+end
+
+---@param bufnr integer
+---@return boolean
+local function in_vault(bufnr)
+  return vault_root(bufnr) ~= nil
 end
 
 ---@param bufnr integer
@@ -43,12 +49,21 @@ local function note_refs(bufnr)
   local util = require "obsidian.util"
   local out = {}
 
+  local root = vault_root(bufnr)
+  -- Construido UNA vez por ciclo de refresh, no una vez por link: sin
+  -- esto, cada attachments.is_target()/M.resolve() de abajo reconstruye el
+  -- índice completo del vault (una syscall de realpath por archivo) por su
+  -- cuenta -- con ~300 links en una nota-índice eran ~300 recorridos
+  -- completos del vault, la parte del lag que sobrevivió al primer fix de
+  -- notes.lua. M.rename ya usa este mismo patrón internamente.
+  local index = root and attachments.build_index(root) or nil
+
   for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
     for _, ref in ipairs(attachments.parse_refs(line, row - 1)) do
       if
         (ref.kind == "wiki" or ref.kind == "markdown")
         and not util.is_uri(ref.target)
-        and not attachments.is_target(ref.target, { bufnr = bufnr })
+        and not attachments.is_target(ref.target, { bufnr = bufnr, root = root, index = index })
       then
         local target = vim.uri_decode(ref.target) or ref.target
         target = util.unescape_single_backslash(target)
@@ -70,6 +85,19 @@ local function refresh(bufnr)
   if not in_vault(bufnr) then
     return vim.diagnostic.set(NS, bufnr, {})
   end
+
+  -- Forzamos un índice fresco al empezar cada ciclo de refresh en vez de
+  -- confiar en su TTL entre ciclos: el ahorro real de notes.lua está en
+  -- reusar el MISMO índice para los N targets de ESTA pasada (eso sigue
+  -- intacto, todos comparten esta build), no en estirarlo entre pasadas
+  -- separadas -- entre pasadas puede haber pasado cualquier cosa (nota
+  -- creada por fuera de Neovim, sin pasar por :w) y acá usamos
+  -- trust_not_found, así que confiar en algo viejo produciría falsos "no
+  -- existe". Rebuild cuesta ~150-400ms en un vault de ~1200 notas, muy
+  -- por debajo de lo que costaba un solo rg/fd de los que reemplaza.
+  pcall(function()
+    require("lzy.obsidian.notes").invalidate_index()
+  end)
 
   local ok, refs = pcall(note_refs, bufnr)
   if not ok or #refs == 0 then
@@ -124,7 +152,14 @@ local function refresh(bufnr)
         end
       end
       finish()
-    end)
+    end, {
+      -- Acá preguntamos "¿existe?" para potencialmente CIENTOS de targets
+      -- a la vez: confiar en que el
+      -- índice rápido dice la verdad cuando no encuentra nada (en vez de
+      -- re-verificar cada uno con rg/fd) es lo que evita el escaneo
+      -- completo del vault por cada link roto/pendiente de escribir.
+      trust_not_found = true,
+    })
     if not resolve_ok then
       finish()
     end
@@ -175,6 +210,24 @@ function M.setup()
   installed = true
 
   local group = vim.api.nvim_create_augroup("nyabsidian_diagnostics", { clear = true })
+
+  -- Cualquier nota que se guarde (nueva o editada) puede cambiar lo que el
+  -- índice rápido de lzy.obsidian.notes sabe -- no solo cuando se crea vía
+  -- new_note.lua, también un `:w` directo sobre un archivo nuevo, una
+  -- plantilla, herramientas externas, etc. Sin esto, con trust_not_found
+  -- activado (ver notes.lua), una nota recién creada podía seguir
+  -- marcándose "no existe" hasta que expirara el TTL del índice.
+  -- Sin debounce y separado del schedule() de abajo: queremos que el
+  -- índice quede invalidado ANTES de que el refresh (sí debounced) se
+  -- dispare, no importa el orden de registro de los autocmds.
+  vim.api.nvim_create_autocmd("BufWritePost", {
+    group = group,
+    pattern = { "*.md", "*.markdown", "*.qmd", "*.mdx" },
+    callback = function()
+      require("lzy.obsidian.notes").invalidate_index()
+    end,
+  })
+
   vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "InsertLeave", "TextChanged" }, {
     group = group,
     pattern = { "*.md", "*.markdown", "*.qmd", "*.mdx" },

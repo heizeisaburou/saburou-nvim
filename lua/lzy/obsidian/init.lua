@@ -27,6 +27,7 @@ local state = {
   follow_link_patched = false,
   attachment_rename_patched = false,
   heading_links_patched = false,
+  path_resolve_race_patched = false,
 }
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -1356,6 +1357,108 @@ local function patch_backlink_escaped_pipe()
   state.backlink_escaped_pipe_patched = true
 end
 
+--- Race condition en obsidian.nvim: al escribir
+--- `[[algo` se dispara una búsqueda async (rg+fd) por todo el vault, y cada
+--- match pasa por `Path.resolve{strict=true}` (`obsidian/path.lua`), que hace
+--- `vim.uv.fs_realpath` síncrono y lanza un error duro si el archivo no
+--- existe *justo* en ese instante. El callback que procesa esos matches
+--- (`search/init.lua`: `dedup_send` y los matches de `find_async`/
+--- `search_async`) viene del callback crudo de `vim.system`, fuera de
+--- cualquier pcall nuestro — si cae justo en la ventana de milisegundos en
+--- la que `:write` está haciendo su baile de backup/rename sobre ese mismo
+--- archivo, el archivo "desaparece" un instante y el plugin revienta con un
+--- FileNotFoundError que ningún pcall de por aquí puede atrapar.
+---
+--- IMPORTANTE (versión revisada -- la primera que se probó acá, con
+--- reintentos y `uv.sleep`, no sirve): el traceback muestra el callback
+--- del job anidado DENTRO de la pila de `:write` (`write.lua` ->
+--- `nvim_exec2` -> `system:244` -> ... -> `resolve`). Todo corre en el
+--- mismo hilo; `:write` está *pausado* esperando a que este callback
+--- devuelva el control, no corriendo en paralelo. El paso que "hace
+--- reaparecer" el archivo (rescribir el contenido nuevo sobre el nombre
+--- original, después de haberlo movido a un backup) es el siguiente paso
+--- de ese mismo `:write` -- no puede ocurrir mientras estemos bloqueados
+--- en un sleep esperándolo, porque literalmente está esperándonos a
+--- nosotros. Reintentar con retraso no cambia nada: se agota el margen y
+--- se sigue lanzando igual, solo que unos ms más tarde.
+---
+--- La solución real no depende de que pase el tiempo: `Path.resolve` YA
+--- tiene, en la propia rama no-strict (dos líneas más abajo en
+--- `path.lua`), un fallback correcto para "el archivo no existe pero su
+--- directorio sí": recorre hacia arriba hasta un padre que resuelva, y
+--- reconstruye la ruta desde ahí. Para nuestra race eso basta de sobra --
+--- el padre (la carpeta del vault) nunca desaparece, solo el archivo hoja
+--- durante el rename de `:write` -- así que ese mismo fallback reconstruye
+--- la ruta absoluta correcta al toque, sin esperar nada. Lo único que hace
+--- `strict=true` distinto es negarse a usar ese fallback y explotar en su
+--- lugar. Así que: si falla el intento estricto, reintentamos la MISMA
+--- función original pero en modo no-strict (cero código nuevo de
+--- resolución, cero riesgo de que se desvíe del comportamiento ya
+--- probado del plugin) y usamos ese resultado. Solo en el caso límite en
+--- que ni siquiera un padre resuelve (todo el árbol de verdad no existe:
+--- vault mal configurado, etc.) seguimos lanzando el error original --
+--- ahí sí es una señal real, no la race.
+---
+--- No podemos interceptar `dedup_send` directamente (es un local de
+--- search/init.lua), pero `Path.resolve` es el único punto de despacho que
+--- comparten todos los callers de `resolve{strict=true}`: `Path.__index`
+--- hace `rawget(Path, k)` contra la tabla que devuelve
+--- `require("obsidian.path")` (cacheada por Lua), así que reasignar el
+--- método acá se propaga a *todo* el plugin sin tocar un solo archivo del
+--- vendor.
+local function patch_path_resolve_race()
+  if state.path_resolve_race_patched then
+    return
+  end
+
+  local Path = require "obsidian.path"
+  local resolve = Path.resolve
+
+  ---@param self obsidian.Path
+  ---@param opts { strict: boolean }|?
+  ---@diagnostic disable-next-line: duplicate-set-field -- overwrite intencionado
+  Path.resolve = function(self, opts)
+    local ok, result = pcall(resolve, self, opts)
+    if ok then
+      return result
+    end
+
+    -- El original solo lanza cuando opts.strict es true; si igual llegamos
+    -- acá con strict=false/nil, no es esta race: propagamos el error tal
+    -- cual, sin tocar el comportamiento original.
+    if not (opts and opts.strict) then
+      error(result, 0)
+    end
+
+    -- Mismo resolve original, pidiéndole su propio fallback no-strict
+    -- (parent traversal) en vez del error duro. Esa rama nunca lanza --
+    -- si ni el archivo ni ningún padre resuelven, devuelve `self` tal
+    -- cual (la MISMA referencia, sin crear un Path nuevo) en vez de
+    -- fallar. Por eso NO alcanza con comparar `soft_result.filename`
+    -- contra `self.filename`: cuando sí hay padre y se reconstruye la
+    -- ruta, el string reconstruido suele ser idéntico al original (no
+    -- había nada que normalizar de por medio), así que un string-compare
+    -- confunde "reconstruyó la misma ruta" con "no reconstruyó nada".
+    -- `rawequal` sí distingue: identidad de tabla, no de contenido, y
+    -- solo la rama de fallo total devuelve la referencia sin tocar.
+    local ok_soft, soft_result = pcall(resolve, self, { strict = false })
+    if ok_soft and not rawequal(soft_result, self) then
+      -- Encontró un padre real (o el propio archivo) y construyó un Path
+      -- nuevo desde ahí: es exactamente el caso "el archivo desapareció
+      -- un instante pero su carpeta sigue ahí". Nos quedamos con eso.
+      return soft_result
+    end
+
+    -- Ni el propio archivo ni ningún padre resuelven: el fallback
+    -- no-strict devolvió `self` tal cual (falla total, no una race
+    -- transitoria). Ahí sí es el error real que el `strict=true` original
+    -- estaba señalizando.
+    error(result, 0)
+  end
+
+  state.path_resolve_race_patched = true
+end
+
 --- Cinturón de seguridad: el LSP del plugin usa Obsidian.dir como root_dir.
 local function patch_lsp_start()
   local lsp = require "obsidian.lsp"
@@ -1474,6 +1577,7 @@ function M.setup()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
+  patch_path_resolve_race()
   install_workspace_switch()
   require("obsidian").setup(M.opts())
 

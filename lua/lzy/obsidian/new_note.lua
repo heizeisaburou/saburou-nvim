@@ -80,6 +80,13 @@ function M.create(name, opts, callback)
       return callback(nil)
     end
 
+    -- El índice rápido de lzy.obsidian.notes tiene un TTL corto, pero no
+    -- hace falta esperarlo: la nota recién creada debería resolver ya en
+    -- el próximo refresh de diagnósticos, no hasta 2s después.
+    pcall(function()
+      require("lzy.obsidian.notes").invalidate_index()
+    end)
+
     callback(note)
   end)
 end

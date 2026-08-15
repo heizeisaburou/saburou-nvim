@@ -187,7 +187,15 @@ end
 ---@param dir string
 ---@param root string
 ---@param callback fun(path: string)
-local function walk_files(dir, root, callback)
+---@param opts { raw?: boolean }|? `raw = true` salta el `uv.fs_realpath()` por
+---archivo que hace `normalize()` (una syscall cada uno) y solo aplica
+---`vim.fs.normalize()` (puro manejo de strings, sin tocar disco). Para
+---adjuntos importa tener la ruta real (symlinks resueltos, para dedupear
+---identidad de archivo); para indexar contenido de notas (lzy.obsidian.
+---notes) no hace falta -- y en un vault
+---de ~1600 archivos, esa syscall de más terminó siendo la mayoría del
+---tiempo real (perfilado con jit.p: ~76% del tiempo en normalize()/fs.*).
+local function walk_files(dir, root, callback, opts)
   local ok, iterator = pcall(vim.fs.dir, dir)
   if not ok then
     return
@@ -203,10 +211,10 @@ local function walk_files(dir, root, callback)
         and not has_vault_marker(path)
         and not ignore.is_ignored_dir(relative)
       then
-        walk_files(path, root, callback)
+        walk_files(path, root, callback, opts)
       end
     elseif kind == "file" and not vim.startswith(name, ".") and not ignore.is_ignored(path) then
-      callback(normalize(path))
+      callback((opts and opts.raw) and vim.fs.normalize(path) or normalize(path))
     end
   end
 end
@@ -292,6 +300,19 @@ local function best_match_order(candidates, source_dir)
     return item.path
   end, indexed)
 end
+
+--- Expuestos para que otros módulos (lzy.obsidian.notes) puedan construir
+--- su propio índice de un
+--- solo recorrido del vault sin reimplementar las reglas de ignorados
+--- (`.obsidian`/`.nyabsidian` como límite, `obsidian.ignore`, dotfiles).
+M.walk_files = walk_files
+M.NOTE_EXTENSIONS = NOTE_EXTENSIONS
+-- `M.is_target`/`M.resolve` reconstruyen este índice completo del vault
+-- (con una syscall de realpath por archivo, vía walk_files) cada vez que
+-- se les llama SIN `opts.index`. Expuesto para que callers que preguntan
+-- por muchos targets seguidos (diagnostics.lua) construyan uno solo y lo
+-- reusen -- mismo patrón que ya usa M.rename() internamente.
+M.build_index = build_index
 
 ---@param location string
 ---@return string
@@ -487,8 +508,27 @@ function M.is_target(location, opts)
   end
 
   local ext = location:match "%.([^./\\]+)$"
+  if ext and NOTE_EXTENSIONS[ext:lower()] then
+    return false -- extensión de nota explícita (.md/.qmd/...): nunca adjunto.
+  end
   if ext then
-    return not NOTE_EXTENSIONS[ext:lower()]
+    -- Extensión no reconocida como nota (.com, .exe, .pdf...): la mayoría
+    -- de las veces sí es un adjunto real, pero el texto de un `[[Título]]`
+    -- puede coincidir con algo que PARECE una extensión sin serlo --
+    -- p.ej. `[[COMMAND.COM]]` apuntando a una nota real de verdad llamada
+    -- "COMMAND.COM.md". Antes esto se daba por adjunto sin comprobar
+    -- nada, así que un link así ni generaba diagnóstico de "no existe" NI
+    -- dejaba que la acción inteligente ofreciera crear la nota -- se
+    -- perdía en el limbo. Mismo criterio que
+    -- ya usa la rama sin extensión de acá abajo: si existe como nota,
+    -- gana la nota; si no, pero existe como archivo real con esa
+    -- extensión literal, es un adjunto; si no existe ninguna de las dos,
+    -- lo tratamos como nota (rota/por crear) en vez de tragárnoslo en
+    -- silencio como adjunto fantasma.
+    if M.resolve(location .. ".md", opts).status == "resolved" then
+      return false
+    end
+    return M.resolve(location, opts).status == "resolved"
   end
   -- La app añade `.md` antes de considerar un target sin extensión. Dejamos
   -- que el flujo de notas gane cuando existe; un archivo extensionless solo
