@@ -8,18 +8,18 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 
 ## Estado
 
-| Lenguaje       | Estado              | Notas                                                             |
-| -------------- | ------------------- | ----------------------------------------------------------------- |
-| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                                     |
-| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                           |
-| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout                 |
-| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo         |
-| Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección        |
-| Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia       |
-| Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` con condition a medida                |
-| Erlang         | Hecho el 2026-08-16 | `elp` necesita `rebar3` en runtime, no solo `erlfmt` al construir |
-| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`              |
-| El resto       | Pendiente           | R                                                                 |
+| Lenguaje       | Estado              | Notas                                                       |
+| -------------- | ------------------- | ----------------------------------------------------------- |
+| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                               |
+| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                     |
+| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout           |
+| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo   |
+| Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección  |
+| Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia |
+| Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` con condition a medida          |
+| Erlang         | Hecho el 2026-08-16 | `elp` necesita `rebar3`; `erlfmt` construido y funcionando  |
+| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`        |
+| El resto       | Pendiente           | R                                                           |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -414,12 +414,13 @@ hubiera verificado antes—. `erl`/`escript`/`erlc` (el runtime en sí) no hací
 solo `rebar3`, que instalé con `pkexec pacman -S --noconfirm rebar3` y confirmé que arregla el
 `attach`.
 
-`erlfmt` sí sigue siendo un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: no tiene
-binario prebuilt en ningún sitio, solo se construye desde fuente con `rebar3` (ya instalado)
-(`git clone https://github.com/WhatsApp/erlfmt && cd erlfmt && rebar3 escriptize`). Lleva el
-mismo `condition` a medida que los otros tres, pero el binario en sí no se construyó en esta
-máquina —ese paso extra no compensaba solo para documentarlo, a diferencia de los instaladores
-de un paso de Foundry/`nix`/`fish`/Julia—.
+`erlfmt` sí es un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: no tiene binario
+prebuilt en ningún sitio, solo se construye desde fuente con `rebar3`. Construido en
+`~/.local/share/erlfmt` y resuelto por ruta absoluta en Conform (mismo patrón que `runic` con
+`~/.julia/bin`). Ojo con el perfil: `rebar3 escriptize` a secas falla porque `erlfmt` deja
+`getopt` fuera de las dependencias del perfil por defecto —hace falta `rebar3 as release
+escriptize`—; no es un bug de `rebar3`/OTP, es el perfil correcto (ver la sección de Erlang en
+`docs/language-dependencies.md` para el detalle completo).
 
 Esto no sustituye Elixir: para el BEAM completo quedarían parsers `elixir`, `heex` y `erlang`,
 más el LSP de Elixir que se elija en su momento.
@@ -706,10 +707,10 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
 8. ~~Fish~~. Hecho, y el LSP resultó mecánico también: `fish = true` en `M.enabled_highlights`
    ya estaba del catálogo previo, solo faltaba activarlo. `fish` (la shell, no solo el LSP) no
    estaba instalada; `fish_indent` lleva el mismo `condition` a medida que `runic`/`forge_fmt`.
-9. ~~Erlang~~. Hecho: el LSP (`elp`) fue mecánico y no depende del runtime de Erlang para
-   adjuntarse. `erlfmt` es el caso más delicado de los cuatro condicionales a medida: sin
-   binario prebuilt en ningún sitio, se construye con `rebar3 escriptize`; no se construyó en
-   esta máquina, solo se documentó el proceso.
+9. ~~Erlang~~. Hecho, con dos vueltas: `elp` necesitó `rebar3` en tiempo de ejecución (no
+   detectado hasta que 平生三郎 probó en vivo), y `erlfmt` —sin binario prebuilt en ningún
+   sitio— se construyó con `rebar3 as release escriptize` tras dar con el perfil correcto (el
+   por defecto revienta porque `erlfmt` deja `getopt` sin declarar ahí).
 10. Añadir R cuando haya un proyecto real con el que verificar roots, toolchains y formato.
     Generalizar entonces el `condition` a medida que ya comparten `runic`, `forge_fmt`,
     `fish_indent` y `erlfmt` en la pieza compartida de "aviso de binario ausente" (ver esa

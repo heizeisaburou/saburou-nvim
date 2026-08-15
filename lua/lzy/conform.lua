@@ -559,30 +559,60 @@ local formatters = {
     end,
   },
 
-  -- erlfmt no está en el registro de Mason y, a diferencia de runic/forge,
-  -- no tiene binario prebuilt: se construye con rebar3 (`pacman -S rebar3`
-  -- en Arch) desde https://github.com/WhatsApp/erlfmt
-  -- (`rebar3 escriptize`, el binario queda en `_build/default/bin/erlfmt`).
-  -- El runtime de Erlang (`erl`/`escript`) puede ya estar instalado sin
-  -- relación con esto -- lo usa `elp`, no `erlfmt`.
+  -- erlfmt no está en el registro de Mason y no tiene binario prebuilt: se
+  -- construye con `rebar3 as release escriptize` desde
+  -- https://github.com/WhatsApp/erlfmt (el perfil `release` importa; el
+  -- default deja `getopt` sin declarar como dep y rebar3 revienta
+  -- intentando sacarlo de su propio escript). El runtime de Erlang
+  -- (`erl`/`escript`) puede ya estar instalado sin relación con esto -- lo
+  -- usa `elp`, no `erlfmt`.
   --
-  -- Mismo patrón que `runic`/`forge_fmt`/`fish_indent`: condition a medida,
-  -- no la pieza compartida de "aviso de binario ausente" (ver
+  -- Construido y resuelto por ruta absoluta en esta máquina, igual que
+  -- `runic`. Mismo patrón que `runic`/`forge_fmt`/`fish_indent`: condition
+  -- a medida, no la pieza compartida de "aviso de binario ausente" (ver
   -- next-languages.md).
-  erlfmt = {
-    condition = function()
-      if vim.fn.executable "erlfmt" == 1 then
-        return true
+  erlfmt = (function()
+    local erlfmt_bin = vim.fs.joinpath(
+      vim.uv.os_homedir() or "",
+      ".local",
+      "share",
+      "erlfmt",
+      "_build",
+      "release",
+      "bin",
+      "erlfmt"
+    )
+    local resolved -- nil sin resolver todavía; luego, el comando o `false` si no se encuentra
+
+    local function resolve()
+      if resolved == nil then
+        if vim.fn.executable "erlfmt" == 1 then
+          resolved = "erlfmt"
+        else
+          resolved = vim.fn.executable(erlfmt_bin) == 1 and erlfmt_bin or false
+        end
       end
-      vim.notify_once(
-        "erlfmt no está instalado: el formato de Erlang no se ejecuta. Sin binario prebuilt, "
-          .. "se construye con `rebar3 escriptize` desde "
-          .. "https://github.com/WhatsApp/erlfmt.",
-        vim.log.levels.WARN
-      )
-      return false
-    end,
-  },
+      return resolved
+    end
+
+    return {
+      command = function()
+        return resolve() or "erlfmt"
+      end,
+      condition = function()
+        if resolve() then
+          return true
+        end
+        vim.notify_once(
+          "erlfmt no está instalado: el formato de Erlang no se ejecuta. Sin binario prebuilt, "
+            .. "se construye con `rebar3 as release escriptize` desde "
+            .. "https://github.com/WhatsApp/erlfmt.",
+          vim.log.levels.WARN
+        )
+        return false
+      end,
+    }
+  end)(),
 
   -- fish_indent viene con la propia shell Fish (paquete `fish` del sistema),
   -- no con Mason: sin la shell instalada no hay binario que resolver. Mismo

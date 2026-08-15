@@ -226,21 +226,27 @@ autodescubrimiento) no debería dispararse. `rebar3` está en el repo oficial `e
 
 `erlfmt` es un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: **no tiene binario
 prebuilt en ningún sitio**, ni en pacman/Chaotic-AUR ni en sus propios releases de GitHub. Se
-construye desde fuente con `rebar3` (ya instalado en esta máquina, por lo de `elp` arriba):
+construye desde fuente con `rebar3`:
 
 ```sh
-git clone https://github.com/WhatsApp/erlfmt
-cd erlfmt
-rebar3 escriptize
-# el binario queda en _build/default/bin/erlfmt
+git clone https://github.com/WhatsApp/erlfmt ~/.local/share/erlfmt
+cd ~/.local/share/erlfmt
+rebar3 as release escriptize
+# el binario queda en _build/release/bin/erlfmt
 ```
 
-El `condition` de `erlfmt` en `lua/lzy/conform.lua` comprueba el ejecutable y avisa una vez si
-falta, sin bloquear el guardado —mismo patrón a medida que los otros tres, no la pieza
-compartida de "aviso de binario ausente" (ver `next-languages.md`)—. `erlfmt` en sí sigue sin
-construir en esta máquina, aunque el prerrequisito (`rebar3`) ya esté puesto: `git clone` +
-`rebar3 escriptize` es un paso más de lo que compensaba solo para documentarlo, a diferencia de
-Foundry/`nix`/`fish`/Julia, que son un solo comando o script oficial.
+**El perfil importa**: `rebar3 escriptize` a secas (perfil por defecto) falla con
+`Error reading file /usr/bin/rebar3/getopt/rebar.config: not a directory`. El `rebar.config` de
+`erlfmt` deja `getopt` fuera de las dependencias por defecto —solo lo declara en el perfil
+`release`—, así que sin `as release`, `rebar3` intenta sacar `getopt` de su propio ejecutable en
+vez de descargarlo, y revienta. No es un bug de `rebar3`/OTP, es que hace falta el perfil
+correcto.
+
+Construido en esta máquina y resuelto por ruta absoluta en `lua/lzy/conform.lua` (mismo patrón
+que `runic` con `~/.julia/bin`, para no depender de que el usuario toque su `PATH`). El
+`condition` de `erlfmt` comprueba el ejecutable —por `PATH` o en esa ruta— y avisa una vez si no
+lo encuentra en ninguna, sin bloquear el guardado. Sigue siendo un `condition` a medida, no la
+pieza compartida de "aviso de binario ausente" (ver `next-languages.md`).
 
 ### F#
 
