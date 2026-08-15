@@ -119,7 +119,7 @@ local NOTE_EXTENSIONS = { "md", "markdown", "mdown", "mkdn", "mkd", "qmd", "rmd"
 local NOTE_KEYMAPS = {
   { "<leader>nn", "Obsidian new", "Obsidian: nueva nota" },
   { "<leader>nr", "Obsidian rename", "Obsidian: renombrar nota (actualiza enlaces)" },
-  { "<leader>ns", "Obsidian quick_switch", "Obsidian: cambiar de nota" },
+  { "<leader>nq", "Obsidian quick_switch", "Obsidian: cambiar de nota" },
   { "<leader>nb", "Obsidian backlinks", "Obsidian: qué notas enlazan a esta" },
   { "<leader>nl", "Obsidian link_new", "Obsidian: enlazar selección a nota nueva" },
   { "<leader>nL", "Obsidian link", "Obsidian: enlazar a nota existente" },
@@ -132,7 +132,7 @@ local NOTE_KEYMAPS = {
   { "<leader>nc", "NyabsidianCopyPath", "Nyabsidian: copiar path absoluto" },
   { "<leader>nC", "NyabsidianConvertLink", "Nyabsidian: cambiar formato del enlace" },
   { "<leader>nu", "NyabsidianFetchTitle", "Nyabsidian: usar el título de la web como etiqueta" },
-  { "<leader>ny", "NyabsidianSmartCopy", "Nyabsidian: copia inteligente (enlace/negrita-cursiva/header)" },
+  { "<leader>ns", "NyabsidianSmartCopy", "Nyabsidian: copia inteligente (enlace/negrita-cursiva/header)" },
 }
 
 --- Keymaps buffer-local para notas. Se llaman por buffer (idempotente).

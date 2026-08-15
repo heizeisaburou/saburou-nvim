@@ -1819,9 +1819,15 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal("[[Windows 11#my-header]]", copy_at(1, 3))
     end)
 
-    it("does nothing on a plain line with no link, emphasis or heading", function()
+    it("falls back to a link to the current note on plain text with nothing else to copy", function()
       write("source.md", { "Just plain text, nothing special here." })
       vim.cmd.edit(root .. "/source.md")
+      assert.are.equal("[[source]]", copy_at(1, 5))
+    end)
+
+    it("copies nothing when there isn't even a note to link back to (unnamed buffer)", function()
+      vim.cmd "enew"
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Just plain text, nothing special here." })
       assert.is_nil(copy_at(1, 5))
     end)
   end)
