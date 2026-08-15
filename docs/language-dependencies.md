@@ -207,14 +207,26 @@ Neovim ejecuta el servidor a través de `dart language-server --protocol=lsp`; b
 
 ### Erlang
 
-`elp` es mecánico: su `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason
+`elp` es mecánico en su config: `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason
 (`elp = "elp"`) ya existía. El runtime de Erlang (`erl`, `escript`, `erlc`) no lo necesita el LSP
 en sí —ELP está escrito en Rust—, aunque tenerlo ayuda a compilar y probar los proyectos que
 analiza.
 
+**Pero `elp` sí necesita `rebar3` en tiempo de ejecución**, no solo `erlfmt` en tiempo de
+compilación. Al abrir un archivo en un proyecto con `rebar.config` (ELP requiere rebar3 ≥
+3.24.0), ELP intenta usar `rebar3` para descubrir la estructura del proyecto; sin él, falla con:
+
+```
+LSP[elp] No such file or directory (os error 2)
+```
+
+Sin `rebar.config` (o con un `.elp.toml` explícito, que ELP también soporta para no depender del
+autodescubrimiento) no debería dispararse. `rebar3` está en el repo oficial `extra`
+(`pacman -S rebar3`) y de paso resuelve la dependencia de `erlfmt` para construirse.
+
 `erlfmt` es un caso más delicado que `runic`/`forge_fmt`/`fish_indent`: **no tiene binario
 prebuilt en ningún sitio**, ni en pacman/Chaotic-AUR ni en sus propios releases de GitHub. Se
-construye desde fuente con `rebar3` (sí empaquetado, `pacman -S rebar3` en Arch):
+construye desde fuente con `rebar3` (ya instalado en esta máquina, por lo de `elp` arriba):
 
 ```sh
 git clone https://github.com/WhatsApp/erlfmt
@@ -225,9 +237,10 @@ rebar3 escriptize
 
 El `condition` de `erlfmt` en `lua/lzy/conform.lua` comprueba el ejecutable y avisa una vez si
 falta, sin bloquear el guardado —mismo patrón a medida que los otros tres, no la pieza
-compartida de "aviso de binario ausente" (ver `next-languages.md`)—. No se ha construido en esta
-máquina: compilar un proyecto Erlang desde cero para documentarlo no compensaba el esfuerzo, a
-diferencia de instalar Foundry/`nix`/`fish`/Julia, que son un solo comando o script oficial.
+compartida de "aviso de binario ausente" (ver `next-languages.md`)—. `erlfmt` en sí sigue sin
+construir en esta máquina, aunque el prerrequisito (`rebar3`) ya esté puesto: `git clone` +
+`rebar3 escriptize` es un paso más de lo que compensaba solo para documentarlo, a diferencia de
+Foundry/`nix`/`fish`/Julia, que son un solo comando o script oficial.
 
 ### F#
 
