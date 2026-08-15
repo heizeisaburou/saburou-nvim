@@ -80,6 +80,17 @@ return {
       require("lzy.conform").setup()
     end,
   },
+  -- --- [ nvim-lint ] ---------------------------------------------------------
+  -- Capa de linting para lo que no cubre ningún LSP. El primer caso es SQL:
+  -- sqls no publica diagnósticos (ni los anuncia), así que fuera de un
+  -- proyecto PostgreSQL no habría ninguno.
+  {
+    "mfussenegger/nvim-lint",
+    event = { "BufReadPre", "BufNewFile" },
+    config = function()
+      require("lzy.lint").setup()
+    end,
+  },
   -- --- [ lsp_lines ] ---------------------------------------------------------
   -- Muestra los errores cómodamente separados por líneas
   {

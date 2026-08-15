@@ -17,6 +17,7 @@ Las rutas de esta sección son relativas al repositorio, no rutas locales de una
 
 - `lua/lzy/lspconfig.lua`: servidores LSP y ajustes específicos.
 - `lua/lzy/conform.lua`: formatters y resolvers de ejecutables/plugins externos.
+- `lua/lzy/lint.lua`: linters para lo que ningún LSP cubre, y en qué proyectos se ejecutan.
 - `lua/lzy/treesitter.lua`: parsers, aliases y activación de Tree-sitter.
 - `lua/hzsr/mason/nvchad/names.lua`: mapeos entre nombres de configuración y paquetes de Mason.
 - `lua/user/opts.lua`: detección adicional de filetypes/extensiones.
@@ -326,6 +327,15 @@ Consecuencia asumida: un `.sql` suelto, sin `.git` ni raíz de proyecto, no reci
 Ninguno de los dos necesita software del sistema, pero los dos rinden mucho más con una base de
 datos accesible: `postgres_lsp` toma de ahí los tipos y `sqls` el completado de tablas y columnas
 (vía su `config.yml`). Sin conexión, ambos se quedan en análisis de sintaxis.
+
+**`sqls` no produce diagnósticos**: no anuncia `diagnosticProvider` y tampoco los publica. No es un
+fallo de configuración, es lo que hace. Sí avisa una vez por proyecto de que no tiene conexión a
+base de datos. Los diagnósticos del SQL que no es PostgreSQL los pone `sqlfluff` a través de
+nvim-lint, con el mismo criterio de dialecto declarado que el formato: donde no hay declaración no
+se ejecuta, y ese `.sql` se queda sin diagnósticos antes que llenarse de falsos positivos.
+
+En un proyecto PostgreSQL no se solapan: allí `sqlfluff` normalmente no tiene dialecto declarado y
+los diagnósticos los pone `postgres_lsp`.
 
 El formato no lo hace el LSP sino Conform, y también depende del proyecto:
 
