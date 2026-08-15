@@ -534,6 +534,14 @@ curl -L https://foundry.paradigm.xyz | bash
 foundryup
 ```
 
+El propio instalador deja `forge`/`cast`/`anvil`/`chisel` en `$XDG_CONFIG_HOME/.foundry/bin`
+(típicamente `~/.config/.foundry/bin`, no `~/.foundry/bin` como sugiere buena parte de la
+documentación de Foundry) y añade esa ruta al `PATH` en el rc de la shell detectada —en Arch,
+`~/.zshenv`—. Eso explica por qué el mensaje de error de más abajo prueba esa ruta exacta como
+candidata: no es un despiste del LSP, es justo donde el instalador oficial lo deja en este
+sistema. `forge_fmt` y `solidity_ls_nomicfoundation` solo necesitan que `forge` acabe en el
+`PATH`, sin importar la ruta concreta.
+
 **`forge` no es solo dependencia del formateador**: cuando el servidor detecta `foundry.toml`
 (proyecto Foundry) intenta invocar `forge` él mismo para inicializar el proyecto —resolver
 dependencias, remappings—, y sin él falla con:
