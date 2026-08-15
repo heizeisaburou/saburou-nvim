@@ -135,6 +135,10 @@ vim.filetype.add {
 vim.filetype.add {
   extension = {
     mdx = "markdown.mdx",
+    -- PowerShell: nvim detecta `.ps1` y `.psm1`, pero no los manifiestos de
+    -- módulo `.psd1`, que son PowerShell igual. Sin esto se quedan sin
+    -- filetype y powershell_es no se adjunta (solo atiende `ps1`).
+    psd1 = "ps1",
   },
 }
 -- Ansible: nvim no detecta `yaml.ansible`, que es el filetype que ansiblels

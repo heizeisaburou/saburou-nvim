@@ -69,6 +69,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | OCaml              | `ocaml`                          | `ocamllsp`               | `ocamlformat`                | `ocaml`                        |
 | OCaml interface    | `ocamlinterface`                 | `ocamllsp`               | `ocamlformat`                | `ocaml_interface`              |
 | PHP                | `php`                            | `phpactor`               | `php_cs_fixer`               | `php`                          |
+| PowerShell         | `ps1`                            | `powershell_es`          | vía LSP                      | `powershell`                   |
 | Pug / Jade         | `pug`                            | `pug`                    | `prettier_pug`               | `pug`                          |
 | Python             | `python`                         | `basedpyright` + `ruff`  | `ruff_format`                | `python`                       |
 | QML                | `qml`                            | `qmlls`                  | `qmlformat` (externo)        | `qmljs`                        |
@@ -310,6 +311,19 @@ Comprobación:
 ```bash
 pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion'
 ```
+
+El paquete de Mason no deja binario en `mason/bin`: es un ZIP con scripts que se arrancan desde
+PowerShell. Por eso la configuración le pasa `bundle_path` con la raíz extraída y `shell` con el
+runtime, que es `pwsh` y cae a `powershell` si no lo encuentra.
+
+Dos detalles propios de este stack:
+
+- `.psd1` (manifiestos de módulo y ajustes de PSScriptAnalyzer) **no lo detecta Neovim**; lo
+  mapea a `ps1` la regla de `lua/user/opts.lua`. Sin ella, `powershell_es` —que solo atiende
+  `ps1`— no se adjunta a esos archivos.
+- No hay entrada en Conform para `ps1` a propósito: el formato lo hace el propio servidor con
+  PSScriptAnalyzer, y el mapeo de formato cae a LSP cuando Conform no cubre el filetype. Un
+  formateador propio duplicaría ese motor.
 
 ### SQL
 

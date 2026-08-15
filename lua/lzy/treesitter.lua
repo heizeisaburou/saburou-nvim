@@ -11,6 +11,7 @@ M.languages = {
   "luadoc",
   "markdown_inline",
   "markdown",
+  "powershell",
   "sql",
   --
   --
@@ -106,6 +107,7 @@ M.enabled_highlights = {
   ocamlinterface = true,
   php = true,
   printf = true,
+  ps1 = true, -- filetype de PowerShell; el parser se llama `powershell`
   pug = true,
   python = true,
   qml = true,

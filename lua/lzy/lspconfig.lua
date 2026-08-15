@@ -41,6 +41,7 @@ M.servers = {
   "lua_ls",
   "marksman", -- markdown
   "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
+  "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
   "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
   --
   --
@@ -292,6 +293,26 @@ M.config = {
   metals = {},
 
   neocmake = {},
+
+  powershell_es = function()
+    -- PowerShell Editor Services no es un binario: es un ZIP con scripts que
+    -- se arrancan desde PowerShell, así que Mason no deja nada en `mason/bin`
+    -- y hay que decirle a nvim-lspconfig dónde está la raíz extraída. Desde
+    -- ahí compone `<bundle_path>/PowerShellEditorServices/Start-EditorServices.ps1`.
+    --
+    -- El shell es el runtime que lo ejecuta: `pwsh` (PowerShell 7, nativo
+    -- también en Linux) y, si no está, el `powershell.exe` de Windows 5.1,
+    -- que el servidor soporta solo de mejor esfuerzo.
+    return {
+      bundle_path = vim.fs.joinpath(
+        vim.fn.stdpath "data",
+        "mason",
+        "packages",
+        "powershell-editor-services"
+      ),
+      shell = vim.fn.executable "pwsh" == 1 and "pwsh" or "powershell",
+    }
+  end,
 
   pug = {
     -- pug-lsp (opa-oz) v0.1.0: release "under heavy development". El binario de
