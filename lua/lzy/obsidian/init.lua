@@ -132,6 +132,7 @@ local NOTE_KEYMAPS = {
   { "<leader>nc", "NyabsidianCopyPath", "Nyabsidian: copiar path absoluto" },
   { "<leader>nC", "NyabsidianConvertLink", "Nyabsidian: cambiar formato del enlace" },
   { "<leader>nu", "NyabsidianFetchTitle", "Nyabsidian: usar el título de la web como etiqueta" },
+  { "<C-A-c>", "NyabsidianSmartCopy", "Nyabsidian: copia inteligente (enlace/negrita-cursiva/header)" },
 }
 
 --- Keymaps buffer-local para notas. Se llaman por buffer (idempotente).
@@ -1533,6 +1534,7 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianCopyPath")
   pcall(vim.api.nvim_del_user_command, "NyabsidianConvertLink")
   pcall(vim.api.nvim_del_user_command, "NyabsidianFetchTitle")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianSmartCopy")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -1565,6 +1567,12 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianFetchTitle", function()
     require("lzy.obsidian.link_actions").fetch_web_title()
   end, { desc = "Use the web page title as the Markdown link label" })
+
+  vim.api.nvim_create_user_command("NyabsidianSmartCopy", function()
+    require("lzy.obsidian.smart_copy").smart_copy()
+  end, {
+    desc = "Copia según el cursor: enlace (label/target/url), negrita/cursiva, o header como [[Nota#anchor]]",
+  })
 end
 
 function M.setup()

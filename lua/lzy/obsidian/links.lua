@@ -371,6 +371,11 @@ local function cursor_context()
   }
 end
 
+-- Expuesto para lzy.obsidian.smart_copy: ya separa qué parte de un enlace
+-- (label, target/nota, url, descripción...) está bajo el cursor, sin
+-- llaves/paréntesis alrededor -- justo lo que necesita "copia inteligente".
+M.cursor_context = cursor_context
+
 ---@param note obsidian.Note
 ---@return lsp.Location
 local function note_location(note)

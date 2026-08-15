@@ -1766,4 +1766,63 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal(0, #vim.diagnostic.get(bufnr))
     end)
   end)
+
+  describe("smart copy", function()
+    local function copy_at(row, col)
+      vim.api.nvim_win_set_cursor(0, { row, col })
+      local got
+      require("lzy.obsidian.smart_copy").smart_copy {
+        copy = function(text)
+          got = text
+        end,
+        notify = function() end,
+      }
+      return got
+    end
+
+    it("copies the target or label of a wiki link, without brackets/pipe", function()
+      write("source.md", { "Some [[nota|Display Label]] and plain text." })
+      vim.cmd.edit(root .. "/source.md")
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local target_col = line:find("nota", 1, true) - 1 + 1
+      local label_col = line:find("Display Label", 1, true) - 1 + 1
+      assert.are.equal("nota", copy_at(1, target_col))
+      assert.are.equal("Display Label", copy_at(1, label_col))
+    end)
+
+    it("copies bold/italic/bold-italic content without the markers", function()
+      write("source.md", {
+        "Bold ***hola*** and **soloBold** and *soloItalic* and __underBold__ and _underItalic_.",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      vim.bo[0].filetype = "markdown"
+      vim.treesitter.start(0, "markdown")
+      -- El harness de este arnés de tests no dispara el highlight que en
+      -- uso real ya deja el árbol (y sus inyecciones markdown_inline)
+      -- parseado; lo forzamos para no depender de eso.
+      vim.treesitter.get_parser(0, "markdown"):parse(true)
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local function mid(pattern)
+        local s, e = line:find(pattern, 1, true)
+        return math.floor((s + e) / 2)
+      end
+      assert.are.equal("hola", copy_at(1, mid "hola"))
+      assert.are.equal("soloBold", copy_at(1, mid "soloBold"))
+      assert.are.equal("soloItalic", copy_at(1, mid "soloItalic"))
+      assert.are.equal("underBold", copy_at(1, mid "underBold"))
+      assert.are.equal("underItalic", copy_at(1, mid "underItalic"))
+    end)
+
+    it("copies a pasteable [[Note#anchor]] link when the cursor is on a heading", function()
+      write("Windows 11.md", { "# My Header", "", "body" })
+      vim.cmd.edit(root .. "/Windows 11.md")
+      assert.are.equal("[[Windows 11#my-header]]", copy_at(1, 3))
+    end)
+
+    it("does nothing on a plain line with no link, emphasis or heading", function()
+      write("source.md", { "Just plain text, nothing special here." })
+      vim.cmd.edit(root .. "/source.md")
+      assert.is_nil(copy_at(1, 5))
+    end)
+  end)
 end)

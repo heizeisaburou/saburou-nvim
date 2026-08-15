@@ -288,6 +288,11 @@ local function shortest_note_target(path, root)
   return assert(vim.fs.relpath(root, path))
 end
 
+-- Expuesto para lzy.obsidian.smart_copy: mismo criterio de desambiguación
+-- que ya usa `Más corto seguro` acá arriba, para armar `[[Nota#anchor]]`
+-- sin reimplementar la búsqueda de colisiones de nombre.
+M.shortest_note_target = shortest_note_target
+
 ---@param target string
 ---@param kind string
 ---@param uri boolean|?
