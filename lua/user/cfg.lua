@@ -8,7 +8,7 @@ local map = vim.keymap.set
 
 -- Recomiendo desactivar la sincronización del clipboard del sistema y aprender a sincronizar
 -- el cliboard manualmente, a menos que sean tus primeros meses utilizando Neovim.
-local sync_clipboard = false
+local sync_clipboard = true
 if sync_clipboard and vim.fn.has "clipboard" == 1 then
   sabunv.util.clipboard.sync(true)
 end
