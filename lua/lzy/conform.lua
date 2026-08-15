@@ -46,6 +46,9 @@ local formatters_by_ft = {
   -- abajo para cómo se resuelve sin bloquear el formato si falta.
   julia = { "runic" },
   nix = { "nixfmt" },
+  -- air es un único binario de Mason (release prebuilt en Rust): LSP y
+  -- formatter a la vez, sin dependencia de R ni de nada externo.
+  r = { "air" },
   -- forge_fmt no está en el registro de Mason (viene con Foundry); ver el
   -- override de `forge_fmt` más abajo para cómo se resuelve sin bloquear el
   -- formato si falta.

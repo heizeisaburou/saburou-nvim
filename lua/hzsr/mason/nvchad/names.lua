@@ -19,6 +19,7 @@
 -- Please preserve the NvChad copyright, license, and source notice.
 
 return {
+  air = "air",
   alejandra = "alejandra",
   als = "ada-language-server",
   angularls = "angular-language-server",

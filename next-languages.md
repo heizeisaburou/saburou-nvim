@@ -18,8 +18,8 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 | Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia |
 | Fish           | Hecho el 2026-08-16 | LSP mecánico; `fish_indent` con condition a medida          |
 | Erlang         | Hecho el 2026-08-16 | `elp` necesita `rebar3`; `erlfmt` construido y funcionando  |
+| R              | Hecho el 2026-08-16 | El más sencillo: sin condition ni dependencia de sistema    |
 | Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`        |
-| El resto       | Pendiente           | R                                                           |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -459,7 +459,10 @@ Lo que se aprendió al implementarlo, que era justo lo que la nota marcaba como 
 
 ### R
 
-Decidido: **Air**, un único binario moderno de Mason que ofrece LSP y formato.
+Decidido: **Air**, un único binario moderno de Mason que ofrece LSP y formato. El caso más
+sencillo de toda esta tanda: sin `cmd` propio como Julia, sin `condition` a medida como Solidity/
+Fish/Erlang. `air` es un release Rust prebuilt para todas las plataformas y no necesita el
+runtime de R para nada.
 
 ```lua
 -- lspconfig.lua: M.servers
@@ -711,11 +714,11 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
    detectado hasta que 平生三郎 probó en vivo), y `erlfmt` —sin binario prebuilt en ningún
    sitio— se construyó con `rebar3 as release escriptize` tras dar con el perfil correcto (el
    por defecto revienta porque `erlfmt` deja `getopt` sin declarar ahí).
-10. Añadir R cuando haya un proyecto real con el que verificar roots, toolchains y formato.
-    Generalizar entonces el `condition` a medida que ya comparten `runic`, `forge_fmt`,
-    `fish_indent` y `erlfmt` en la pieza compartida de "aviso de binario ausente" (ver esa
-    sección) —el único lenguaje pendiente que la necesitaría ya no la necesitará, así que puede
-    que a esas alturas ya no compense generalizar y baste con dejarlo documentado como está.
+10. ~~R~~. Hecho, y el más sencillo de toda la tanda: `air` es un único binario Rust de Mason,
+    con release prebuilt, que hace de LSP y formateador sin ningún `cmd` propio ni `condition` a
+    medida. La segunda tanda queda completa: 平生三郎, cuatro `condition` sueltos (`runic`,
+    `forge_fmt`, `fish_indent`, `erlfmt`) siguen esperando la generalización que se apunta en
+    "Política de herramientas que Mason no instala", si sigue compensando escribirla.
 
 ## Referencias principales
 

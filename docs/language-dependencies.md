@@ -77,6 +77,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | Pug / Jade         | `pug`                            | `pug`                         | `prettier_pug`               | `pug`                          |
 | Python             | `python`                         | `basedpyright` + `ruff`       | `ruff_format`                | `python`                       |
 | QML                | `qml`                            | `qmlls`                       | `qmlformat` (externo)        | `qmljs`                        |
+| R                  | `r`                              | `air`                         | `air`                        | `r`                            |
 | Ruby               | `ruby`                           | `ruby_lsp`                    | `rubocop`                    | `ruby`                         |
 | Rust               | `rust`                           | `rust_analyzer`               | `rustfmt`                    | `rust`                         |
 | Scala              | `scala`                          | `metals`                      | `scalafmt`                   | `scala`                        |
@@ -542,6 +543,18 @@ lo que activaría `sqlfluff` en cualquier proyecto Python que tuviera un `.sql` 
 QML es uno de los casos donde se resuelve explícitamente el ejecutable porque según la
 instalación puede existir como `qmlls` o `qmlls6`. El formatter `qmlformat` también es externo:
 debe estar disponible en `PATH`.
+
+### R
+
+`air` es el caso más sencillo de todo el catálogo nuevo: un único binario Rust de Mason, con
+release prebuilt para todas las plataformas, que hace de LSP y formateador a la vez. `cmd`/
+`root_markers` por defecto ya sirven, y no necesita el runtime de R —`Rscript`/`R`— para nada, ni
+en compilación ni en ejecución. Sin `condition` a medida, sin dependencia de sistema.
+
+Alternativa descartada: `r_language_server` (Mason: `r-languageserver`), que sí necesita el
+paquete R `languageserver` instalado desde dentro de R, pero cubre además `rmd`/`quarto`. Cambiar
+si aparece mucho trabajo con R Markdown o Quarto, o si `air` se queda corto en funciones de
+paquete/proyecto. No activar los dos a la vez.
 
 ### Ruby
 

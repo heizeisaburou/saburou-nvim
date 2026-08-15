@@ -40,6 +40,7 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
+  "air", -- R
   "elp", -- Erlang
   "fish_lsp", -- Fish
   "groovyls", -- Groovy, Jenkinsfile y Gradle
