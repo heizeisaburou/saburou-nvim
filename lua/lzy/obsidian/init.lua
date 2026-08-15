@@ -451,6 +451,14 @@ local function make_opts()
     legacy_commands = false,
     workspaces = workspace_specs(state.roots),
 
+    -- Default de obsidian.nvim es { " ", "~", "!", ">", "x" }: pone "~"
+    -- justo después de "[ ]", antes que "x". Poco natural para toggle
+    -- normal ([ ] -> [x]); "x" va segundo, igual que en marksman
+    -- (lzy.marksman: CHECKBOX_STATES).
+    checkbox = {
+      order = { " ", "x", "~", "!", ">" },
+    },
+
     frontmatter = {
       -- Por defecto desactivado: los metatags solo se generan en vaults
       -- cuyo .nyabsidian lo activa, p.ej. frontmatter = { enabled = true }.
