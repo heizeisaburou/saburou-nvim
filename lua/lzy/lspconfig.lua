@@ -45,6 +45,7 @@ M.servers = {
   "nil_ls", -- Nix; no nixd, ver next-languages.md
   "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
   "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
+  "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
   "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
   --
   --

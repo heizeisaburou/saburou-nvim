@@ -8,15 +8,16 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 
 ## Estado
 
-| Lenguaje       | Estado              | Notas                                                      |
-| -------------- | ------------------- | ---------------------------------------------------------- |
-| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                              |
-| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                    |
-| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout          |
-| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo  |
-| Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección |
-| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`       |
-| El resto       | Pendiente           | Fish, Solidity, Erlang y R                                 |
+| Lenguaje       | Estado              | Notas                                                       |
+| -------------- | ------------------- | ----------------------------------------------------------- |
+| PowerShell     | Hecho el 2026-08-15 | Probado en Linux con `pwsh` 7                               |
+| PostgreSQL/SQL | Hecho el 2026-08-15 | Los dos servidores, repartidos por raíz                     |
+| Groovy         | Hecho el 2026-08-15 | Ver los avisos de su sección: el JDK y el timeout           |
+| Nix            | Hecho el 2026-08-15 | `nil` necesita `nix` del sistema para compilar, ver abajo   |
+| Julia          | Hecho el 2026-08-15 | `cmd` propio y `runic` con condition a medida, ver sección  |
+| Solidity       | Hecho el 2026-08-15 | LSP mecánico; `forge_fmt` con condition a medida como Julia |
+| Batch          | Nada que hacer      | Esperando a que el parser entre en `nvim-treesitter`        |
+| El resto       | Pendiente           | Fish, Erlang y R                                            |
 
 Lo hecho trajo dos piezas que no eran de ningún lenguaje en concreto y que ya están disponibles:
 
@@ -366,10 +367,14 @@ solidity = true,     -- M.enabled_highlights
 solidity = { "forge_fmt" },
 ```
 
-El mapping LSP de Mason ya existe. `forge_fmt` viene con Foundry y debe estar en el `PATH`; no
-necesita ni tiene sentido como paquete Mason separado. En proyectos que no usen Foundry se puede
-omitir Conform y probar el formato del LSP, o adoptar Prettier con `prettier-plugin-solidity` más
-adelante.
+El mapping LSP de Mason ya existía. A diferencia de Julia, `solidity_ls_nomicfoundation` no
+necesitó ningún ajuste: su `cmd`/`root_markers` por defecto ya sirven con lo que instala Mason.
+
+`forge_fmt` sí tiene una vuelta: Foundry (que trae `forge`) **no está en pacman ni en
+Chaotic-AUR** (comprobado; solo hay coincidencias de nombre ajenas). Se instala con
+`curl -L https://foundry.paradigm.xyz | bash` y luego `foundryup`. Igual que `runic` en Julia,
+`forge_fmt` lleva un `condition` a medida que comprueba el ejecutable y avisa una vez si falta,
+en vez de esperar a la pieza compartida de "aviso de binario ausente" (ver esa sección).
 
 ### Erlang y el ecosistema BEAM
 
@@ -546,21 +551,22 @@ necesitan nada de esto: si falta alguno, es que `:MasonInstallAll` no se ha ejec
 Dos cosas que 平生三郎 pidió dejar anotadas explícitamente, sin tocarlas ahora:
 
 1. **Sonnet 5 fue metiendo las cosas como pudo**, con condicionales a medida por lenguaje
-   (`runic` en Julia es el primer caso) en vez de esperar a esta pieza general. La prioridad fue
-   dejarlo funcionando ya y lo más limpio posible, no bloquear el progreso. El trabajo que queda
-   es generalizar esos casos sueltos en el mecanismo compartido de esta sección —una función
-   reutilizable con aviso no silencioso, una vez por herramienta y sesión— y volver a pasar por
-   Julia (y luego Erlang/Solidity) para usarla en vez del condicional suelto.
-2. **`docs/language-dependencies.md` necesita una pasada completa, no solo para Julia/Erlang/
-   Solidity**. Faltan lenguajes de la matriz que ya estaban configurados en `lspconfig.lua`/
-   `conform.lua` desde antes de este esfuerzo de "next-languages" y que nunca se documentaron ahí
+   (`runic` en Julia, `forge_fmt` en Solidity) en vez de esperar a esta pieza general. La
+   prioridad fue dejarlo funcionando ya y lo más limpio posible, no bloquear el progreso. El
+   trabajo que queda es generalizar esos casos sueltos en el mecanismo compartido de esta
+   sección —una función reutilizable con aviso no silencioso, una vez por herramienta y
+   sesión— y volver a pasar por Julia y Solidity (y luego Erlang) para usarla en vez del
+   condicional suelto de cada uno.
+2. **`docs/language-dependencies.md` necesita una pasada completa, no solo para los lenguajes de
+   esta iniciativa**. Faltan lenguajes de la matriz que ya estaban configurados en
+   `lspconfig.lua`/`conform.lua` desde antes de "next-languages" y que nunca se documentaron ahí
    (revisar toda la lista, no dar por buena una comprobación superficial). Y de los lenguajes que
-   sí aparecen mencionados —los de antes de esta tanda de SQL/PowerShell/Groovy/Nix/Julia
-   incluidos, no solo los tres nuevos—, cualquiera que tenga una dependencia externa real
+   sí aparecen mencionados —los de antes de esta tanda de SQL/PowerShell/Groovy/Nix/Julia/
+   Solidity incluidos, no solo los nuevos—, cualquiera que tenga una dependencia externa real
    (toolchain del sistema, binario que Mason no instala, versión de JDK/runtime específica...)
    necesita su propia sección `###` explicándola, con el mismo rigor que ya tienen Groovy/Nix/
-   Julia/PowerShell/SQL. El criterio de "qué le pasa a quien clona la config sin mi toolchain" se
-   aplica a todo el catálogo, no solo a lo nuevo.
+   Julia/PowerShell/SQL/Solidity. El criterio de "qué le pasa a quien clona la config sin mi
+   toolchain" se aplica a todo el catálogo, no solo a lo nuevo.
 
 ## Bloques consolidados para cuando se implemente
 
@@ -667,11 +673,13 @@ herramientas que llegan con su toolchain (`fish_indent`, `forge_fmt`). `nil_ls` 
    `condition`/`command` mínimo escrito a medida en vez de esperar al aviso de binario ausente
    general —queda anotado para que ese aviso, cuando se escriba, generalice este caso en vez de
    dejarlo como un mecanismo aparte.
-7. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
-8. Escribir el aviso de binario ausente antes de tocar Solidity y Erlang: los dos dependen de él.
-   De paso, generalizar el `condition` a medida que ya tiene `runic`.
-9. Añadir Solidity, Erlang y R cuando haya un proyecto real con el que verificar roots,
-   toolchains y formato.
+7. ~~Solidity~~. Hecho: el LSP fue mecánico de verdad (a diferencia de Julia, su `cmd` por
+   defecto ya sirve). `forge_fmt` entró con el mismo `condition` a medida que `runic`, porque
+   Foundry tampoco está en pacman ni en Chaotic-AUR.
+8. Añadir Fish: el stack más barato que queda, todo de Mason y fácil de validar.
+9. Añadir Erlang y R cuando haya un proyecto real con el que verificar roots, toolchains y
+   formato. Generalizar entonces el `condition` a medida que ya comparten `runic` y `forge_fmt`
+   en la pieza compartida de "aviso de binario ausente" (ver esa sección).
 
 ## Referencias principales
 

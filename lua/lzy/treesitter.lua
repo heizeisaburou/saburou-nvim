@@ -15,6 +15,7 @@ M.languages = {
   "markdown",
   "nix",
   "powershell",
+  "solidity",
   "sql",
   --
   --
@@ -120,6 +121,7 @@ M.enabled_highlights = {
   ruby = true,
   rust = true,
   scala = true,
+  solidity = true,
   sql = true,
   svelte = true,
   swift = true,

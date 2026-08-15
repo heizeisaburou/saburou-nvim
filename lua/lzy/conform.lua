@@ -38,6 +38,10 @@ local formatters_by_ft = {
   -- abajo para cómo se resuelve sin bloquear el formato si falta.
   julia = { "runic" },
   nix = { "nixfmt" },
+  -- forge_fmt no está en el registro de Mason (viene con Foundry); ver el
+  -- override de `forge_fmt` más abajo para cómo se resuelve sin bloquear el
+  -- formato si falta.
+  solidity = { "forge_fmt" },
   -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
   -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
   sql = { "sqlfluff", "pg_format", stop_after_first = true },
@@ -544,6 +548,31 @@ local formatters = {
         "--max-line-length",
         tostring(line_length),
       }
+    end,
+  },
+
+  -- forge_fmt (Foundry) no está en el registro de Mason: se instala con
+  -- `foundryup` (curl -L https://foundry.paradigm.xyz | bash, luego
+  -- `foundryup`), que deja `forge` en `~/.foundry/bin` y añade ese
+  -- directorio al PATH del propio instalador. No es un paquete de pacman ni
+  -- de Chaotic-AUR (comprobado: solo hay coincidencias de nombre ajenas,
+  -- como el "forge" de GNOME Builder).
+  --
+  -- Igual que `runic` en Julia: condition/command a medida, NO la pieza
+  -- compartida de "aviso de binario ausente" de Erlang/Solidity que
+  -- describe next-languages.md. Generalizar cuando se escriba esa pieza.
+  forge_fmt = {
+    condition = function()
+      if vim.fn.executable "forge" == 1 then
+        return true
+      end
+      vim.notify_once(
+        "forge (Foundry) no está instalado: el formato de Solidity no se ejecuta. "
+          .. "Instálalo con `curl -L https://foundry.paradigm.xyz | bash` y luego "
+          .. "`foundryup`.",
+        vim.log.levels.WARN
+      )
+      return false
     end,
   },
 
