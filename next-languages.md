@@ -8,8 +8,10 @@ filetype para evitar diagnósticos duplicados y dos herramientas peleándose por
 
 ## Qué hacer con cada lenguaje
 
-AGREGA AQUÍ SI NO ESTA YA O ACLARAR MEJOR: asegurarse de que está aquí, no se instalan multiples
-lenguajes a la vez, se lanzan uno a uno y se interactua con el usuario para que lo pruebe.
+Los lenguajes se activan **de uno en uno**, nunca varios a la vez: se termina uno, se entrega al
+usuario para que lo pruebe y solo entonces se empieza el siguiente. Antes de tocar nada,
+comprobar que el lenguaje ya está descrito en este documento; si no lo está, añadirlo aquí con
+su stack —LSP, Treesitter, formateador y dependencias— antes de configurarlo.
 
 No dar un lenguaje por terminado hasta completar este checklist:
 
