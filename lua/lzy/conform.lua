@@ -27,6 +27,9 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
+  -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
+  -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
+  sql = { "sqlfluff", "pg_format", stop_after_first = true },
   --
   --
   --
@@ -439,6 +442,30 @@ local function cached_config(name, contents, extension)
   end
 
   return path
+end
+
+-- Archivos donde sqlfluff acepta su configuración, en el orden en que se
+-- buscan hacia arriba desde el archivo.
+local SQLFLUFF_CONFIGS = { ".sqlfluff", "pyproject.toml", "setup.cfg", "tox.ini", "pep8.ini" }
+
+-- `true` si el archivo declara de verdad una configuración de sqlfluff. Un
+-- `.sqlfluff` lo es por definición; el resto solo cuentan si traen la sección.
+--
+---@param path string
+---@return boolean
+local function declares_sqlfluff(path)
+  if vim.fs.basename(path) == ".sqlfluff" then
+    return true
+  end
+
+  local ok, lines = pcall(vim.fn.readfile, path, "", 500)
+  if not ok then
+    return false
+  end
+
+  return vim.iter(lines):any(function(line)
+    return line:find "^%s*%[tool%.sqlfluff" ~= nil or line:find "^%s*%[sqlfluff" ~= nil
+  end)
 end
 
 -- ----------------------------------------------------------------------------
@@ -1461,6 +1488,32 @@ local formatters = {
     append_args = function(_, ctx)
       local config = indent_for(ctx)
       return { "-i", config.style == "tabs" and "0" or tostring(config.width) }
+    end,
+  },
+
+  -- sqlfluff formatea y hace de linter, pero necesita que el proyecto declare
+  -- su dialecto: sin él aborta. Esta config es pública, así que no puede exigir
+  -- esa disciplina a quien solo abre un `.sql` suelto; ahí formatea pg_format.
+  --
+  -- El `cwd`/`require_cwd` que trae conform no basta: su lista incluye
+  -- `pyproject.toml`, `setup.cfg` y `tox.ini`, así que cualquier proyecto
+  -- Python con un `.sql` dentro activaría sqlfluff sin haberlo configurado.
+  -- Aquí se comprueba que la declaración exista de verdad.
+  sqlfluff = {
+    condition = function(_, ctx)
+      for _, name in ipairs(SQLFLUFF_CONFIGS) do
+        local found = vim.fs.find(name, {
+          upward = true,
+          path = ctx.dirname,
+          type = "file",
+        })[1]
+
+        if found and declares_sqlfluff(found) then
+          return true
+        end
+      end
+
+      return false
     end,
   },
 

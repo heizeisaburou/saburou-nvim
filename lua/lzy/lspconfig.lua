@@ -40,6 +40,8 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
+  "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
+  "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
   --
   --
   --
@@ -361,6 +363,40 @@ M.config = {
     -- sourcekit-lsp también anuncia C/C++/Objective-C, pero clangd ya gestiona
     -- esos filetypes en esta configuración. Evita dos clientes simultáneos.
     filetypes = { "swift" },
+  },
+
+  sqls = {
+    -- postgres_lsp y sqls comparten el filetype `sql`, así que se reparten por
+    -- raíz de proyecto en vez de adjuntarse los dos al mismo buffer.
+    --
+    -- postgres_lsp ya se autolimita: nvim-lspconfig lo publica con
+    -- root_markers = { "postgres-language-server.jsonc" } y
+    -- workspace_required, así que fuera de un proyecto PostgreSQL ni arranca.
+    -- El que hay que apartar es sqls, cuyo default (root_markers
+    -- = { "config.yml" }, sin workspace_required) lo engancharía también ahí.
+    --
+    -- Mismo patrón que marksman dentro de un vault: root_dir devuelve nil y
+    -- workspace_required impide arrancar sin root.
+    workspace_required = true,
+    root_dir = function(bufnr, on_dir)
+      local name = vim.api.nvim_buf_get_name(bufnr)
+      if name == "" then
+        return on_dir(nil)
+      end
+
+      local postgres = #vim.fs.find("postgres-language-server.jsonc", {
+        upward = true,
+        path = vim.fs.dirname(name),
+        type = "file",
+      }) > 0
+      if postgres then
+        return on_dir(nil)
+      end
+
+      -- `config.yml` es el marcador propio de sqls (su conexión a la base de
+      -- datos); `.git` cubre el resto de proyectos.
+      on_dir(vim.fs.root(bufnr, { "config.yml", ".git" }))
+    end,
   },
 
   taplo = {},

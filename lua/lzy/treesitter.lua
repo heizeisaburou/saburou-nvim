@@ -11,6 +11,7 @@ M.languages = {
   "luadoc",
   "markdown_inline",
   "markdown",
+  "sql",
   --
   --
   --
@@ -111,6 +112,7 @@ M.enabled_highlights = {
   ruby = true,
   rust = true,
   scala = true,
+  sql = true,
   svelte = true,
   swift = true,
   toml = true,

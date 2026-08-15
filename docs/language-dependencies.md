@@ -75,6 +75,7 @@ no siempre coinciden con el nombre del paquete de Mason.
 | Rust               | `rust`                           | `rust_analyzer`          | `rustfmt`                    | `rust`                         |
 | Scala              | `scala`                          | `metals`                 | `scalafmt`                   | `scala`                        |
 | SCSS               | `scss`                           | `cssls`                  | `prettier`                   | —                              |
+| SQL                | `sql`                            | `postgres_lsp` / `sqls`  | `sqlfluff` / `pg_format`     | `sql`                          |
 | Surface            | `surface`                        | —                        | `mix`                        | —                              |
 | Svelte             | `svelte`                         | `svelte`                 | `prettier_svelte`            | `svelte`                       |
 | Swift              | `swift`                          | `sourcekit`              | `swiftformat`                | `swift`                        |
@@ -308,6 +309,34 @@ Comprobación:
 ```bash
 pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion'
 ```
+
+### SQL
+
+Es el único filetype con **dos LSP a la vez**, repartidos por raíz de proyecto en lugar de
+adjuntarse los dos al mismo buffer:
+
+- `postgres_lsp` (Mason: `postgres-language-server`) manda en los proyectos que tienen un
+  `postgres-language-server.jsonc`. Viene de fábrica con `workspace_required`, así que fuera de
+  ellos ni arranca.
+- `sqls` (Mason: `sqls`) cubre el resto de motores. La configuración le añade un `root_dir` que
+  devuelve `nil` dentro de un árbol PostgreSQL, para que no se solape con el anterior.
+
+Consecuencia asumida: un `.sql` suelto, sin `.git` ni raíz de proyecto, no recibe ningún LSP.
+
+Ninguno de los dos necesita software del sistema, pero los dos rinden mucho más con una base de
+datos accesible: `postgres_lsp` toma de ahí los tipos y `sqls` el completado de tablas y columnas
+(vía su `config.yml`). Sin conexión, ambos se quedan en análisis de sintaxis.
+
+El formato no lo hace el LSP sino Conform, y también depende del proyecto:
+
+- `sqlfluff` (Mason) si el proyecto declara su dialecto, en un `.sqlfluff` o en una sección
+  `[tool.sqlfluff]`/`[sqlfluff]` de `pyproject.toml`, `setup.cfg`, `tox.ini` o `pep8.ini`.
+  `sqlfluff` aborta si no encuentra dialecto, así que solo se activa cuando existe de verdad.
+- `pg_format` (Mason: `pgformatter`) en cualquier otro caso. Está orientado a PostgreSQL pero
+  digiere SQL genérico, y no necesita configuración por proyecto.
+
+La comprobación de la declaración es propia: la que trae Conform acepta `pyproject.toml` a secas,
+lo que activaría `sqlfluff` en cualquier proyecto Python que tuviera un `.sql` dentro.
 
 ### QML
 
