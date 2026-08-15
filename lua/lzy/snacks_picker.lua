@@ -23,6 +23,12 @@ local function horizontal_preview_keys(modes)
   }
 end
 
+-- <C-u> y <C-BS> borran la palabra anterior en el prompt, igual que <C-w>
+-- (que ya viene así por default en Snacks). Mismo mapeo que usa Snacks
+-- internamente para su <C-w> (ver snacks/picker/config/defaults.lua:
+-- `["<C-w>"] = { "<c-s-w>", mode = { "i" }, expr = true, desc = "delete word" }`).
+local delete_word_backward = { "<c-s-w>", mode = { "i" }, expr = true, desc = "delete word" }
+
 M.config = {
   enabled = true,
   actions = {
@@ -33,7 +39,12 @@ M.config = {
     -- Sobrescribe `<A-h>` de Snacks (`toggle_hidden`) y evita que los
     -- mappings globales `10zh`/`10zl` se inserten como texto en el prompt.
     -- El contrato queda idéntico al preview de Telescope.
-    input = { keys = horizontal_preview_keys({ "i", "n" }) },
+    input = {
+      keys = vim.tbl_extend("force", horizontal_preview_keys({ "i", "n" }), {
+        ["<C-u>"] = delete_word_backward,
+        ["<C-BS>"] = delete_word_backward,
+      }),
+    },
     list = { keys = horizontal_preview_keys({ "n" }) },
   },
 }

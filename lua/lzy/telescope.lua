@@ -30,13 +30,20 @@ local function horizontal_preview_mappings(mappings)
   return mappings
 end
 
--- Borra la palabra anterior en el prompt, igual que <C-w> en insert mode
--- normal. <C-u> por default en Telescope limpia toda la línea; acá lo
--- pisamos para que sea "borrar palabra" como <C-BS>, no "borrar todo".
-local function delete_word_backward()
-  local keys = vim.api.nvim_replace_termcodes("<C-w>", true, false, true)
-  vim.api.nvim_feedkeys(keys, "n", true)
-end
+-- <C-u> y <C-BS> borran la palabra anterior en el prompt, igual que <C-w>
+-- (que ya viene así por default en Telescope). Les damos el mismo mapeo
+-- tipo "command" que Telescope usa internamente para su <C-w> (ver
+-- telescope/mappings.lua: `["<C-w>"] = { "<c-s-w>", type = "command" }`).
+--
+-- Importante: NO usar una función con nvim_feedkeys() para esto.
+-- feedkeys() es una llamada BLOQUEANTE; invocarla desde dentro del
+-- callback de un mapeo la anida dentro del mismo loop de eventos de un
+-- solo hilo y Neovim se queda esperando una tecla que nunca llega — el
+-- picker se congela, el cursor cambia de forma (como si hubiera caído a
+-- modo Normal) y la siguiente tecla que pulses "libera" ese bloqueo
+-- interpretada fuera de contexto (p.ej. como comando de ventana),
+-- cerrando Telescope.
+local delete_word_backward = { "<c-s-w>", type = "command" }
 
 ---@type table
 M.config = {
