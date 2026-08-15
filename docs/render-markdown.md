@@ -125,6 +125,14 @@ su ancho bruto: no se admite una gramática propia multilínea. `markdown_wrap` 
 de ancho de la prosa y `markdown_tabs` normaliza la sangría al final. La pasada de definiciones es
 idempotente y no modifica las que ya estaban en una línea.
 
+`markdown_wrap` reenvuelve tanto los párrafos como los ítems de lista, que sufrían el mismo
+problema: un ítem con un wiki-link largo saltaba de línea aunque su vista cupiera de sobra. Cada
+ítem se mide por el ancho visible de su contenido y sus líneas de continuación se alinean bajo el
+prefijo (sangría + marcador y, si la hay, la casilla de tarea, igual que Prettier), así que las
+listas anidadas y ordenadas conservan su nivel. Un párrafo suelto conserva su sangría y la
+descuenta del ancho. El resto —fences, cabeceras, blockquotes, tablas, reglas, definiciones y
+HTML— se pasa intacto, y también cualquier lista que contenga algo que no sea prosa.
+
 `hzsr.md.visible_width()` mide `||contenido||` como el ancho en celdas de `󰈉 SPOILER`, y el
 tokenizador lo conserva como una unidad aunque contenga espacios. Esta medida es estable: no cambia
 cuando el cursor revela temporalmente el contenido. Los bloques `spoiler` quedan fuera del wrapping

@@ -1012,10 +1012,11 @@ local formatters = {
   -- los enlaces cuentan como icono + label y los code spans/autolinks como su
   -- contenido renderizado. Los enlaces son atómicos: nunca se parten.
   --
-  -- Sólo toca bloques de prosa de nivel superior; el resto (fences de código,
-  -- cabeceras, listas, blockquotes, tablas, reglas, definiciones de enlace,
-  -- HTML) se pasa intacto. Implementado en `hzsr.md` (Lua puro, sin
-  -- dependencias).
+  -- Toca los párrafos de prosa y los ítems de lista (incluidos los anidados),
+  -- que sufren el mismo problema: un ítem con un wiki-link largo salta de
+  -- línea aunque lo que se ve quepa de sobra. El resto (fences de código,
+  -- cabeceras, blockquotes, tablas, reglas, definiciones de enlace, HTML) se
+  -- pasa intacto. Implementado en `hzsr.md` (Lua puro, sin dependencias).
   markdown_wrap = {
     format = function(_, ctx, lines, callback)
       local width = line_length
@@ -1065,6 +1066,28 @@ local formatters = {
         return nil
       end
 
+      -- Regla horizontal: tres o más `-`, `_` o `*` iguales, opcionalmente
+      -- separados por espacios (`---`, `* * *`).
+      local function is_hrule(line)
+        local body = line:match "^ ? ? ?([-_*][-_*%s]*)$"
+
+        if not body then
+          return false
+        end
+
+        local char = body:sub(1, 1)
+        local count = 0
+
+        for c in body:gmatch "%S" do
+          if c ~= char then
+            return false
+          end
+          count = count + 1
+        end
+
+        return count >= 3
+      end
+
       -- `true` si la línea puede pertenecer a un párrafo de prosa plano.
       local function is_plain_line(line)
         if line:match "^%s*#" then
@@ -1079,8 +1102,7 @@ local formatters = {
         if line:match "^%s*%d+[%.)]%s" then
           return false -- lista ordenada
         end
-        local hrule = line:match "^%s*([-_*]+)%s*$"
-        if hrule and hrule:match("^" .. hrule:sub(1, 1) .. "+$") then
+        if is_hrule(line) then
           return false -- regla horizontal
         end
         if line:match "^%s*|" then
@@ -1124,6 +1146,89 @@ local formatters = {
         end
 
         return table.concat(text)
+      end
+
+      -- Envuelve las líneas de un párrafo ya unido y las devuelve con la
+      -- sangría dada; `first` sustituye a la sangría en la primera línea (el
+      -- marcador del ítem de lista, que ocupa las mismas columnas).
+      local function wrap_block(text, indent, first)
+        local wrapped =
+          hzsr.md.wrap_paragraph(text, math.max(1, width - #indent), { bufnr = ctx and ctx.buf })
+        local result = {}
+
+        for index, line in ipairs(vim.split(wrapped, "\n", { plain = true })) do
+          result[#result + 1] = (index == 1 and (first or indent) or indent) .. line
+        end
+
+        return result
+      end
+
+      -- Prefijo de un ítem de lista: sangría + marcador (`- `, `1. `) y, si lo
+      -- hay, la casilla de tarea (`- [ ] `, `- [x] `, y los estados de
+      -- Obsidian `[~]`, `[!]`...). El contenido del ítem empieza justo
+      -- después, y ahí es donde Prettier alinea sus líneas de continuación.
+      local function list_prefix(line)
+        if is_hrule(line) then
+          return nil -- `* * *` es una regla, no un ítem
+        end
+
+        local prefix = line:match "^ *[-*+] +" or line:match "^ *%d+[%.)] +"
+
+        if not prefix then
+          return nil
+        end
+
+        local task = line:match("^%[.%] +", #prefix + 1)
+        return prefix .. (task or "")
+      end
+
+      -- Reenvuelve un bloque de lista: cada ítem se mide por el ancho visible
+      -- de su contenido y se realinea bajo su propio marcador, así que las
+      -- listas anidadas salen gratis (cada nivel tiene su sangría).
+      --
+      -- Devuelve nil si el bloque contiene algo que no sea prosa (tablas,
+      -- código sangrado, citas...); entonces el llamante lo deja intacto.
+      local function wrap_list(block)
+        local result = {}
+        local index = 1
+
+        while index <= #block do
+          local prefix = list_prefix(block[index])
+
+          if not prefix then
+            return nil
+          end
+
+          local indent = #prefix
+          local content = { block[index]:sub(indent + 1) }
+
+          if not is_plain_line(content[1]) then
+            return nil
+          end
+
+          index = index + 1
+
+          while index <= #block and not list_prefix(block[index]) do
+            local line = block[index]
+            local rest = line:sub(indent + 1)
+
+            -- La continuación tiene que arrancar en la columna del contenido:
+            -- menos sangría es otra cosa (párrafo perezoso, fin de la lista).
+            if line:sub(1, indent) ~= string.rep(" ", indent) or not is_plain_line(rest) then
+              return nil
+            end
+
+            content[#content + 1] = rest
+            index = index + 1
+          end
+
+          vim.list_extend(
+            result,
+            wrap_block(join_paragraph(content), string.rep(" ", indent), prefix)
+          )
+        end
+
+        return result
       end
 
       while i <= n do
@@ -1177,17 +1282,18 @@ local formatters = {
                 end
               end
 
+              local wrapped
               if is_prose then
-                local wrapped = hzsr.md.wrap_paragraph(join_paragraph(block), width, {
-                  bufnr = ctx.buf,
-                })
-                for _, l in ipairs(vim.split(wrapped, "\n", { plain = true })) do
-                  out[#out + 1] = l
-                end
-              else
-                for _, l in ipairs(block) do
-                  out[#out + 1] = l
-                end
+                -- La sangría del párrafo (1-3 espacios, o la de un párrafo
+                -- suelto dentro de un ítem) se conserva y descuenta del ancho.
+                local indent = block[1]:match "^ *"
+                wrapped = wrap_block(join_paragraph(block), indent)
+              elseif list_prefix(block[1]) then
+                wrapped = wrap_list(block)
+              end
+
+              for _, l in ipairs(wrapped or block) do
+                out[#out + 1] = l
               end
             end
           end
