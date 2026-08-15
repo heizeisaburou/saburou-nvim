@@ -116,7 +116,8 @@ Dentro de cualquier nota (`<leader>` es la barra espaciadora):
 | `]o` / `[o`  | Siguiente / anterior enlace de la nota                                          |
 | `<leader>nn` | Nueva nota                                                                      |
 | `<leader>nr` | Renombrar la nota o el heading bajo el cursor (actualiza sus enlaces)           |
-| `<leader>ns` | Cambiar rápido de nota                                                          |
+| `<leader>nq` | Cambiar rápido de nota                                                          |
+| `<leader>ns` | Copia inteligente: copia lo que hay bajo el cursor                              |
 | `<leader>nb` | Qué notas enlazan a la actual                                                   |
 | `<leader>nl` | Enlazar la selección a una nota nueva                                           |
 | `<leader>nL` | Enlazar a una nota existente                                                    |
@@ -282,6 +283,20 @@ basename interno deja de ser seguro por una colisión, se amplía al path de vau
 los registros `"` y `0` de Neovim, sin añadir un salto de línea. Sobre un enlace copia la nota o
 adjunto de destino; fuera de un enlace copia la nota actual. No fuerza el clipboard del sistema:
 la sincronización global de Neovim o `<leader>cs` se ocupan de ello cuando interesa.
+
+`<leader>ns` (`:NyabsidianSmartCopy`) copia, con el mismo yank characterwise, lo que haya bajo el
+cursor, de lo más específico a lo más general:
+
+1. Código: el contenido de un `` `code span` `` o el cuerpo de un bloque de código —fence o
+   sangrado—, sin los delimitadores, sin la sangría del propio bloque y sin el salto de línea
+   final. Va primero: dentro de código no hay enlaces ni negritas, solo texto literal.
+2. El componente exacto del enlace hovereado: label, nota o adjunto de destino, URL, descripción
+   o id de referencia, ya sin llaves ni paréntesis.
+3. El contenido de una negrita, cursiva o negrita-cursiva, sin sus marcadores.
+4. Sobre la línea de un heading, un `[[Nota#anchor]]` listo para pegar.
+
+Si el cursor está sobre texto plano y no hay nada puntual que copiar, copia `[[Nota]]` de la nota
+actual en lugar de dejar la tecla vacía.
 
 `<leader>nC` (`:NyabsidianConvertLink`) cambia únicamente la referencia bajo el cursor. No modifica
 otros enlaces de la nota ni del vault. El selector ofrece solo representaciones válidas:

@@ -132,7 +132,7 @@ local NOTE_KEYMAPS = {
   { "<leader>nc", "NyabsidianCopyPath", "Nyabsidian: copiar path absoluto" },
   { "<leader>nC", "NyabsidianConvertLink", "Nyabsidian: cambiar formato del enlace" },
   { "<leader>nu", "NyabsidianFetchTitle", "Nyabsidian: usar el título de la web como etiqueta" },
-  { "<leader>ns", "NyabsidianSmartCopy", "Nyabsidian: copia inteligente (enlace/negrita-cursiva/header)" },
+  { "<leader>ns", "NyabsidianSmartCopy", "Nyabsidian: copia inteligente (código/enlace/...)" },
 }
 
 --- Keymaps buffer-local para notas. Se llaman por buffer (idempotente).

@@ -1790,6 +1790,57 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal("Display Label", copy_at(1, label_col))
     end)
 
+    -- Igual que en el test de negrita/cursiva: este arnés no dispara el
+    -- highlight que en uso real ya deja el árbol (y sus inyecciones)
+    -- parseado, así que se fuerza.
+    local function start_treesitter()
+      vim.bo[0].filetype = "markdown"
+      vim.treesitter.start(0, "markdown")
+      vim.treesitter.get_parser(0, "markdown"):parse(true)
+    end
+
+    it("copies the content of an inline code span, backticks aside", function()
+      write("source.md", {
+        "Corre `git status` y ``con ` dentro`` y `` [[nota]] `` al final.",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      start_treesitter()
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local function mid(pattern)
+        local s, e = line:find(pattern, 1, true)
+        return math.floor((s + e) / 2)
+      end
+      assert.are.equal("git status", copy_at(1, mid "git status"))
+      assert.are.equal("con ` dentro", copy_at(1, mid "con ` dentro"))
+      -- Dentro de código no hay enlace que seguir, solo texto literal.
+      assert.are.equal("[[nota]]", copy_at(1, mid "[[nota]]"))
+    end)
+
+    it("copies the body of a code block without fences or trailing newline", function()
+      write("source.md", {
+        "Antes",
+        "",
+        "```lua",
+        "local x = 1",
+        "    return x",
+        "```",
+        "",
+        "- item",
+        "  ```sh",
+        "  echo hola",
+        "  echo adios",
+        "  ```",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      start_treesitter()
+      -- Desde el cuerpo, desde la línea del fence y desde el cierre.
+      assert.are.equal("local x = 1\n    return x", copy_at(4, 3))
+      assert.are.equal("local x = 1\n    return x", copy_at(3, 1))
+      assert.are.equal("local x = 1\n    return x", copy_at(6, 1))
+      -- En una lista, la sangría del fence no es del código.
+      assert.are.equal("echo hola\necho adios", copy_at(10, 4))
+    end)
+
     it("copies bold/italic/bold-italic content without the markers", function()
       write("source.md", {
         "Bold ***hola*** and **soloBold** and *soloItalic* and __underBold__ and _underItalic_.",

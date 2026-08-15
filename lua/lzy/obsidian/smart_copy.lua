@@ -1,13 +1,19 @@
 -- Copia inteligente: qué copiar depende de qué hay bajo el cursor.
 --
 -- Orden de prioridad (el más específico gana):
---   1. Enlace: el componente exacto que se está hovereando (label, target/
+--   1. Código: el contenido sin delimitadores, tanto inline (`` `x` `` ->
+--      `x`) como de bloque (fence o sangrado -> su cuerpo, sin las líneas
+--      de ``` ni el salto de línea final, y sin la sangría del fence).
+--      Va primero a propósito: dentro de código no hay enlaces ni negritas
+--      que copiar, solo texto literal, y el parseo de enlaces es por línea
+--      (`` `[[x]]` `` se vería como un enlace de verdad).
+--   2. Enlace: el componente exacto que se está hovereando (label, target/
 --      nota, url, descripción, id de referencia...), ya sin llaves ni
 --      paréntesis alrededor -- reusa lzy.obsidian.links.cursor_context(),
 --      que ya distingue esto para hover/rename/follow.
---   2. Negrita/cursiva/negrita-cursiva: el contenido sin los delimitadores
+--   3. Negrita/cursiva/negrita-cursiva: el contenido sin los delimitadores
 --      (`***hola***` -> `hola`, en cualquier combinación de `*`/`_`).
---   3. Línea de heading: `[[NombreDeNota#anchor]]`, listo para pegar --
+--   4. Línea de heading: `[[NombreDeNota#anchor]]`, listo para pegar --
 --      mismo criterio de desambiguación de nombre que "Más corto seguro"
 --      en NyabsidianConvertLink, mismo algoritmo de slug que usan los
 --      enlaces `#anchor` del resto del plugin.
@@ -52,6 +58,153 @@ local function strip_emphasis_markup(text)
   return text
 end
 
+-- Nodo bajo el cursor. `descend` baja a los árboles inyectados: hace falta
+-- para lo que vive en markdown_inline (emphasis, code_span) y estorba para
+-- lo que vive en el árbol de `markdown` (los bloques de código, cuyo cuerpo
+-- es otro árbol inyectado si el fence declara lenguaje).
+--
+---@param bufnr integer
+---@param row0 integer 0-based
+---@param col integer 0-based
+---@param descend boolean
+---@return TSNode|?
+local function node_at(bufnr, row0, col, descend)
+  local ok, node = pcall(vim.treesitter.get_node, {
+    bufnr = bufnr,
+    pos = { row0, col },
+    ignore_injections = not descend,
+  })
+  if not ok then
+    return nil
+  end
+  return node
+end
+
+--- Primer ancestro (el propio nodo cuenta) cuyo tipo esté en `types`.
+---@param node TSNode|?
+---@param types table<string, true>
+---@return TSNode|?
+local function ancestor(node, types)
+  local n = node
+  while n do
+    if types[n:type()] then
+      return n
+    end
+    n = n:parent()
+  end
+  return nil
+end
+
+--- Contenido de un code span (`` `x` ``, ``` ``con ` dentro`` ```) sin sus
+--- backticks.
+---@param bufnr integer
+---@param row0 integer 0-based
+---@param col integer 0-based
+---@return string|?
+local function inline_code_at_cursor(bufnr, row0, col)
+  local span = ancestor(node_at(bufnr, row0, col, true), { code_span = true })
+  if not span then
+    return nil
+  end
+
+  local ok, raw = pcall(vim.treesitter.get_node_text, span, bufnr)
+  if not ok or type(raw) ~= "string" then
+    return nil
+  end
+
+  local ticks = raw:match "^`+"
+  if not ticks or #raw <= #ticks * 2 or raw:sub(-#ticks) ~= ticks then
+    return nil
+  end
+
+  local inner = raw:sub(#ticks + 1, -#ticks - 1)
+
+  -- CommonMark: el espacio de cortesía de cada lado no es contenido
+  -- (`` ` `x` ` `` -> "`x`"), salvo que el contenido sean solo espacios.
+  if inner:sub(1, 1) == " " and inner:sub(-1) == " " and inner:match "[^ ]" then
+    inner = inner:sub(2, -2)
+  end
+
+  return inner ~= "" and inner or nil
+end
+
+--- Sangría común de las líneas con contenido.
+---@param lines string[]
+---@return integer
+local function common_indent(lines)
+  local indent
+  for _, line in ipairs(lines) do
+    if line:match "%S" then
+      local lead = #(line:match "^[ \t]*")
+      if not indent or lead < indent then
+        indent = lead
+      end
+    end
+  end
+  return indent or 0
+end
+
+--- Cuerpo de un bloque de código (fence o sangrado) bajo el cursor, sin los
+--- delimitadores, sin la sangría del propio bloque y sin el salto de línea
+--- final. El cursor vale en cualquier parte del bloque, líneas de ``` y
+--- `info string` incluidas.
+---@param bufnr integer
+---@param row0 integer 0-based
+---@param col integer 0-based
+---@return string|?
+local function block_code_at_cursor(bufnr, row0, col)
+  local block = ancestor(
+    node_at(bufnr, row0, col, false),
+    { fenced_code_block = true, indented_code_block = true }
+  )
+  if not block then
+    return nil
+  end
+
+  local content, fence_indent = block, nil
+  if block:type() == "fenced_code_block" then
+    content = nil
+    for child in block:iter_children() do
+      if child:type() == "code_fence_content" then
+        content = child
+        break
+      end
+    end
+    if not content then
+      return nil -- fence vacío
+    end
+    -- El cuerpo arrastra la sangría del propio fence (p. ej. un bloque
+    -- dentro de un ítem de lista); esa no es del código. La primera línea
+    -- ya viene sin ella: el nodo empieza en su columna.
+    fence_indent = select(2, block:range())
+  end
+
+  local ok, raw = pcall(vim.treesitter.get_node_text, content, bufnr)
+  if not ok or type(raw) ~= "string" then
+    return nil
+  end
+
+  local lines = vim.split(raw, "\n", { plain = true })
+  local first = fence_indent and 2 or 1
+  local indent = fence_indent or common_indent(lines)
+
+  for index = first, #lines do
+    local lead = #(lines[index]:match "^[ \t]*")
+    lines[index] = lines[index]:sub(math.min(lead, indent) + 1)
+  end
+
+  -- Fuera el salto de línea final (y la sangría suelta de la línea de
+  -- cierre, que el nodo de contenido se lleva puesta).
+  while #lines > 0 and not lines[#lines]:match "%S" do
+    table.remove(lines)
+  end
+  if #lines == 0 then
+    return nil
+  end
+
+  return table.concat(lines, "\n")
+end
+
 ---@param bufnr integer
 ---@param row0 integer 0-based
 ---@param col integer 0-based
@@ -60,9 +213,8 @@ local function emphasis_at_cursor(bufnr, row0, col)
   -- markdown_inline (donde viven emphasis/strong_emphasis) es un árbol
   -- inyectado dentro del árbol de `markdown`; get_node() no baja ahí solo
   -- porque sí, hay que pedirlo explícitamente.
-  local ok, node =
-    pcall(vim.treesitter.get_node, { bufnr = bufnr, pos = { row0, col }, ignore_injections = false })
-  if not ok or not node then
+  local node = node_at(bufnr, row0, col, true)
+  if not node then
     return nil
   end
 
@@ -162,10 +314,28 @@ function M.smart_copy(opts)
 
   local function finish(text, what)
     copy(text)
-    notify(("Copiado (%s): %s"):format(what, text))
+    -- Un bloque entero en la notificación no se lee; basta con saber qué se
+    -- copió y cuánto.
+    local first = text:match "^[^\n]*"
+    local count = select(2, text:gsub("\n", "")) + 1
+    local shown = count > 1 and ("%s… (%d líneas)"):format(first, count) or text
+    notify(("Copiado (%s): %s"):format(what, shown))
   end
 
-  -- 1. Enlace bajo el cursor.
+  -- 1. Código bajo el cursor: inline primero, que es lo más específico.
+  --    Va antes que los enlaces porque dentro de código no hay enlaces que
+  --    seguir, solo texto literal.
+  local inline_code = inline_code_at_cursor(bufnr, row0, col)
+  if inline_code then
+    return finish(inline_code, "código")
+  end
+
+  local block_code = block_code_at_cursor(bufnr, row0, col)
+  if block_code then
+    return finish(block_code, "bloque de código")
+  end
+
+  -- 2. Enlace bajo el cursor.
   local ok_links, links = pcall(require, "lzy.obsidian.links")
   if ok_links and links.cursor_context then
     local ok_ctx, ctx = pcall(links.cursor_context)
@@ -174,19 +344,19 @@ function M.smart_copy(opts)
     end
   end
 
-  -- 2. Negrita/cursiva/negrita-cursiva bajo el cursor.
+  -- 3. Negrita/cursiva/negrita-cursiva bajo el cursor.
   local emphasis_text = emphasis_at_cursor(bufnr, row0, col)
   if emphasis_text then
     return finish(emphasis_text, "formato")
   end
 
-  -- 3. Línea de heading.
+  -- 4. Línea de heading.
   local heading_link = heading_link_at_cursor(bufnr, row0)
   if heading_link then
     return finish(heading_link, "header")
   end
 
-  -- 4. Nada bajo el cursor: en vez de dejar la tecla "vacía", copiar un
+  -- 5. Nada bajo el cursor: en vez de dejar la tecla "vacía", copiar un
   --    enlace a la nota actual entera.
   local self_link = self_note_link(bufnr)
   if self_link then
