@@ -4,9 +4,9 @@
 
 ![Vista previa](docs/preview.png)
 
-`saburou-nvim` es mi configuración de [Neovim](https://neovim.io/). Es una configuración opinionada, y estamos en una
-fase en la que ya principalmente nos centramos en la corrección de bugs. En paralelo ha empezado
-una refactorización completa que esperamos que no tarde demasiado en llegar.
+`saburou-nvim` es mi configuración de _**Neovim**_. Es una configuración opinionada que ha
+alcanzado una fase en la que principalmente me ocupo de arreglar bugs o dar soporte a lenguajes
+de programación diversos.
 
 Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
 
@@ -15,6 +15,8 @@ Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [!
 ### Pre-requisitos
 
 ### Imprescindibles
+
+#working-on-this
 
 - **[Neovim](https://neovim.io/) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim
   0.12. No se garantiza compatibilidad con versiones anteriores ni futuras.
