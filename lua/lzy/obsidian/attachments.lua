@@ -540,6 +540,102 @@ function M.is_target(location, opts)
   return result.status == "resolved"
 end
 
+---El destino de un `](...)` cuyo contenido empieza en `from`.
+---@param line string
+---@param from integer índice 1-based del primer carácter del destino
+---@return string|nil target
+---@return integer|nil start 1-based
+---@return integer|nil finish 1-based, último carácter del destino
+---@return integer|nil close 1-based, el `)` que cierra
+local function inline_destination(line, from)
+  local escaped = false
+  if line:sub(from, from) == "<" then
+    for idx = from + 1, #line do
+      local char = line:sub(idx, idx)
+      if char == ">" and not escaped then
+        local close = line:find(")", idx + 1, true)
+        return line:sub(from + 1, idx - 1), from + 1, idx - 1, close
+      end
+      escaped = char == "\\" and not escaped
+    end
+    return nil
+  end
+
+  local depth, idx = 0, from
+  while idx <= #line do
+    local char = line:sub(idx, idx)
+    if not escaped then
+      if char == "(" then
+        depth = depth + 1
+      elseif char == ")" then
+        if depth == 0 then
+          break
+        end
+        depth = depth - 1
+      elseif char:match "%s" then
+        break -- a partir de aquí empieza el título
+      end
+    end
+    escaped = char == "\\" and not escaped
+    idx = idx + 1
+  end
+
+  if idx == from then
+    return nil
+  end
+  local close = line:find(")", idx, true)
+  return line:sub(from, idx - 1), from, idx - 1, close
+end
+
+---Los enlaces que envuelven una imagen: `[![alt](img)](url)`, el patrón de los
+---badges. A la vista es una sola cosa —y así se pinta, con un icono, ver
+---lzy.render-markdown.links— pero son dos destinos: la imagen, que es el
+---adjunto, y el enlace que la envuelve. obsidian.nvim solo devuelve la imagen,
+---así que el destino de fuera quedaba invisible para follow, convert y las
+---reescrituras de rename.
+---@param line string
+---@param row integer
+---@param refs table[] los refs ya encontrados; se añaden al final
+local function add_linked_images(line, row, refs)
+  -- Los de fuera van después a propósito: donde los dos se solapan manda la
+  -- imagen, que es lo que se está viendo.
+  for index = 1, #refs do
+    local ref = refs[index]
+    if
+      ref.kind == "markdown"
+      and ref.embed
+      and ref.range.start_row == ref.range.end_row
+      and ref.range.start_col >= 1
+      and line:sub(ref.range.start_col, ref.range.start_col) == "["
+      and line:sub(ref.range.end_col + 1, ref.range.end_col + 2) == "]("
+    then
+      local target, start, finish, close = inline_destination(line, ref.range.end_col + 3)
+      if target and close then
+        refs[#refs + 1] = {
+          kind = "markdown",
+          embed = false,
+          raw = line:sub(ref.range.start_col, close),
+          range = {
+            start_row = row,
+            start_col = ref.range.start_col - 1,
+            end_row = row,
+            end_col = close,
+          },
+          target = require("obsidian.util").unescape_single_backslash(target),
+          raw_target = target,
+          target_range = { start_col = start - 1, end_col = finish },
+          -- La etiqueta de este enlace es la imagen entera; su texto
+          -- alternativo es lo único legible que hay.
+          label = ref.raw:match "^!%[(.-)%]" or "",
+          -- Dónde está el destino de esa imagen: la única parte de la
+          -- construcción donde manda ella y no el enlace. Ver `cursor_linked_image`.
+          image_target_range = ref.target_range,
+        }
+      end
+    end
+  end
+end
+
 ---@param line string
 ---@param row integer|?
 ---@return table[] refs
@@ -718,6 +814,8 @@ function M.parse_refs(line, row)
       })
     end
   end
+
+  add_linked_images(line, row, refs)
   return refs
 end
 
@@ -736,6 +834,34 @@ function M.cursor_ref(bufnr)
       and col < ref.range.end_col
       and M.is_target(ref.target, { bufnr = bufnr })
     then
+      return ref
+    end
+  end
+end
+
+---El enlace exterior de un enlace-imagen (`[![alt](img)](url)`, el patrón de
+---los badges) cuando el cursor está sobre él.
+---
+---A la vista es una sola cosa, pero son dos destinos solapados, y manda el de
+---fuera: la imagen es la etiqueta en la que se hace clic, no el destino —es lo
+---que significa la sintaxis y lo que hace cualquier renderizador—. La imagen
+---sigue siendo alcanzable en el único sitio donde se la pide a propósito: su
+---propio destino.
+---@param bufnr integer|?
+---@return table|nil
+function M.cursor_linked_image(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  if not context { bufnr = bufnr } then
+    return nil
+  end
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
+  for _, ref in ipairs(M.parse_refs(line, row - 1)) do
+    local image = ref.image_target_range
+    if image and ref.range.start_col <= col and col < ref.range.end_col then
+      if image.start_col <= col and col < image.end_col then
+        return nil -- sobre el destino de la imagen: se pide la imagen
+      end
       return ref
     end
   end
@@ -787,7 +913,11 @@ function M.open_under_cursor(bufnr)
   if not M.in_vault(bufnr) then
     return false
   end
-  local ref = M.cursor_ref(bufnr) or require("lzy.obsidian.links").cursor_ref(bufnr)
+  -- Un enlace-imagen manda sobre la imagen que le hace de etiqueta: ver
+  -- cursor_linked_image. obsidian.nvim solo ve la imagen, así que sin esto `gx`
+  -- sobre un badge abría el SVG en vez del enlace.
+  local badge = M.cursor_linked_image(bufnr)
+  local ref = badge or M.cursor_ref(bufnr) or require("lzy.obsidian.links").cursor_ref(bufnr)
   local target = ref and (ref.raw_target or ref.target) or nil
   if target and M.is_target(target, { bufnr = bufnr }) then
     return M.follow(target, { bufnr = bufnr })
@@ -795,10 +925,15 @@ function M.open_under_cursor(bufnr)
 
   -- `gx` también conserva el flujo de URLs del vault sin caer en el módulo
   -- antiguo de Marksman. `cursor_link()` incluye nuestro parche de <https://>.
-  local link = require("obsidian.api").cursor_link()
-  if link then
-    local location = require("obsidian.util").parse_link(link)
-    local is_uri, scheme = require("obsidian.util").is_uri(location or "")
+  local location
+  if badge then
+    location = badge.target
+  else
+    local link = require("obsidian.api").cursor_link()
+    location = link and require("obsidian.util").parse_link(link) or nil
+  end
+  if location then
+    local is_uri, scheme = require("obsidian.util").is_uri(location)
     if is_uri and scheme ~= "file" then
       vim.ui.open(location)
       return true

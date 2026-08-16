@@ -94,6 +94,12 @@ local function parse_link(s, i, opts)
   local n = #s
   local j = i + 1
   local label_width = 0
+  -- Índice del `)` de una imagen que empieza justo al principio del label. Si
+  -- al llegar al cierre resulta que la imagen era TODO el label, estamos ante
+  -- un enlace-imagen (`[![alt](img)](url)`, el patrón de los badges): una sola
+  -- cosa, con un solo icono, el de imagen. Ver `linked_image` en
+  -- lzy.render-markdown.links.
+  local image_end
 
   while j <= n do
     local c = s:sub(j, j)
@@ -102,6 +108,22 @@ local function parse_link(s, i, opts)
       -- Escapado: `\[`, `\]`... cuenta como un carácter visible.
       label_width = label_width + char_width(s, j + 1)
       j = j + 1 + char_len(s, j + 1)
+    elseif c == "!" and s:sub(j + 1, j + 1) == "[" and s:sub(j + 2, j + 2) ~= "[" then
+      -- Una imagen dentro del label: su `]` no cierra el enlace de fuera.
+      local inner, stop = parse_link(s, j + 1, {
+        bufnr = opts and opts.bufnr,
+        icons = false,
+      })
+      if inner then
+        if j == i + 1 then
+          image_end = stop
+        end
+        label_width = label_width + inner + icon_width("image", opts)
+        j = stop + 1
+      else
+        label_width = label_width + 1
+        j = j + 1
+      end
     elseif c == "]" then
       local after = s:sub(j + 1, j + 1)
 
@@ -110,7 +132,9 @@ local function parse_link(s, i, opts)
         if close then
           local body = vim.trim(s:sub(j + 2, close - 1))
           local destination = body:match "^<([^>]*)>" or body:match "^([^%s]+)"
-          return label_width + icon_width("link", opts, destination), close, "inline", destination
+          -- El icono de imagen ya está contado; el enlace no añade otro.
+          local icon = image_end == j - 1 and 0 or icon_width("link", opts, destination)
+          return label_width + icon, close, "inline", destination
         end
         return nil
       end

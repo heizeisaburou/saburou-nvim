@@ -451,6 +451,17 @@ local function make_opts()
     legacy_commands = false,
     workspaces = workspace_specs(state.roots),
 
+    -- El default de obsidian.nvim es `zettel_id`: el nombre que tecleas no
+    -- llega a ser el id de la nota, solo su etiqueta, así que el enlace que se
+    -- inserta acaba siendo `[[1786869003-VDUY|lo que escribiste]]`. Con
+    -- `title_id` el id es el slug del título, el archivo se llama igual y el
+    -- enlace es legible. Solo afecta a notas nuevas.
+    --
+    -- Crear desde un enlace ya escrito (`lzy.obsidian.new_note`) sigue siendo
+    -- verbatim a propósito: ahí el nombre ya está en el buffer y slugificarlo
+    -- rompería el enlace que lo pidió.
+    note_id_func = require("obsidian.builtin").title_id,
+
     -- Default de obsidian.nvim es { " ", "~", "!", ">", "x" }: pone "~"
     -- justo después de "[ ]", antes que "x". Poco natural para toggle
     -- normal ([ ] -> [x]); "x" va segundo, igual que en marksman

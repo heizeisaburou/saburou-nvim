@@ -1,12 +1,6 @@
 local M = {}
 local cache = {}
 
-local function encode_path(path)
-	return path:gsub("[^/]+", function(part)
-		return vim.uri_encode(part)
-	end)
-end
-
 local function has_marksman(bufnr)
 	return #vim.lsp.get_clients({ bufnr = bufnr, name = "marksman" }) > 0
 end
@@ -123,49 +117,62 @@ function M.source()
 			return callback({ isIncomplete = false, items = {} })
 		end
 
+		local coord = require("lzy.link_target")
 		local query = vim.uri_decode(ctx.query) or ctx.query
-		local needle = query:gsub("^%.?%./", "")
-		needle = needle:gsub("^/", "")
-		needle = vim.fn.tolower(needle)
+		local needle = vim.fn.tolower(coord.needle(query))
 		-- Una coordenada explícita ya expresa intención suficiente. En concreto,
 		-- `/` debe listar las notas de la raíz inmediatamente, no dejar visibles
 		-- únicamente los directorios que devuelve la completion nativa.
-		local explicit_coordinate = vim.startswith(query, "/")
-			or vim.startswith(query, "./")
-			or vim.startswith(query, "../")
-		if not explicit_coordinate and #vim.fs.basename(needle):gsub("%.md$", "") < 2 then
+		if not coord.is_explicit(query) and #vim.fs.basename(needle):gsub("%.md$", "") < 2 then
 			return callback({ isIncomplete = true, items = {} })
 		end
 
-		local workspace = require("lzy.marksman.workspace")
+		local source_dir = vim.fs.dirname(source_path)
 		local items = {}
+		local function range()
+			return {
+				start = { line = ctx.row, character = ctx.range.start_col },
+				["end"] = { line = ctx.row, character = ctx.range.end_col },
+			}
+		end
+
+		-- Una carpeta no es destino, pero es el camino: sin ella `[[/` no ofrece
+		-- nada hasta acertar a ciegas el nombre del archivo. Las notas del nivel
+		-- ya las pone el índice del proyecto, más abajo.
+		for _, dir in ipairs(coord.entries(query, root)) do
+			local target = coord.encode(dir.target)
+			items[#items + 1] = {
+				label = target,
+				filterText = target,
+				detail = dir.scope == "system" and "Carpeta del sistema" or "Carpeta del proyecto",
+				kind = vim.lsp.protocol.CompletionItemKind.Folder,
+				textEdit = { newText = target, range = range() },
+			}
+		end
+
 		for _, path in ipairs(project_notes(root)) do
 			local root_relative = assert(vim.fs.relpath(root, path))
 			local searchable = vim.fn.tolower(root_relative)
 			if searchable:find(needle, 1, true) then
 				local target
-				if vim.startswith(query, "./") or vim.startswith(query, "../") then
-					target = workspace.relative(path, vim.fs.dirname(source_path))
-					if vim.startswith(query, "./") and not vim.startswith(target, ".") then
-						target = "./" .. target
-					end
+				if coord.coordinate(query) == coord.NOTE_RELATIVE then
+					target = coord.note_relative(path, source_dir, query)
 				else
 					target = "/" .. root_relative
 				end
-				target = encode_path(target)
-				items[#items + 1] = {
-					label = target,
-					filterText = root_relative,
-					detail = "Nota del proyecto Marksman",
-					kind = vim.lsp.protocol.CompletionItemKind.File,
-					textEdit = {
-						newText = target,
-						range = {
-							start = { line = ctx.row, character = ctx.range.start_col },
-							["end"] = { line = ctx.row, character = ctx.range.end_col },
-						},
-					},
-				}
+				if target then
+					target = coord.encode(target)
+					items[#items + 1] = {
+						label = target,
+						-- Debe hablar el idioma de la coordenada tecleada: filtrar
+						-- `/docs` contra `docs/api.md` da score 0 en cmp y el item
+						-- desaparece, que es el síntoma de "empezar por / no hace nada".
+						filterText = coord.filter_text(query, target, root_relative),
+						detail = "Nota del proyecto Marksman",
+						kind = vim.lsp.protocol.CompletionItemKind.File,
+						textEdit = { newText = target, range = range() },
+					}
+				end
 			end
 		end
 		callback({ isIncomplete = true, items = items })

@@ -244,6 +244,76 @@ function M.parse_markdown(ctx)
   return marks
 end
 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- ― Enlace-imagen: `[![alt](img)](url)`
+-- ─────────────────────────────────────────────────────────────────────────────
+--
+-- El patrón de los badges. Es una sola cosa —una imagen que además enlaza—,
+-- pero para tree-sitter son dos nodos anidados: el `inline_link` y, dentro de
+-- su texto, la `image`. render-markdown.nvim pinta un icono por nodo, así que
+-- salían dos pegados, como si fueran dos enlaces distintos. Se deja uno solo, y
+-- es el de imagen: la etiqueta que se ve es la imagen, no un texto.
+--
+-- `hzsr.md` mide con este mismo criterio (ver `image_end` en `parse_link`), que
+-- es lo que hace que los formateadores no destrocen la línea.
+
+---@param node render.md.Node
+---@return render.md.Node|nil image la imagen que ocupa TODO el texto del enlace
+local function whole_label_image(node)
+  local text = node:child "link_text"
+  if not text then
+    return nil
+  end
+  local image = text:child "image"
+  if
+    image
+    and image.start_row == text.start_row
+    and image.start_col == text.start_col
+    and image.end_row == text.end_row
+    and image.end_col == text.end_col
+  then
+    return image
+  end
+end
+
+---@param node render.md.Node
+---@return boolean
+local function is_labelling_image(node)
+  local link = node:parent "inline_link"
+  local image = link and whole_label_image(link)
+  return image ~= nil and image.start_col == node.start_col and image.start_row == node.start_row
+end
+
+--- Un icono por enlace-imagen, no dos.
+---@diagnostic disable: invisible
+function M.patch_linked_images()
+  local Render = require "render-markdown.render.inline.link"
+  if Render.__nyabsidian_linked_image then
+    return
+  end
+  local original = Render.setup
+  Render.setup = function(self)
+    -- La imagen calla: el icono lo pone el enlace que la envuelve, y así queda
+    -- al principio de la construcción entera y no a mitad.
+    if self.node.type == "image" and is_labelling_image(self.node) then
+      return false
+    end
+    local enabled = original(self)
+    if enabled and self.node.type == "inline_link" and whole_label_image(self.node) then
+      -- Salvo que el destino tenga icono propio configurado, que manda.
+      if self.data.icon[1] == self.config.hyperlink then
+        self.data.icon[1] = self.config.image
+      end
+    end
+    return enabled
+  end
+  ---@diagnostic disable-next-line: inject-field
+  Render.__nyabsidian_linked_image = true
+end
+---@diagnostic enable: invisible
+
+M.whole_label_image = whole_label_image
+
 ---@param kind "wiki"|"link"|"image"|"email"
 ---@param bufnr integer|nil
 ---@param destination string|nil

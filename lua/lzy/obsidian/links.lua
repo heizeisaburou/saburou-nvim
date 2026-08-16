@@ -689,14 +689,24 @@ local function patch_action_follow()
   actions.follow_link = function(link, opts)
     local attachments = require "lzy.obsidian.attachments"
     local bufnr = vim.api.nvim_get_current_buf()
-    local ref
+    local ref, badge
     if link then
       ref = attachments.parse_refs(link, 0)[1]
     else
-      ref = attachments.cursor_ref(bufnr)
+      -- Un enlace-imagen manda sobre la imagen que le hace de etiqueta: ver
+      -- cursor_linked_image.
+      badge = attachments.cursor_linked_image(bufnr)
+      ref = badge or attachments.cursor_ref(bufnr)
     end
     if ref and attachments.is_target(ref.target, { bufnr = bufnr }) then
       return attachments.follow(ref.target, { bufnr = bufnr, notify = notify })
+    end
+    if badge then
+      -- Volver a `original` con el buffer tal cual haría que obsidian.nvim
+      -- reparsease y viera otra vez solo la imagen. Se le da el enlace ya
+      -- resuelto, con la misma forma que espera.
+      local label = badge.label ~= "" and badge.label or badge.target
+      return original(("[%s](%s)"):format(label, badge.target), opts)
     end
     return original(link, opts)
   end

@@ -568,6 +568,136 @@ describe("Marksman adapter", function()
 		vim.api.nvim_buf_delete(bufnr, { force = true })
 	end)
 
+	it("filters with the coordinate that was typed, so cmp keeps the item", function()
+		-- El filtro se puntúa contra lo tecleado, coordenada incluida: filtrar
+		-- "/docs" contra "docs/api.md" da score 0 en cmp y el item desaparece,
+		-- que es el síntoma de "empezar por / no ofrece nada".
+		write("docs/api.md", { "# Api" })
+		local source_path = write("notes/source.md", { "[[/docs" })
+		local bufnr = vim.api.nvim_create_buf(true, false)
+		vim.api.nvim_buf_set_name(bufnr, source_path)
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "[[/docs" })
+		vim.api.nvim_set_current_buf(bufnr)
+		vim.bo[bufnr].filetype = "markdown"
+		vim.cmd("startinsert!")
+		vim.api.nvim_win_set_cursor(0, { 1, 6 })
+
+		local result
+		require("lzy.marksman.completion").source():complete({}, function(value)
+			result = value
+		end)
+		local api = vim.iter(result.items):find(function(item)
+			return item.textEdit.newText == "/docs/api.md"
+		end)
+		assert.is_not_nil(api)
+		assert.are.equal("/docs/api.md", api.filterText)
+		-- Con nvim-cmp disponible se comprueba el efecto real: lo tecleado tiene
+		-- que puntuar contra el filtro. "/docs" contra "docs/api.md" daba 0.
+		local ok, matcher = pcall(require, "cmp.matcher")
+		if ok then
+			assert.is_true(matcher.match("/docs", api.filterText) > 0)
+			assert.are.equal(0, matcher.match("/docs", "docs/api.md"))
+		end
+
+		vim.cmd.stopinsert()
+		vim.api.nvim_buf_delete(bufnr, { force = true })
+	end)
+
+	it("offers the folders of both roots for [[/, so there is a way down the tree", function()
+		write("docs/api.md", { "# Api" })
+		write("docs/deep/nested.md", { "# Nested" })
+		local source_path = write("notes/source.md", { "[[/" })
+		local bufnr = vim.api.nvim_create_buf(true, false)
+		vim.api.nvim_buf_set_name(bufnr, source_path)
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "[[/" })
+		vim.api.nvim_set_current_buf(bufnr)
+		vim.bo[bufnr].filetype = "markdown"
+		vim.cmd("startinsert!")
+		vim.api.nvim_win_set_cursor(0, { 1, 3 })
+
+		local result
+		require("lzy.marksman.completion").source():complete({}, function(value)
+			result = value
+		end)
+		local function find(target)
+			return vim.iter(result.items):find(function(item)
+				return item.textEdit.newText == target
+			end)
+		end
+
+		-- La carpeta del proyecto, que es lo que faltaba: sin ella `[[/` no daba
+		-- nada hasta acertar a ciegas el nombre del archivo.
+		local docs = assert(find("/docs/"), "no folder from the project root")
+		assert.are.equal("Carpeta del proyecto", docs.detail)
+		assert.are.equal(vim.lsp.protocol.CompletionItemKind.Folder, docs.kind)
+		assert.are.same({ line = 0, character = 2 }, docs.textEdit.range.start)
+		-- Y las del sistema: la barra es ambigua a propósito.
+		assert.is_not_nil(
+			vim.iter(result.items):find(function(item)
+				return item.detail == "Carpeta del sistema"
+			end),
+			"no folder from the system root"
+		)
+		-- Las notas siguen ahí; la carpeta no las sustituye.
+		assert.is_not_nil(find("/docs/api.md"))
+		-- Solo el primer nivel: bajar es tarea del siguiente `/`.
+		assert.is_nil(find("/docs/deep/"))
+
+		vim.cmd.stopinsert()
+		vim.api.nvim_buf_delete(bufnr, { force = true })
+	end)
+
+	it("keeps descending once a folder has been accepted", function()
+		write("docs/deep/nested.md", { "# Nested" })
+		local source_path = write("notes/source.md", { "[[/docs/" })
+		local bufnr = vim.api.nvim_create_buf(true, false)
+		vim.api.nvim_buf_set_name(bufnr, source_path)
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "[[/docs/" })
+		vim.api.nvim_set_current_buf(bufnr)
+		vim.bo[bufnr].filetype = "markdown"
+		vim.cmd("startinsert!")
+		vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+		local result
+		require("lzy.marksman.completion").source():complete({}, function(value)
+			result = value
+		end)
+		local deep = vim.iter(result.items):find(function(item)
+			return item.textEdit.newText == "/docs/deep/"
+		end)
+		assert.is_not_nil(deep)
+
+		vim.cmd.stopinsert()
+		vim.api.nvim_buf_delete(bufnr, { force = true })
+	end)
+
+	it("resolves a root-relative target as a system path when the project has no such file", function()
+		local inside = write("docs/api.md", { "# Api" })
+		local outside = vim.fn.tempname() .. ".md"
+		vim.fn.writefile({ "# Outside" }, outside)
+		local source_path = write("notes/source.md", { "x" })
+		local workspace = require("lzy.marksman.workspace")
+
+		assert.are.same(
+			{ vim.fs.normalize(inside) },
+			workspace.resolve("/docs/api.md", { source_path = source_path, root = root })
+		)
+		-- No cuelga del proyecto: la barra vale como ruta absoluta del sistema.
+		assert.are.same(
+			{ vim.fs.normalize(outside) },
+			workspace.resolve(outside, { source_path = source_path, root = root })
+		)
+		vim.fn.delete(outside)
+	end)
+
+	it("reaches a sibling directory through ../, which vim.fs.relpath cannot express", function()
+		local coord = require("lzy.link_target")
+		assert.are.equal("../docs/x.md", coord.relative("/a/b/docs/x.md", "/a/b/notes"))
+		assert.is_nil(vim.fs.relpath("/a/b/notes", "/a/b/docs/x.md"))
+		assert.are.equal("../docs/x.md", coord.note_relative("/a/b/docs/x.md", "/a/b/notes", "../"))
+		assert.are.equal("./sub/x.md", coord.note_relative("/a/b/notes/sub/x.md", "/a/b/notes", "./"))
+	end)
+
 	it("collects only unambiguous structural backlinks, including CommonMark uses", function()
 		local target = write("target.md", { "# Target" })
 		write("notes/target.md", { "# Homonym" })

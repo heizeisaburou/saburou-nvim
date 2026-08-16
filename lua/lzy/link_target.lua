@@ -1,0 +1,239 @@
+-- Coordenadas de destino, compartidas por las completions de marksman y de
+-- obsidian. Las dos integraciones resuelven notas distintas y con buscadores
+-- distintos, pero la pregunta "según cómo has empezado a escribir el destino,
+-- ¿qué se busca y qué se inserta?" es exactamente la misma en ambas:
+--
+--   `/algo`   → desde la raíz del proyecto/vault; si ahí no existe, como ruta
+--               absoluta del sistema (la barra es ambigua a propósito)
+--   `./algo`  → relativo a la nota; `../algo` igual
+--   `algo`    → desnudo: lo resuelve el buscador de cada lado
+--
+-- Aquí vive solo esa parte común. Cada lado sigue decidiendo qué notas hay
+-- (find_notes_async en obsidian, workspace.files en marksman) y con qué
+-- codificador escribe el path.
+
+local M = {}
+
+M.ROOT = "root"
+M.NOTE_RELATIVE = "note_relative"
+M.BARE = "bare"
+
+---Cómo ha empezado a escribirse el destino.
+---@param query string
+---@return "root"|"note_relative"|"bare"
+function M.coordinate(query)
+  query = query or ""
+  if vim.startswith(query, "/") then
+    return M.ROOT
+  elseif vim.startswith(query, "./") or vim.startswith(query, "../") then
+    return M.NOTE_RELATIVE
+  end
+  return M.BARE
+end
+
+---Una coordenada escrita a mano ya expresa intención suficiente: `/` debe
+---listar la raíz en cuanto se teclea, sin esperar al mínimo de caracteres que
+---se le exige a una búsqueda desnuda.
+---@param query string
+---@return boolean
+function M.is_explicit(query)
+  return M.coordinate(query) ~= M.BARE
+end
+
+---El texto que de verdad se busca: la coordenada es sintaxis, no aguja.
+---@param query string
+---@return string
+function M.needle(query)
+  local stripped = (query or ""):gsub("^%.%./", ""):gsub("^%./", ""):gsub("^/", "")
+  return stripped
+end
+
+---Percent-encoding por segmento, conservando los separadores.
+---@param path string
+---@return string
+function M.encode(path)
+  return (path:gsub("[^/]+", function(segment)
+    return vim.uri_encode(segment)
+  end))
+end
+
+---Path relativo entre dos rutas absolutas.
+---
+---`vim.fs.relpath()` no sirve aquí: devuelve nil en cuanto el destino no cuelga
+---del directorio base, así que no puede expresar un hermano (`../otro/x.md`),
+---que es justo el caso normal al enlazar entre carpetas de notas.
+---@param path string destino absoluto
+---@param from_dir string directorio desde el que se mide
+---@return string
+function M.relative(path, from_dir)
+  path, from_dir = vim.fs.normalize(path), vim.fs.normalize(from_dir)
+  local function parts(value)
+    local result = {}
+    for part in value:gmatch "[^/]+" do
+      result[#result + 1] = part
+    end
+    return result
+  end
+  local target, source = parts(path), parts(from_dir)
+  local idx = 1
+  while target[idx] and source[idx] and target[idx] == source[idx] do
+    idx = idx + 1
+  end
+  local result = {}
+  for _ = idx, #source do
+    result[#result + 1] = ".."
+  end
+  for current = idx, #target do
+    result[#result + 1] = target[current]
+  end
+  return #result == 0 and "." or table.concat(result, "/")
+end
+
+---Destino relativo a la nota. `./` es una coordenada escrita a propósito: si el
+---destino sube de directorio ya empieza por `..` y se respeta, pero si baja hay
+---que devolvérselo con el `./` que se pidió.
+---@param path string destino absoluto
+---@param source_dir string directorio de la nota que enlaza
+---@param query string lo tecleado, para saber si pidió `./` o `../`
+---@return string
+function M.note_relative(path, source_dir, query)
+  local target = M.relative(path, source_dir)
+  if vim.startswith(query, "./") and not vim.startswith(target, ".") then
+    target = "./" .. target
+  end
+  return target
+end
+
+---Con qué texto debe filtrar el cliente de completion.
+---
+---Este es el punto que más se ha roto: nvim-cmp puntúa lo tecleado contra
+---`filterText`, y lo tecleado incluye la coordenada. Filtrar `/docs` contra
+---`docs/api.md` da score 0 y el item desaparece entero -- que es justo el
+---síntoma de "empezar por / no genera nada". El filtro tiene que hablar el
+---mismo idioma que la coordenada: con `/` se filtra contra el destino ya
+---prefijado, y desnudo contra el path relativo a la raíz.
+---@param query string
+---@param target string el destino que se insertaría
+---@param root_relative string el path del destino relativo a la raíz
+---@return string
+function M.filter_text(query, target, root_relative)
+  if M.coordinate(query) == M.BARE then
+    return root_relative
+  end
+  return target
+end
+
+-- Carpetas que nunca son destino de un enlace.
+local SKIP_DIRECTORIES = {
+  [".git"] = true,
+  [".hg"] = true,
+  [".svn"] = true,
+  ["node_modules"] = true,
+}
+
+M.MARKDOWN_EXTENSIONS = {
+  md = true,
+  markdown = true,
+  mdx = true,
+  mdown = true,
+  mkdn = true,
+  mkd = true,
+  qmd = true,
+  rmd = true,
+}
+
+---@param path string
+---@return boolean
+function M.is_markdown(path)
+  local ext = path:match "%.([^./\\]+)$"
+  return ext ~= nil and M.MARKDOWN_EXTENSIONS[ext:lower()] == true
+end
+
+---@param base string
+---@param prefix string ya en minúsculas
+---@param files boolean si además de carpetas se listan notas
+---@return { name: string, kind: "directory"|"file" }[]
+local function children(base, prefix, files)
+  if vim.fn.isdirectory(base) == 0 then
+    return {}
+  end
+  local result = {}
+  for name, kind in vim.fs.dir(base, { depth = 1 }) do
+    local wanted = kind == "directory" and not SKIP_DIRECTORIES[name]
+      or files and kind == "file" and M.is_markdown(name)
+    if wanted and name:sub(1, 1) ~= "." and vim.startswith(name:lower(), prefix) then
+      result[#result + 1] = { name = name, kind = kind == "directory" and "directory" or "file" }
+    end
+  end
+  table.sort(result, function(left, right)
+    if left.kind ~= right.kind then
+      return left.kind == "directory" -- primero el camino, luego los destinos
+    end
+    return left.name:lower() < right.name:lower()
+  end)
+  return result
+end
+
+---Lo que hay en el nivel que se está tecleando, para una coordenada de raíz.
+---
+---Esto es navegación de rutas, no búsqueda: `/` abre la raíz, `/docs/` abre lo
+---que hay dentro de docs. Las carpetas no son destino pero son el camino —
+---aceptar `/docs/` deja el cursor listo para pedir el nivel siguiente—, así que
+---van con `/` final y de primeras en la lista.
+---
+---`/` es ambiguo a propósito y aquí se acepta la ambigüedad: puede querer decir
+---la raíz del proyecto/vault o la del sistema, así que se ofrecen las dos y el
+---`scope` dice cuál es cuál. La resolución hace el mismo recorrido: primero
+---bajo la raíz del proyecto y, si ahí no existe, como ruta absoluta.
+---@param query string lo tecleado, coordenada incluida
+---@param root string raíz del proyecto/vault
+---@param opts { files?: boolean }|nil `files` añade las notas del nivel
+---@return { target: string, name: string, kind: "directory"|"file", scope: "project"|"system" }[]
+function M.entries(query, root, opts)
+  if M.coordinate(query) ~= M.ROOT then
+    return {}
+  end
+  local files = opts ~= nil and opts.files == true
+  local needle = M.needle(query)
+  local parent = vim.fs.dirname(needle)
+  if parent == "." then
+    parent = ""
+  end
+  local prefix = vim.fs.basename(needle):lower()
+
+  local result, seen = {}, {}
+  local bases = {
+    { scope = "project", base = vim.fs.joinpath(vim.fs.normalize(root), parent) },
+    { scope = "system", base = "/" .. parent },
+  }
+  for _, base in ipairs(bases) do
+    for _, child in ipairs(children(base.base, prefix, files)) do
+      local relative = parent == "" and child.name or parent .. "/" .. child.name
+      local target = "/" .. relative .. (child.kind == "directory" and "/" or "")
+      if not seen[target] then
+        seen[target] = true
+        result[#result + 1] = {
+          target = target,
+          name = child.name,
+          kind = child.kind,
+          scope = base.scope,
+        }
+      end
+    end
+  end
+  return result
+end
+
+---Un alias solo es un alias si es un nombre. Un path a medio teclear
+---(`/docs`, `./nota`, `docs/api`) es una coordenada, y colarlo como etiqueta
+---produce enlaces sin sentido del tipo `[[1786867178-OZDA|/docs]]`.
+---@param text string|nil
+---@return boolean
+function M.is_pathish(text)
+  if type(text) ~= "string" or text == "" then
+    return false
+  end
+  return M.coordinate(text) ~= M.BARE or text:find("/", 1, true) ~= nil
+end
+
+return M

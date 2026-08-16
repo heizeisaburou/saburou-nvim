@@ -54,6 +54,7 @@ local function build_opts()
 end
 
 local function setup_plugin()
+  require("lzy.render-markdown.links").patch_linked_images()
   require("lzy.render-markdown.spoilers").setup()
   require("render-markdown").setup(build_opts())
 

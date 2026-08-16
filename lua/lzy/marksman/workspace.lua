@@ -2,16 +2,9 @@
 
 local M = {}
 
-local MARKDOWN_EXTENSIONS = {
-	md = true,
-	markdown = true,
-	mdx = true,
-	mdown = true,
-	mkdn = true,
-	mkd = true,
-	qmd = true,
-	rmd = true,
-}
+-- Compartida con la completion de obsidian: qué cuenta como nota es la misma
+-- pregunta en los dos lados. Ver lzy.link_target.
+local MARKDOWN_EXTENSIONS = require("lzy.link_target").MARKDOWN_EXTENSIONS
 
 local SKIP_DIRECTORIES = {
 	[".git"] = true,
@@ -38,31 +31,12 @@ local function is_markdown(path)
 	return ext and MARKDOWN_EXTENSIONS[ext:lower()] or false
 end
 
+---Compartido con la completion de obsidian: ver lzy.link_target.
 ---@param path string
 ---@param from_dir string
 ---@return string
 function M.relative(path, from_dir)
-	path, from_dir = normalize(path), normalize(from_dir)
-	local function parts(value)
-		local result = {}
-		for part in value:gmatch("[^/]+") do
-			result[#result + 1] = part
-		end
-		return result
-	end
-	local target, source = parts(path), parts(from_dir)
-	local idx = 1
-	while target[idx] and source[idx] and target[idx] == source[idx] do
-		idx = idx + 1
-	end
-	local result = {}
-	for _ = idx, #source do
-		result[#result + 1] = ".."
-	end
-	for current = idx, #target do
-		result[#result + 1] = target[current]
-	end
-	return #result == 0 and "." or table.concat(result, "/")
+	return require("lzy.link_target").relative(path, from_dir)
 end
 
 ---@param bufnr integer|nil
@@ -146,6 +120,12 @@ function M.resolve(target, opts)
 		return result
 	elseif vim.startswith(target, "/") then
 		add_existing(result, seen, vim.fs.joinpath(root, target:sub(2)), allow_extension)
+		if #result == 0 then
+			-- La barra es ambigua a propósito (ver lzy.link_target): la completion
+			-- ofrece carpetas de las dos raíces, así que un destino que no cuelga
+			-- del proyecto se prueba como ruta absoluta del sistema.
+			add_existing(result, seen, target, allow_extension)
+		end
 		return result
 	elseif vim.startswith(target, "./") or vim.startswith(target, "../") then
 		add_existing(result, seen, vim.fs.joinpath(source_dir, target), allow_extension)

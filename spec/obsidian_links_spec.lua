@@ -199,6 +199,47 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal(root .. "/gx.png", opened)
   end)
 
+  it("follows the real link of a badge, not the image that labels it", function()
+    -- `[![alt](img)](url)`: obsidian.nvim solo ve la imagen, así que `gx` y la
+    -- acción inteligente abrían el SVG del badge en vez del enlace.
+    local badge = "[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)]"
+      .. "(https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC)"
+    write("source.md", { badge })
+    vim.cmd.edit(root .. "/source.md")
+
+    local original_open = vim.ui.open
+    local function opened_at(col, follow)
+      vim.api.nvim_win_set_cursor(0, { 1, col })
+      local opened
+      vim.ui.open = function(target)
+        opened = target
+      end
+      if follow then
+        require("obsidian.actions").follow_link()
+      else
+        assert.is_true(require("lzy.obsidian.attachments").open_under_cursor(0))
+      end
+      vim.wait(1000, function()
+        return opened ~= nil
+      end, 10)
+      return opened
+    end
+
+    local paypal = "https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC"
+    local shield = "https://img.shields.io/badge/Donate-PayPal-blue.svg"
+
+    -- Sobre el texto que se ve (`Donate`) manda el enlace, con gx y con <CR>.
+    assert.are.equal(paypal, opened_at(4, false))
+    assert.are.equal(paypal, opened_at(4, true))
+    -- Y sobre el `](url)` del final, también.
+    assert.are.equal(paypal, opened_at(#badge - 5, false))
+    -- La imagen sigue siendo alcanzable donde se la pide a propósito: encima de
+    -- su propio destino.
+    assert.are.equal(shield, opened_at(30, false))
+
+    vim.ui.open = original_open
+  end)
+
   it("keeps gx for angle-bracket URLs inside a vault", function()
     write("source.md", { "<https://example.com/path>" })
     vim.cmd.edit(root .. "/source.md")
@@ -1765,6 +1806,186 @@ describe("Nyabsidian structured links and attachments", function()
       end, 20)
       assert.are.equal(0, #vim.diagnostic.get(bufnr))
     end)
+  end)
+
+  it("sees both destinations of a linked image, the inner one first", function()
+    -- `[![alt](img)](url)`, el patrón de los badges. obsidian.nvim solo
+    -- devuelve la imagen, así que el destino de fuera quedaba invisible para
+    -- follow, convert y las reescrituras de rename.
+    local line = "[![Logo](./img/logo.png)](/docs/nota.md)"
+    local refs = require("lzy.obsidian.attachments").parse_refs(line, 0)
+    assert.are.equal(2, #refs)
+
+    -- Primero la imagen: es el adjunto, y donde los dos se solapan es lo que
+    -- se está viendo.
+    assert.are.equal("./img/logo.png", refs[1].target)
+    assert.is_true(refs[1].embed)
+    assert.are.equal(
+      "./img/logo.png",
+      line:sub(refs[1].target_range.start_col + 1, refs[1].target_range.end_col)
+    )
+
+    assert.are.equal("/docs/nota.md", refs[2].target)
+    assert.is_false(refs[2].embed)
+    assert.are.equal(line, refs[2].raw)
+    assert.are.same({ start_row = 0, start_col = 0, end_row = 0, end_col = #line }, refs[2].range)
+    assert.are.equal(
+      "/docs/nota.md",
+      line:sub(refs[2].target_range.start_col + 1, refs[2].target_range.end_col)
+    )
+
+    -- Una imagen suelta sigue siendo una sola cosa.
+    assert.are.equal(1, #require("lzy.obsidian.attachments").parse_refs("![Logo](./img/logo.png)", 0))
+    -- Y un enlace normal con texto tampoco se duplica.
+    assert.are.equal(1, #require("lzy.obsidian.attachments").parse_refs("[Texto](/docs/nota.md)", 0))
+  end)
+
+  it("never turns a half-typed path into a wiki-link alias", function()
+    -- builtin.wiki_link de obsidian.nvim añade `|etiqueta` en cuanto la
+    -- etiqueta difiere del nombre de la nota, y la etiqueta sale de lo
+    -- tecleado: escribir `[[/docs` sobre una nota con id Zettel producía
+    -- `[[1786867178-OZDA|/docs]]`, un alias que es media ruta.
+    local drop = require("lzy.obsidian.completion").drop_pathish_alias
+    assert.are.equal("[[1786867178-OZDA]]", drop "[[1786867178-OZDA|/docs]]")
+    assert.are.equal("[[nota]]", drop "[[nota|docs/api]]")
+    assert.are.equal("[[nota]]", drop "[[nota|./vecina]]")
+    -- Un alias que de verdad es un nombre se conserva intacto.
+    assert.are.equal("[[nota|Alias Legible]]", drop "[[nota|Alias Legible]]")
+    assert.are.equal("[[nota#anchor]]", drop "[[nota#anchor]]")
+  end)
+
+  it("never offers to create a note named like a half-typed path", function()
+    -- El item "(create)" de obsidian.nvim propone crear una nota llamada como
+    -- lo tecleado. `[[/docs` no pide una nota `/docs`, pide bajar por `docs`:
+    -- de ahí salía el `[[<id>|/do]] (create)` que no significaba nada.
+    local sanitize = require("lzy.obsidian.completion").sanitize
+    local function create_item(term)
+      return {
+        label = ("[[%s]] (create)"):format(term),
+        sortText = term,
+        filterText = term,
+        command = { command = "obsidian.write_note", title = "Obsidian write note" },
+        textEdit = { newText = ("[[1786867178-OZDA|%s]]"):format(term) },
+      }
+    end
+
+    local list = sanitize {
+      items = {
+        create_item("/docs"),
+        create_item("./vecina"),
+        create_item("docs/api"),
+        create_item("Nota Nueva"),
+        { label = "/docs/api.md", textEdit = { newText = "/docs/api.md" } },
+      },
+    }
+    assert.are.same({ "[[Nota Nueva]] (create)", "/docs/api.md" }, vim.tbl_map(function(item)
+      return item.label
+    end, list.items))
+  end)
+
+  describe("browsing a path inside [[", function()
+    ---@return lsp.CompletionList
+    local function complete(line)
+      write("wiki.md", { line })
+      vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+      local result
+      require("lzy.obsidian.completion").custom_completion({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 0, character = #line },
+      }, function(value)
+        result = value
+      end)
+      return result
+    end
+
+    local function item(result, target)
+      return vim.iter(result.items):find(function(entry)
+        return entry.textEdit.newText == target
+      end)
+    end
+
+    it("opens both roots on the bare slash, without waiting for a letter", function()
+      write("docs/archlinux.md", { "# Arch" })
+
+      local result = complete "[[/"
+      local docs = item(result, "/docs/")
+      assert.is_not_nil(docs, "no folder from the vault root")
+      assert.are.equal("Carpeta del vault", docs.detail)
+      assert.are.same({ line = 0, character = 2 }, docs.textEdit.range.start)
+      -- La barra es ambigua a propósito: también la raíz del sistema.
+      assert.is_not_nil(
+        vim.iter(result.items):find(function(entry)
+          return entry.detail == "Carpeta del sistema"
+        end),
+        "no folder from the system root"
+      )
+      -- Un nivel cada vez: lo de dentro de docs llega al bajar, no antes.
+      assert.is_nil(item(result, "/docs/archlinux.md"))
+    end)
+
+    it("lists the notes of a folder once you are inside it", function()
+      -- Aceptar `/docs/` y quedarse sin nada era el agujero: obsidian.nvim
+      -- busca notas por nombre y no entiende un destino que empieza por `/`.
+      write("docs/archlinux.md", { "# Arch" })
+      write("docs/windows11.md", { "# Windows" })
+      write("docs/caos/nota.md", { "# Caos" })
+
+      local inside = complete "[[/docs/"
+      local arch = item(inside, "/docs/archlinux.md")
+      assert.is_not_nil(arch, "the folder's notes are missing")
+      assert.are.equal("Nota del vault", arch.detail)
+      assert.are.equal(vim.lsp.protocol.CompletionItemKind.File, arch.kind)
+      assert.is_not_nil(item(inside, "/docs/windows11.md"))
+      -- Las subcarpetas siguen ofreciéndose, y antes que las notas.
+      local caos = item(inside, "/docs/caos/")
+      assert.is_not_nil(caos)
+      assert.is_true(caos.sortText < arch.sortText)
+
+      -- Y filtrando por lo tecleado.
+      local filtered = complete "[[/docs/arch"
+      assert.is_not_nil(item(filtered, "/docs/archlinux.md"))
+      assert.is_nil(item(filtered, "/docs/windows11.md"))
+    end)
+
+    it("resolves the note it just inserted", function()
+      write("docs/archlinux.md", { "# Arch" })
+      local resolved
+      require("lzy.obsidian.notes").resolve_async("/docs/archlinux.md", function(notes)
+        resolved = notes
+      end)
+      vim.wait(2000, function()
+        return resolved ~= nil
+      end, 20)
+      assert.are.equal(1, #resolved)
+      assert.are.equal(
+        vim.fs.joinpath(root, "docs/archlinux.md"),
+        vim.fs.normalize(tostring(resolved[1].path))
+      )
+    end)
+
+    it("declares the slash as a trigger character, which obsidian-ls does not", function()
+      local capabilities
+      require("obsidian.lsp.handlers")["initialize"]({}, function(_, result)
+        capabilities = result.capabilities
+      end, { notification = function() end })
+      assert.is_true(
+        vim.tbl_contains(capabilities.completionProvider.triggerCharacters, "/"),
+        "the client will not ask for completion when you type /"
+      )
+    end)
+  end)
+
+  it("finds the target of a wiki link being typed, and stops at label or anchor", function()
+    local wiki = require("lzy.obsidian.completion").wiki_target_context
+    local start_col, search = wiki("texto [[/do", 11)
+    assert.are.equal(8, start_col)
+    assert.are.equal("/do", search)
+    assert.are.equal("", select(2, wiki("[[", 2)))
+    -- A partir del `|` o del `#` manda el proveedor original.
+    assert.is_nil(wiki("[[nota|Ali", 10))
+    assert.is_nil(wiki("[[nota#anc", 10))
+    assert.is_nil(wiki("[[nota]] ya cerrado", 19))
+    assert.is_nil(wiki("sin corchetes", 13))
   end)
 
   describe("smart copy", function()

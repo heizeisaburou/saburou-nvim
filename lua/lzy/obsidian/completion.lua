@@ -69,8 +69,10 @@ end
 ---@param bufnr integer
 ---@param query string
 ---@param note obsidian.Note
----@return string|nil
+---@return string|nil target lo que se inserta
+---@return string|nil root_relative el mismo destino medido desde la raíz del vault
 local function note_target(bufnr, query, note)
+  local coord = require "lzy.link_target"
   local api = require "obsidian.api"
   local root = vim.fs.normalize(tostring(api.resolve_workspace_dir()))
   local path = vim.fs.normalize(tostring(note.path))
@@ -78,23 +80,23 @@ local function note_target(bufnr, query, note)
     path = vim.fs.joinpath(root, path)
   end
 
-  local target
-  if vim.startswith(query, "./") or vim.startswith(query, "../") then
-    local source_dir = vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
-    target = vim.fs.relpath(source_dir, path)
-    if not target then
-      return nil
-    end
-    if vim.startswith(query, "./") and not vim.startswith(target, ".") then
-      target = "./" .. target
-    end
-  else
-    target = vim.fs.relpath(root, path)
-  end
-  if not target then
+  local root_relative = vim.fs.relpath(root, path)
+  if not root_relative then
     return nil
   end
-  return require("obsidian.util").urlencode(target, { keep_path_sep = true })
+
+  local target
+  if coord.coordinate(query) == coord.NOTE_RELATIVE then
+    target = coord.note_relative(path, vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr)), query)
+  elseif coord.coordinate(query) == coord.ROOT then
+    -- Se ha escrito `/` a propósito: se conserva. Igual que en marksman, esa
+    -- barra significa la raíz del vault, no la del sistema.
+    target = "/" .. root_relative
+  else
+    target = root_relative
+  end
+  local encode = require("obsidian.util").urlencode
+  return encode(target, { keep_path_sep = true }), root_relative
 end
 
 ---@param params lsp.CompletionParams
@@ -106,10 +108,14 @@ local function complete_definition_target(params, context, callback)
     return callback { isIncomplete = false, items = {} }
   end
 
+  local coord = require "lzy.link_target"
   local decoded = vim.uri_decode(context.search) or context.search
-  local search = vim.fs.basename(decoded):gsub("%.md$", "")
+  local search = vim.fs.basename(coord.needle(decoded)):gsub("%.md$", "")
   local min_chars = Obsidian.opts.completion.min_chars or 2
-  if #search < min_chars then
+  -- Una coordenada explícita ya expresa intención suficiente: `/` a secas debe
+  -- listar la raíz del vault en el acto, sin esperar al mínimo de caracteres
+  -- que sí se le exige a una búsqueda desnuda. Mismo criterio que en marksman.
+  if not coord.is_explicit(decoded) and #search < min_chars then
     return callback { isIncomplete = true, items = {} }
   end
 
@@ -117,11 +123,11 @@ local function complete_definition_target(params, context, callback)
   require("obsidian.search").find_notes_async(search, function(notes)
     local items = {}
     for _, note in ipairs(notes) do
-      local target = note_target(bufnr, decoded, note)
-      if target then
+      local target, root_relative = note_target(bufnr, decoded, note)
+      if target and root_relative then
         items[#items + 1] = {
           label = target,
-          filterText = target,
+          filterText = coord.filter_text(decoded, target, root_relative),
           sortText = target:lower(),
           detail = "Nota del vault",
           kind = vim.lsp.protocol.CompletionItemKind.File,
@@ -165,6 +171,65 @@ local function definitions(bufnr)
   return result
 end
 
+---El destino de un enlace wiki a medio teclear: lo que va tras el último `[[`
+---mientras no aparezca `]`, `|` ni `#` (a partir de ahí ya es etiqueta o ancla,
+---territorio del proveedor original).
+---@param line string
+---@param character integer 0-based byte column
+---@return integer|nil start_col
+---@return string|nil search
+local function wiki_target_context(line, character)
+  local prefix = line:sub(1, character)
+  local open = prefix:match ".*()%[%["
+  if not open then
+    return nil
+  end
+  local search = prefix:sub(open + 2)
+  if search:find "[%]|#]" then
+    return nil
+  end
+  return open + 1, search
+end
+
+---`[[/` es navegación de rutas, y obsidian.nvim no la hace: su completion de
+---enlaces es una búsqueda de notas por nombre, así que ni ofrece las carpetas
+---por las que bajar ni entiende un destino que empieza por `/`. Aquí se recorre
+---el nivel entero -- carpetas y notas -- igual que en marksman.
+---@param params lsp.CompletionParams
+---@param start_col integer
+---@param search string
+---@param callback fun(result: lsp.CompletionList)
+local function complete_wiki_target(params, start_col, search, callback)
+  local coord = require "lzy.link_target"
+  local query = vim.uri_decode(search) or search
+  local root = vim.fs.normalize(tostring(require("obsidian.api").resolve_workspace_dir()))
+  local encode = require("obsidian.util").urlencode
+
+  local items = {}
+  for _, entry in ipairs(coord.entries(query, root, { files = true })) do
+    local target = encode(entry.target, { keep_path_sep = true })
+    local directory = entry.kind == "directory"
+    local scope = entry.scope == "system" and "del sistema" or "del vault"
+    items[#items + 1] = {
+      label = target,
+      filterText = target,
+      -- Las carpetas primero: son el camino, no el destino.
+      sortText = (directory and "0" or "1") .. target:lower(),
+      detail = (directory and "Carpeta " or "Nota ") .. scope,
+      kind = directory and vim.lsp.protocol.CompletionItemKind.Folder
+        or vim.lsp.protocol.CompletionItemKind.File,
+      textEdit = {
+        newText = target,
+        range = {
+          start = { line = params.position.line, character = start_col },
+          ["end"] = { line = params.position.line, character = params.position.character },
+        },
+      },
+    }
+  end
+  callback { isIncomplete = true, items = items }
+end
+
 ---@param line string
 ---@param character integer
 ---@return integer|nil start_col
@@ -195,6 +260,12 @@ local function custom_completion(params, callback)
   local target = definition_target_context(line, params.position.character)
   if target then
     return complete_definition_target(params, target, callback)
+  end
+
+  local wiki_start, wiki_search = wiki_target_context(line, params.position.character)
+  if wiki_start then
+    ---@cast wiki_search -nil
+    return complete_wiki_target(params, wiki_start, wiki_search, callback)
   end
 
   local start_col = reference_id_context(line, params.position.character)
@@ -231,6 +302,58 @@ local function completion_list(value)
   return { isIncomplete = false, items = value }
 end
 
+--- obsidian.nvim construye los enlaces wiki con `builtin.wiki_link`, que añade
+--- `|etiqueta` en cuanto la etiqueta difiere del nombre de la nota. La etiqueta
+--- sale de lo tecleado, así que escribir una coordenada (`[[/docs`) sobre una
+--- nota con id Zettel produce `[[1786867178-OZDA|/docs]]`: un enlace cuyo alias
+--- es media ruta. Un path no es un nombre; se le quita el alias y queda el
+--- enlace a secas.
+---@param text string
+---@return string
+local function drop_pathish_alias(text)
+  local coord = require "lzy.link_target"
+  return (text:gsub("%[%[([^%[%]|]*)|([^%[%]|]*)%]%]", function(target, label)
+    if coord.is_pathish(label) then
+      return ("[[%s]]"):format(target)
+    end
+    return ("[[%s|%s]]"):format(target, label)
+  end))
+end
+
+--- obsidian.nvim ofrece siempre "crear nota nueva" con lo tecleado como nombre.
+--- Una coordenada de ruta no es un nombre: `[[/docs` no pide crear una nota
+--- llamada `/docs`, pide bajar por `docs`. El item se retira entero en vez de
+--- dejar que proponga un archivo con un nombre que nadie ha escrito.
+---@param item lsp.CompletionItem
+---@return boolean
+local function creates_note_named_like_a_path(item)
+  local command = item.command and item.command.command
+  if command ~= "obsidian.write_note" then
+    return false
+  end
+  local coord = require "lzy.link_target"
+  return coord.is_pathish(item.sortText or item.filterText or item.label)
+end
+
+---@param list lsp.CompletionList
+---@return lsp.CompletionList
+local function sanitize(list)
+  local items = {}
+  for _, item in ipairs(list.items or {}) do
+    if not creates_note_named_like_a_path(item) then
+      if item.textEdit and type(item.textEdit.newText) == "string" then
+        item.textEdit.newText = drop_pathish_alias(item.textEdit.newText)
+      end
+      if type(item.insertText) == "string" then
+        item.insertText = drop_pathish_alias(item.insertText)
+      end
+      items[#items + 1] = item
+    end
+  end
+  list.items = items
+  return list
+end
+
 ---@param left lsp.CompletionList
 ---@param right lsp.CompletionList
 ---@return lsp.CompletionList
@@ -253,18 +376,43 @@ local function merge(left, right)
   return { isIncomplete = left.isIncomplete or right.isIncomplete, items = items }
 end
 
+--- obsidian-ls declara `{ "[", "#", "^" }` como caracteres de disparo. La barra
+--- no está, y no es un carácter de palabra, así que al teclear `[[/` el cliente
+--- no pide nada: la lista no aparecía hasta escribir la primera letra después.
+--- Justo lo contrario de lo que hace falta, porque `/` ya es intención de sobra.
+---@param handlers table
+local function patch_trigger_characters(handlers)
+  local original = handlers["initialize"]
+  handlers["initialize"] = function(params, callback, dispatchers)
+    return original(params, function(err, result)
+      local completion = result
+        and result.capabilities
+        and result.capabilities.completionProvider
+      local triggers = completion and completion.triggerCharacters
+      if triggers and not vim.tbl_contains(triggers, "/") then
+        triggers[#triggers + 1] = "/"
+      end
+      return callback(err, result)
+    end, dispatchers)
+  end
+end
+
 function M.setup()
   local handlers = require "obsidian.lsp.handlers"
   if handlers.__nyabsidian_completion then
     return
   end
+  patch_trigger_characters(handlers)
   local original = handlers["textDocument/completion"]
   handlers["textDocument/completion"] = function(params, callback, dispatchers)
     local pending, original_result, custom_result, original_error = 2
     local function finish()
       pending = pending - 1
       if pending == 0 then
-        callback(original_error, merge(completion_list(original_result), custom_result))
+        callback(
+          original_error,
+          merge(sanitize(completion_list(original_result)), custom_result)
+        )
       end
     end
     original(params, function(err, result)
@@ -281,7 +429,10 @@ function M.setup()
 end
 
 M.definition_target_context = definition_target_context
+M.wiki_target_context = wiki_target_context
 M.reference_id_context = reference_id_context
+M.sanitize = sanitize
 M.custom_completion = custom_completion
+M.drop_pathish_alias = drop_pathish_alias
 
 return M

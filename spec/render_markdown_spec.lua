@@ -31,6 +31,10 @@ describe("Sabunv render-markdown links", function()
     "[label][]",
     "[label]",
     "[missing]",
+    "",
+    "[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://example.com/donate)",
+    "",
+    "![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)",
   }
 
   local function extmarks()
@@ -114,6 +118,7 @@ describe("Sabunv render-markdown links", function()
   end
 
   before_each(function()
+    require("lzy.render-markdown.links").patch_linked_images()
     require("render-markdown").setup(
       vim.tbl_deep_extend("force", require("lzy.render-markdown").opts, {
         debounce = 0,
@@ -175,6 +180,24 @@ describe("Sabunv render-markdown links", function()
     assert.are.equal(actual[7], md.visible_width(lines[8], opts))
     assert.are.equal(actual[8], md.visible_width(lines[9], opts))
     assert.are.equal(actual[9], md.visible_width(lines[10], opts))
+  end)
+
+  it("draws a linked image as one thing, not as two links", function()
+    -- `[![alt](img)](url)` es el patrón de los badges. Para tree-sitter son dos
+    -- nodos anidados —el enlace y, dentro de su etiqueta, la imagen— y el
+    -- plugin pintaba un icono por nodo: salían dos pegados, como si hubiera dos
+    -- enlaces distintos. Es una sola cosa, y es una imagen.
+    local badge, image = virtual_texts(11), virtual_texts(13)
+    assert.are.equal(1, #badge)
+    assert.are.same(image, badge)
+
+    -- Y los formateadores tienen que medir eso mismo, no el markup entero.
+    local actual = rendered_widths()
+    assert.are.equal(actual[13], actual[11])
+    assert.are.equal(
+      actual[11],
+      require("hzsr.md").visible_width(lines[12], { bufnr = bufnr })
+    )
   end)
 
   it("wraps against rendered width instead of raw or label-only width", function()
