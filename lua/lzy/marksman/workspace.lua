@@ -295,8 +295,12 @@ function M.wiki_style(root)
 			elseif in_section then
 				local value = line:match('^%s*style%s*=%s*"([^"]+)"')
 					or line:match("^%s*style%s*=%s*'([^']+)'")
-				if value == "file-stem" or value == "title-slug" then
+				if value == "file-stem" then
 					style = value
+					break
+				elseif value == "title-slug" or value == "file-path" then
+					-- Los dos nombres que se han visto para el estilo por defecto.
+					style = "title-slug"
 					break
 				end
 			end
