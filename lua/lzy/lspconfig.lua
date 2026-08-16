@@ -68,7 +68,6 @@ M.servers = {
   -- "djls", -- Django templates
   -- "elixirls",
   -- "fsautocomplete", -- F#
-  -- "gopls", -- golang
   -- "hls", -- Haskell
   -- "html", -- .html
   -- "jdtls", -- Java
