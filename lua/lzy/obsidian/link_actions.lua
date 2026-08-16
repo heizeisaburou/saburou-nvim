@@ -171,18 +171,30 @@ local function resolve_note(target, ctx, opts, callback)
     return callback(is_note_path(ctx.source_path) and ctx.source_path or nil)
   end
 
-  local direct
+  -- `explicit` marca las formas que nombran UN sitio concreto: si ahí no está,
+  -- es un error y no tiene sentido seguir buscando por el vault.
+  local direct, explicit
   local is_uri, scheme = util.is_uri(target)
   if is_uri then
     if scheme ~= "file" then
       return callback(nil, "el enlace es una URI externa, no una nota local")
     end
     local ok, path = pcall(vim.uri_to_fname, target)
-    direct = ok and path or nil
-  elseif vim.fn.isabsolutepath(target) == 1 then
-    direct = target
+    direct, explicit = ok and path or nil, true
   elseif vim.startswith(target, "./") or vim.startswith(target, "../") then
-    direct = vim.fs.joinpath(ctx.source_dir, target)
+    direct, explicit = vim.fs.joinpath(ctx.source_dir, target), true
+  elseif vim.startswith(target, "/") then
+    -- La barra inicial es la raíz del VAULT, no la del sistema de archivos:
+    -- `/docs/Nota` significa `<vault>/docs/Nota`, exactamente igual que
+    -- `docs/Nota`. Resolverla contra la raíz del disco (lo que hacía
+    -- `isabsolutepath` aquí) no encontraba nunca nada y dejaba a este
+    -- resolutor discrepando de lzy.obsidian.notes, que sí la lee como raíz.
+    -- Como ruta del sistema sólo se prueba si bajo el vault no hay nada, que
+    -- es como se enlaza una nota de fuera.
+    local from_root = vim.fs.joinpath(ctx.root, target:sub(2))
+    direct = existing_note(normalize(from_root, false)) and from_root or target
+  elseif vim.fn.isabsolutepath(target) == 1 then
+    direct, explicit = target, true
   elseif target:find("/", 1, true) then
     direct = vim.fs.joinpath(ctx.root, target)
   end
@@ -192,7 +204,7 @@ local function resolve_note(target, ctx, opts, callback)
     if path then
       return callback(path)
     end
-    if is_uri or vim.fn.isabsolutepath(target) == 1 or vim.startswith(target, ".") then
+    if explicit then
       return callback(nil, ("no existe la nota '%s'"):format(direct))
     end
   end
@@ -261,36 +273,25 @@ end
 ---@param path string
 ---@param root string
 ---@return string
+--- Delegado en lzy.obsidian.coordinate: ahí vive el criterio único de
+--- «coordenada más corta que sigue siendo inequívoca», compartido por notas y
+--- adjuntos.
+---
+--- Antes esto recorría el vault entero llamando a `Note.from_file` por cada
+--- nota, **una vez por enlace**, y en cuanto había un homónimo saltaba de golpe
+--- a la ruta completa desde la raíz. Ahora consulta el índice cacheado y amplía
+--- carpeta a carpeta.
+---@param path string
+---@param root string
+---@return string
 local function shortest_note_target(path, root)
-  local basename = vim.fs.basename(path)
-  local ext = basename:match "%.([^./]+)$"
-  local candidate = ext and ext:lower() == "md" and basename:sub(1, -4) or basename
-  local wanted = normalize(path)
-  local matches = {}
-  local Note = require "obsidian.note"
-
-  for current in require("obsidian.api").dir(root) do
-    if is_note_path(current) then
-      local note = Note.from_file(current, { max_lines = 200 })
-      if note then
-        for _, id in ipairs(note:reference_ids { lowercase = true }) do
-          if id == candidate:lower() then
-            matches[normalize(current)] = true
-            break
-          end
-        end
-      end
-    end
-  end
-  if vim.tbl_count(matches) == 1 and matches[wanted] then
-    return basename
-  end
-  return assert(vim.fs.relpath(root, path))
+  -- `fresh`: esto lo dispara una acción suelta del usuario (convertir enlace,
+  -- copia inteligente), así que se paga una reconstrucción del índice antes que
+  -- arriesgarse a escribir una coordenada ambigua con datos rancios.
+  return require("lzy.obsidian.coordinate").minimal(path, { root = root, fresh = true })
 end
 
--- Expuesto para lzy.obsidian.smart_copy: mismo criterio de desambiguación
--- que ya usa `Más corto seguro` acá arriba, para armar `[[Nota#anchor]]`
--- sin reimplementar la búsqueda de colisiones de nombre.
+-- Expuesto para lzy.obsidian.smart_copy.
 M.shortest_note_target = shortest_note_target
 
 ---@param target string
@@ -299,7 +300,7 @@ M.shortest_note_target = shortest_note_target
 ---@return string
 local function render_target(target, kind, uri)
   if (kind == "markdown" or kind == "reference") and not uri then
-    return require("obsidian.util").urlencode(target, { keep_path_sep = true })
+    return require("lzy.link_target").encode(target)
   end
   return target
 end

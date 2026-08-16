@@ -14,12 +14,59 @@
 
 local M = {}
 
+--- Caracteres que un nombre de nota no puede llevar: `#^[]|` rompen un
+--- `[[enlace]]`, y `/\` fabricarían carpetas que nadie pidió. El resto (los
+--- espacios y las mayúsculas incluidos) se conserva tal cual.
+local UNSAFE_NAME = "[#%^%[%]|/\\%z\r\n]"
+
+--- El id de una nota nueva es su título, no un slug de su título.
+---
+--- Sustituye a `obsidian.builtin.title_id`, que bajaba a minúsculas y cambiaba
+--- los espacios por guiones ("Mi Nota" -> `mi-nota.md`). Eso dejaba la
+--- creación de notas incoherente consigo misma: crear desde un enlace
+--- (`M.create`, aquí abajo) ya era verbatim, así que `[[Mi Nota]]` daba
+--- `Mi Nota.md` pero `:Obsidian new` daba `mi-nota.md`. Ahora las dos puertas
+--- producen el mismo nombre, que además es el que escribe la app de Obsidian.
+---@param title string|?
+---@param dir obsidian.Path|? Si viene, desambigua contra lo que ya existe.
+---@return string
+function M.verbatim_id(title, dir)
+  local builtin = require "obsidian.builtin"
+  if type(title) ~= "string" then
+    return builtin.zettel_id()
+  end
+
+  local base = vim.trim((title:gsub(UNSAFE_NAME, "")):gsub("%s+", " "))
+  if base == "" then
+    -- Un título que se queda en nada tras quitar lo impronunciable (o vacío de
+    -- entrada) no da un nombre de archivo: ahí sí vale el id generado.
+    return builtin.zettel_id()
+  end
+  if not dir then
+    return base
+  end
+
+  local Path = require "obsidian.path"
+  local base_dir = Path.new(dir)
+  local candidate, idx = base, 2
+  while (base_dir / candidate):with_suffix(".md", true):exists() do
+    candidate = ("%s %d"):format(base, idx)
+    idx = idx + 1
+  end
+  return candidate
+end
+
 ---@param msg string
 ---@param level integer|?
 local function default_notify(msg, level)
   vim.notify(msg, level or vim.log.levels.INFO, { title = "Nyabsidian" })
 end
 
+--- Sí/no, sin nombre editable, y es deliberado: aquí el fichero se llama
+--- **exactamente** como el enlace (ver la cabecera de este módulo). Poder
+--- cambiarlo rompería ese invariante y obligaría a reapuntar el enlace. En
+--- marksman sí es editable, porque allí el servidor escribe los wikilinks en
+--- slug y hace falta poder corregirlos (ver lzy.marksman.new_note).
 ---@param prompt string
 ---@param done fun(answer: "yes"|"no"|"cancel")
 local function default_confirm(prompt, done)
@@ -85,6 +132,13 @@ function M.create(name, opts, callback)
     -- el próximo refresh de diagnósticos, no hasta 2s después.
     pcall(function()
       require("lzy.obsidian.notes").invalidate_index()
+    end)
+
+    -- Si el nombre colisiona con otra nota, los `[[Nombre]]` que ya había
+    -- dejan de apuntar donde apuntaban. Se amplían para que sigan señalando la
+    -- suya; si no colisiona (lo normal) esto es un lookup y no hace nada más.
+    pcall(function()
+      require("lzy.obsidian.relink").on_note_added(tostring(note.path), { notify = notify })
     end)
 
     callback(note)

@@ -129,6 +129,19 @@ function M.in_vault(bufnr)
   return context { bufnr = bufnr or vim.api.nvim_get_current_buf() } ~= nil
 end
 
+---Política de escritura de enlaces del vault. Se declara en `.nyabsidian` como
+---`link_paths` (o el nombre antiguo `attachment_paths`) y vale para notas y
+---adjuntos por igual:
+---
+---  vault    "preserve" -> no reescribir la forma de un enlace que ya existe.
+---           "simplify" -> llevarlo a la coordenada mínima inequívoca.
+---  external "preserve" -> conservar la forma con que se escribió.
+---           "absolute" -> ruta absoluta del sistema.
+---
+---`preserve` NO desactiva la corrección: si una operación nuestra vuelve
+---ambiguo un enlace, se amplía igualmente, porque eso es un enlace que apunta
+---a otro sitio, no una preferencia de estilo. La política sólo gobierna el
+---acortado y el cambio de forma.
 ---@class nyabsidian.AttachmentPathPolicy
 ---@field vault "preserve"|"simplify"
 ---@field external "preserve"|"absolute"
@@ -145,18 +158,26 @@ function M.configure(root, nyabsidian)
   end
   nyabsidian = nyabsidian or {}
   for key in pairs(nyabsidian) do
-    if key ~= "attachment_paths" then
+    if key ~= "attachment_paths" and key ~= "link_paths" then
       return false, ("nyabsidian.%s no es una opción reconocida"):format(key)
     end
   end
+  if nyabsidian.attachment_paths ~= nil and nyabsidian.link_paths ~= nil then
+    return false, "usa 'link_paths' o 'attachment_paths', no las dos"
+  end
 
-  local configured = nyabsidian.attachment_paths or {}
+  -- `link_paths` es el nombre nuevo: la política dejó de ser sólo de adjuntos y
+  -- gobierna también cómo se reescriben los enlaces a notas (docs/todo-markdown.md
+  -- §1.4 y P1). `attachment_paths` se sigue aceptando para no romper los
+  -- `.nyabsidian` ya escritos.
+  local key_name = nyabsidian.link_paths ~= nil and "link_paths" or "attachment_paths"
+  local configured = nyabsidian.link_paths or nyabsidian.attachment_paths or {}
   if type(configured) ~= "table" then
-    return false, "nyabsidian.attachment_paths debe ser una tabla"
+    return false, ("nyabsidian.%s debe ser una tabla"):format(key_name)
   end
   for key in pairs(configured) do
     if key ~= "vault" and key ~= "external" then
-      return false, ("nyabsidian.attachment_paths.%s no es una opción reconocida"):format(key)
+      return false, ("nyabsidian.%s.%s no es una opción reconocida"):format(key_name, key)
     end
   end
   if
@@ -164,14 +185,14 @@ function M.configure(root, nyabsidian)
     and configured.vault ~= "preserve"
     and configured.vault ~= "simplify"
   then
-    return false, "nyabsidian.attachment_paths.vault debe ser 'preserve' o 'simplify'"
+    return false, ("nyabsidian.%s.vault debe ser 'preserve' o 'simplify'"):format(key_name)
   end
   if
     configured.external ~= nil
     and configured.external ~= "preserve"
     and configured.external ~= "absolute"
   then
-    return false, "nyabsidian.attachment_paths.external debe ser 'preserve' o 'absolute'"
+    return false, ("nyabsidian.%s.external debe ser 'preserve' o 'absolute'"):format(key_name)
   end
 
   workspace_path_policies[root] = vim.tbl_extend("force", {}, DEFAULT_PATH_POLICY, configured)
@@ -386,6 +407,12 @@ function M.resolve(target, opts)
   local candidate
   if explicit_file then
     candidate = normalize(explicit_file, false)
+  elseif vim.startswith(target, "/") then
+    -- Misma regla que para notas (ver lzy.obsidian.link_actions): la barra
+    -- inicial es la raíz del vault. Sólo si ahí no hay archivo se prueba como
+    -- ruta del sistema, que es como se enlaza un adjunto de fuera.
+    local from_root = normalize(vim.fs.joinpath(ctx.root, target:sub(2)), false)
+    candidate = is_file(from_root) and from_root or normalize(target, false)
   elseif vim.fn.isabsolutepath(target) == 1 then
     candidate = normalize(target, false)
   elseif vim.startswith(target, "./") or vim.startswith(target, "../") then
@@ -1132,7 +1159,7 @@ local function encode_target(target, kind)
     if target:match "^file://" then
       return target
     end
-    return require("obsidian.util").urlencode(target, { keep_path_sep = true })
+    return require("lzy.link_target").encode(target)
   elseif kind == "canvas" then
     return vim.json.encode(target):sub(2, -2)
   end

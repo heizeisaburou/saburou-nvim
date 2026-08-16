@@ -138,6 +138,24 @@ function M.follow()
 		local paths
 		paths, declared = resolved_paths(ref, bufnr)
 		if declared then
+			-- Nada que abrir: si el destino es una nota que todavía no existe, se
+			-- ofrece crearla en vez de quedarse en un aviso. El fichero se llama
+			-- igual que el enlace, así que cualquier otro `[[Nombre]]` del
+			-- proyecto resuelve solo en cuanto exista.
+			if #paths == 0 and declared.path and declared.path ~= "" and not is_external(declared.path) then
+				local root = require("lzy.marksman.workspace").root(bufnr)
+				local source_path = vim.api.nvim_buf_get_name(bufnr)
+				if root and source_path ~= "" then
+					local created, renamed = require("lzy.marksman.new_note").create(declared.path, {
+						source_path = source_path,
+						root = root,
+					})
+					if created and renamed then
+						M.repoint(bufnr, declared, created, root)
+					end
+					return created ~= nil
+				end
+			end
 			choose(paths, "Elige el destino", function(path)
 				if path then
 					open_resolved(path, declared)
@@ -158,6 +176,107 @@ function M.follow()
 	vim.notify("No hay ningún enlace bajo el cursor", vim.log.levels.INFO, { title = "Marksman" })
 	return false
 end
+
+---Reapunta un enlace al fichero que se acaba de crear con otro nombre.
+---
+---Si al crear cambias el nombre, el fichero deja de llamarse como el enlace y
+---éste se queda señalando a nada. Se reescribe **sólo el destino**: la etiqueta
+---y el alias son texto del autor y no se tocan.
+---
+---Cada sintaxis recibe su forma canónica, que no es la misma: `[[Mi nota]]` con
+---el espacio literal, `/Mi%20nota.md` escapado y con extensión.
+---@param bufnr integer
+---@param ref table el ref cuyo `path_range` se reescribe
+---@param path string el fichero creado
+---@param root string
+function M.repoint(bufnr, ref, path, root)
+	if not ref.path_range or not ref.range then
+		return
+	end
+	local workspace = require("lzy.marksman.workspace")
+	local target = workspace.canonical_target(
+		path,
+		root,
+		ref.kind,
+		vim.api.nvim_buf_get_name(bufnr)
+	)
+	if not target or target == ref.path then
+		return
+	end
+	vim.api.nvim_buf_set_text(
+		bufnr,
+		ref.range.start_row,
+		ref.path_range.start_col,
+		ref.range.start_row,
+		ref.path_range.end_col,
+		{ target }
+	)
+end
+
+---¿Este «Link to non-existent document» del servidor apunta a algo que nosotros
+---sí encontramos?
+---
+---Marksman indexa por TÍTULO (su H1) y por nombre de fichero exacto; nosotros
+---por nombre, sin distinguir caja, deshaciendo escapes y aceptando el slug. La
+---nuestra es un superconjunto, así que hay enlaces perfectamente seguibles que
+---él marca en rojo: `[[una-nota-nueva]]` cuando `Una nota nueva.md` lleva un H1
+---distinto, o `[[una nota nueva]]`, que sólo falla por la caja.
+---
+---Filtrar sólo cuando NOSOTROS resolvemos es lo que hace esto seguro: un enlace
+---roto de verdad falla en los dos y el aviso sigue saliendo.
+---@param diagnostic lsp.Diagnostic
+---@param bufnr integer
+---@return boolean
+local function resolvable_elsewhere(diagnostic, bufnr)
+	local message = diagnostic.message or ""
+	local lowered = message:lower()
+	local missing = lowered:find("non%-existent document") ~= nil
+	local ambiguous = lowered:find("ambiguous link to document") ~= nil
+	if not missing and not ambiguous then
+		return false
+	end
+	local target = message:match("'([^']+)'")
+	if not target or target == "" then
+		return false
+	end
+
+	-- La ambigüedad la juzgamos nosotros, siempre. Él la mide contra los
+	-- títulos: dos notas encabezadas `# Una nota` le parecen el mismo destino
+	-- aunque se llamen distinto, y entonces marca `[[una-nota]]` como ambiguo
+	-- cuando para nosotros señala un único fichero. Silenciar el suyo y emitir
+	-- el nuestro (ver lzy.marksman.diagnostics) deja una sola voz en vez de dos
+	-- criterios peleándose sobre la misma línea.
+	if ambiguous then
+		return true
+	end
+
+	local ok, resolved = pcall(function()
+		local workspace = require("lzy.marksman.workspace")
+		local root = workspace.root(bufnr)
+		local source_path = vim.api.nvim_buf_get_name(bufnr)
+		if not root or source_path == "" then
+			return nil
+		end
+		return workspace.resolve(target, { source_path = source_path, root = root })
+	end)
+	return ok and resolved ~= nil and #resolved > 0
+end
+
+---Handler de diagnósticos de marksman: deja pasar todo menos los «no existe»
+---de enlaces que sí resuelven por aquí.
+function M.publish_diagnostics(err, result, ctx, config)
+	if result and type(result.diagnostics) == "table" and result.uri then
+		local ok, bufnr = pcall(vim.uri_to_bufnr, result.uri)
+		if ok and vim.api.nvim_buf_is_loaded(bufnr) then
+			result.diagnostics = vim.tbl_filter(function(diagnostic)
+				return not resolvable_elsewhere(diagnostic, bufnr)
+			end, result.diagnostics)
+		end
+	end
+	return vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
+end
+
+M.resolvable_elsewhere = resolvable_elsewhere
 
 local CHECKBOX_STATES = { " ", "x", "~", "!", ">" }
 
@@ -261,6 +380,12 @@ function M.backlinks()
 	require("lzy.marksman.backlinks").open()
 end
 
+---Copia según lo que haya bajo el cursor. Misma implementación que en el vault:
+---ver lzy.obsidian.smart_copy, que distingue el motor por su cuenta.
+function M.smart_copy()
+	require("lzy.obsidian.smart_copy").smart_copy()
+end
+
 function M.rename()
 	local bufnr = vim.api.nvim_get_current_buf()
 	if require("lzy.marksman.tags").rename_at(bufnr) then
@@ -285,6 +410,12 @@ end
 ---@param _ vim.lsp.Client
 ---@param bufnr integer
 function M.on_attach(_, bufnr)
+	-- Su diagnóstico de enlaces rotos no cubre el nuestro: para él `[[una-nota]]`
+	-- vale si algún H1 dice `# Una nota`, aunque no exista ningún fichero con ese
+	-- nombre. Ver lzy.marksman.diagnostics.
+	require("lzy.marksman.diagnostics").setup()
+	require("lzy.marksman.diagnostics").schedule(bufnr)
+
 	vim.keymap.set("n", "K", M.hover, {
 		buffer = bufnr,
 		desc = "Marksman: preview de la nota enlazada",
@@ -309,6 +440,14 @@ function M.on_attach(_, bufnr)
 		buffer = bufnr,
 		desc = "Marksman: toggle checkbox",
 	})
+	-- La copia inteligente no es cosa del vault: código, énfasis y componentes
+	-- de enlace son iguales aquí. Lo único que cambia es qué se fabrica cuando
+	-- no hay nada literal que copiar -- fuera de un vault, un enlace Markdown
+	-- con etiqueta legible en vez de un wikilink. Lo decide smart_copy solo.
+	vim.keymap.set("n", "<leader>ns", M.smart_copy, {
+		buffer = bufnr,
+		desc = "Marksman: copia inteligente (código/enlace/header)",
+	})
 	vim.keymap.set("n", "<CR>", M.smart_action, {
 		expr = true,
 		buffer = bufnr,
@@ -320,6 +459,12 @@ function M.on_attach(_, bufnr)
 	})
 	vim.api.nvim_buf_create_user_command(bufnr, "MarksmanFollowLink", M.follow, {
 		desc = "Seguir el enlace bajo el cursor",
+		force = true,
+	})
+	vim.api.nvim_buf_create_user_command(bufnr, "MarksmanRelink", function()
+		require("lzy.marksman.relink").run({ bufnr = bufnr })
+	end, {
+		desc = "Llevar los enlaces del proyecto a la forma que declara su .marksman.toml",
 		force = true,
 	})
 end

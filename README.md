@@ -19,8 +19,9 @@ de programación diversos.
 - **[Neovim](/docs/neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim
   0.12. No se garantiza compatibilidad con versiones anteriores ni futuras.
 
-- **[Git](https://git-scm.com/)** — necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
-  que la mayoría de linters reconozcan el rootdir.
+- **[Git](/docs/git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
+  crear el directorio `.git` en la raíz de tu proyecto ya que es la manera en la que la mayoría de
+  los linters de distintos lenguajes reconocen el directorio raíz.
 
 - **[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)** — necesario para compilar e instalar `tree-sitter-cli`.
 - **[Node.js](https://nodejs.org/)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de

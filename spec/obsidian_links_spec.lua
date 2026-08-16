@@ -1043,6 +1043,50 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal("my-father-a", headings.anchor_segment "My Father A")
   end)
 
+  it("writes anchors with the heading's own text, encoding only where Markdown needs it", function()
+    local headings = require "lzy.obsidian.headings"
+    -- Un `[[wiki]]` admite espacios y mayúsculas: es lo que escribe la app de
+    -- Obsidian y lo que ya usa el vault.
+    assert.are.equal("My Father A", headings.anchor_text("My Father A", "wiki"))
+    -- El destino de un enlace Markdown no: un espacio corta el destino y
+    -- dejaría medio enlace parseado.
+    assert.are.equal("My%20Father%20A", headings.anchor_text("My Father A", "markdown"))
+    -- `]]`, `|` y `#` no son representables dentro de `[[...]]`; solo ahí se
+    -- cae al anchor canónico, que sí lo es.
+    assert.are.equal("array-int", headings.anchor_text("Array [int]", "wiki"))
+    assert.are.equal("aliasado", headings.anchor_text("Alias|ado", "wiki"))
+  end)
+
+  it("keeps resolving the slug anchors written before, so nothing needs migrating", function()
+    write("Ankama.md", { "# Installation on Linux", "", "cuerpo" })
+    vim.cmd.edit(root .. "/Ankama.md")
+    local headings = require "lzy.obsidian.headings"
+    local note = require("obsidian.api").current_note(0, {
+      collect_sections = true,
+      collect_anchor_links = true,
+      max_lines = math.huge,
+    })
+    -- `M.resolve` estandariza los dos lados al comparar, así que la forma en
+    -- que un anchor esté escrito no decide si resuelve. Por eso pasar a
+    -- verbatim no invalida ni un solo enlace de los ya escritos.
+    for _, written in ipairs { "Installation on Linux", "installation-on-linux" } do
+      assert.are.equal(1, #headings.resolve(note, written), written .. " dejó de resolver")
+    end
+  end)
+
+  it("names a new note after its title instead of a slug of it", function()
+    local new_note = require "lzy.obsidian.new_note"
+    assert.are.equal("Mi Nota Chula", new_note.verbatim_id "Mi Nota Chula")
+    -- Lo que rompería un `[[enlace]]` o fabricaría carpetas sí se va.
+    assert.are.equal("Nota rara", new_note.verbatim_id "Nota #[rara]|")
+    assert.are.equal("Con Espacios", new_note.verbatim_id "  Con   Espacios  ")
+    -- Un título que no deja nada utilizable cae al id generado.
+    assert.are.equal(15, #new_note.verbatim_id "###")
+    -- Con directorio, desambigua contra lo que ya existe en vez de pisarlo.
+    write("Ocupada.md", { "ya existo" })
+    assert.are.equal("Ocupada 2", new_note.verbatim_id("Ocupada", Obsidian.dir))
+  end)
+
   local function rename_at(col, new_name)
     vim.api.nvim_win_set_cursor(0, { 1, col })
     local called = false
@@ -1120,11 +1164,11 @@ describe("Nyabsidian structured links and attachments", function()
       vim.fn.readfile(root .. "/nota.md")
     )
     assert.are.same({
-      "[[nota#renamed#subheader]]",
+      "[[nota#Renamed#subheader]]",
       "[[nota#subheader]]",
-      "[[nota#renamed#subheader#child]]",
+      "[[nota#Renamed#subheader#child]]",
       "[[nota#child]]",
-      "[label](nota.md#renamed#subheader)",
+      "[label](nota.md#Renamed#subheader)",
       "[[nota#missing]]",
     }, vim.fn.readfile(root .. "/source.md"))
   end)
@@ -1137,11 +1181,13 @@ describe("Nyabsidian structured links and attachments", function()
       vim.fn.readfile(root .. "/nota.md")
     )
     assert.are.same({
-      "[[nota#header#my-father-a]]",
-      "[[nota#my-father-a]]",
-      "[[nota#header#my-father-a#child]]",
+      -- Wiki admite el texto tal cual; el destino de un enlace Markdown no
+      -- (un espacio lo cortaría), así que ahí y solo ahí se percent-encodea.
+      "[[nota#header#My Father A]]",
+      "[[nota#My Father A]]",
+      "[[nota#header#My Father A#child]]",
       "[[nota#child]]",
-      "[label](nota.md#header#my-father-a)",
+      "[label](nota.md#header#My%20Father%20A)",
       "[[nota#missing]]",
     }, vim.fn.readfile(root .. "/source.md"))
   end)
@@ -1168,7 +1214,7 @@ describe("Nyabsidian structured links and attachments", function()
       { "# Header", "", "## From declaration", "", "### Child" },
       vim.fn.readfile(root .. "/nota.md")
     )
-    assert.are.equal("[[nota#header#from-declaration]]", vim.fn.readfile(root .. "/source.md")[1])
+    assert.are.equal("[[nota#header#From declaration]]", vim.fn.readfile(root .. "/source.md")[1])
   end)
 
   it("resolves and renames the shortest unambiguous ancestor suffix", function()
@@ -1231,8 +1277,8 @@ describe("Nyabsidian structured links and attachments", function()
       "### Child",
     }, vim.fn.readfile(root .. "/nota.md"))
     assert.are.same({
-      "[[nota#fathera#child-a]]",
-      "[[nota#notename#fathera#child-a]]",
+      "[[nota#fathera#Child A]]",
+      "[[nota#notename#fathera#Child A]]",
       "[[nota#fatherb#child]]",
       "[[nota#child]]",
     }, vim.fn.readfile(root .. "/source.md"))
@@ -1515,6 +1561,285 @@ describe("Nyabsidian structured links and attachments", function()
 
     assert.are.same({ "shortest", "vault", "relative" }, seen)
     assert.are.equal("[[one/a#One|A]]", vim.api.nvim_get_current_line())
+  end)
+
+  it("warns about markdown destinations that resolve here but break on GitHub", function()
+    local diagnostics = require "lzy.obsidian.diagnostics"
+    write("docs/Software wrapper.md", { "# SW" })
+    write("docs/nota.md", { "# Nota" })
+    write("docs/vecina.md", { "# Vecina" })
+    write("carpeta/algo.md", { "# Algo" })
+    -- La fuente vive en docs/, así que `vecina.md` sí está a su lado.
+    write("docs/source.md", {
+      "[SW](/docs/Software wrapper.md)", -- el espacio corta el destino
+      "[SW](/docs/Software%20wrapper.md)", -- correcto
+      "[Nota](/docs/nota)", -- sólo existe con .md -> 404 en GitHub
+      "[Algo](algo.md)", -- nombre suelto que NO está al lado
+      "[Vecina](vecina.md)", -- nombre suelto que sí está al lado: válido
+      "[Carpeta](../carpeta)", -- un directorio no necesita extensión
+      '[Ok](/docs/nota.md "Un título")', -- el espacio del título es legal
+      "[Ok](</docs/Software wrapper.md>)", -- los ángulos son válidos
+      "Texto con `[x](roto ahí.md)` dentro de código", -- no es un enlace
+      "```",
+      "[x](tampoco esto.md)", -- dentro de un fence
+      "```",
+    })
+    vim.cmd.edit(root .. "/docs/source.md")
+
+    local found = {}
+    for _, diag in ipairs(diagnostics.portability_warnings(0, root)) do
+      found[diag.lnum + 1] = diag.severity
+    end
+
+    assert.are.equal(vim.diagnostic.severity.ERROR, found[1], "el espacio crudo rompe el destino")
+    assert.is_nil(found[2], "el destino ya escapado no debe avisar")
+    assert.are.equal(vim.diagnostic.severity.WARN, found[3], "sin .md GitHub da 404")
+    assert.are.equal(vim.diagnostic.severity.HINT, found[4], "nombre suelto que no está al lado")
+    assert.is_nil(found[5], "un nombre suelto que sí está al lado es portable")
+    assert.is_nil(found[6], "un directorio no necesita extensión")
+    assert.is_nil(found[7], "un título entrecomillado no es un destino roto")
+    assert.is_nil(found[8], "los ángulos son CommonMark válido")
+    assert.is_nil(found[9], "dentro de código no hay enlaces, hay texto sobre enlaces")
+    assert.is_nil(found[11], "y dentro de un fence tampoco")
+  end)
+
+  it("reads escaped, slugged and differently-cased targets, accents included", function()
+    -- El vault no escribe ninguna de estas formas, pero llegan igual: pegadas
+    -- de otra herramienta, de un export o de marksman. Se aceptan al LEER.
+    write("Espacios y mayús.md", { "# Espacios y mayús" })
+    require("lzy.obsidian.notes").invalidate_index()
+
+    local function resolves(target)
+      local got
+      require("lzy.obsidian.notes").resolve_async(target, function(found)
+        got = found
+      end)
+      vim.wait(3000, function()
+        return got ~= nil
+      end, 10)
+      return #got > 0 and vim.fs.basename(tostring(got[1].path)) or nil
+    end
+
+    assert.are.equal("Espacios y mayús.md", resolves "Espacios y mayús")
+    assert.are.equal("Espacios y mayús.md", resolves "Espacios%20y%20mayús")
+    assert.are.equal("Espacios y mayús.md", resolves "espacios-y-mayús")
+    -- `:lower()` de Lua es byte a byte y dejaba la `Ú` intacta, así que la
+    -- resolución "insensible a mayúsculas" sólo lo era en ASCII.
+    assert.are.equal("Espacios y mayús.md", resolves "ESPACIOS Y MAYÚS")
+    -- Y lo que no existe sigue sin existir.
+    assert.is_nil(resolves "no-existe-nada-de-esto")
+  end)
+
+  it("grows the coordinate one folder at a time instead of jumping to the full path", function()
+    write("x/deep/nested/a.md", { "# A" })
+    write("y/other/nested/a.md", { "# B" })
+    write("solitaria.md", { "# Sola" })
+    local coordinate = require "lzy.obsidian.coordinate"
+    local opts = { root = root, fresh = true }
+
+    -- Sin homónimos, el nombre pelado.
+    assert.are.equal("solitaria", coordinate.minimal(root .. "/solitaria.md", opts))
+
+    -- Con homónimos, el sufijo MÍNIMO que ya los separa. `a` colisiona y
+    -- `nested/a` también (las dos terminan igual), así que hace falta bajar a
+    -- `deep/nested/a` -- pero no hasta la ruta completa `x/deep/nested/a`.
+    assert.are.equal(
+      "deep/nested/a",
+      coordinate.minimal(root .. "/x/deep/nested/a.md", opts)
+    )
+    assert.are.equal(
+      "other/nested/a",
+      coordinate.minimal(root .. "/y/other/nested/a.md", opts)
+    )
+  end)
+
+  describe("relink", function()
+    it("canonicalises every link and leaves the ones it cannot resolve alone", function()
+      write("docs/Software wrapper.md", { "# SW" })
+      write("docs/notaunica.md", { "# Nota" })
+      write("source.md", {
+        "[[docs/notaunica]]", -- se puede acortar: no hay homónimos
+        "[SW](docs/Software%20wrapper.md)", -- markdown -> ruta desde la raíz
+        "[[docs/notaunica|con alias]]", -- el alias se conserva
+        "[[fantasma]]", -- no resuelve: intacto
+        "[Web](https://ejemplo.com/a)", -- externo: intacto
+      })
+      -- Recargar: otros tests dejan un buffer con este mismo nombre cargado.
+      vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
+
+      local plan = assert(require("lzy.obsidian.relink").plan { root = root })
+      vim.lsp.util.apply_workspace_edit(
+        require("lzy.obsidian.relink").workspace_edit(plan),
+        "utf-8"
+      )
+
+      assert.are.same({
+        "[[notaunica]]",
+        "[SW](/docs/Software%20wrapper.md)",
+        "[[notaunica|con alias]]",
+        "[[fantasma]]",
+        "[Web](https://ejemplo.com/a)",
+      }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("accepts both escapes for a space and rewrites neither", function()
+      write("docs/Guia con espacio.md", { "# G" })
+      write("source.md", {
+        "[A](/docs/Guia%20con%20espacio.md)", -- escapado
+        "[B](</docs/Guia con espacio.md>)", -- entre ángulos: también válido
+        "[C](docs/Guia%20con%20espacio.md)", -- válido pero no canónico
+      })
+      vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
+
+      local relink = require "lzy.obsidian.relink"
+      local plan = assert(relink.plan { root = root })
+      vim.lsp.util.apply_workspace_edit(relink.workspace_edit(plan), "utf-8")
+
+      assert.are.same({
+        "[A](/docs/Guia%20con%20espacio.md)",
+        -- Los ángulos ya son portables: meterles %20 dentro sería redundante y
+        -- pelearse con una forma correcta elegida a propósito.
+        "[B](</docs/Guia con espacio.md>)",
+        "[C](/docs/Guia%20con%20espacio.md)",
+      }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("fixes the case of a markdown destination but never of a bare wikilink", function()
+      write("swap.md", { "# swap" })
+      write("source.md", {
+        "[[Swap]]", -- el destino ES el texto visible: no se toca
+        "[Swap](/Swap.md)", -- aquí la caja decide si GitHub lo encuentra
+      })
+      vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
+
+      local relink = require "lzy.obsidian.relink"
+      local plan = assert(relink.plan { root = root })
+      vim.lsp.util.apply_workspace_edit(relink.workspace_edit(plan), "utf-8")
+
+      assert.are.same({
+        "[[Swap]]",
+        "[Swap](/swap.md)",
+      }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("expands the links a new colliding note would have hijacked", function()
+      write("carpeta/Duplicada.md", { "# La de siempre" })
+      write("source.md", { "Mira [[Duplicada]] y [[Duplicada|con alias]]." })
+      vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
+      require("lzy.obsidian.notes").invalidate_index()
+
+      -- Aparece una homónima: los enlaces de arriba dejan de ser inequívocos.
+      write("otra/Duplicada.md", { "# La nueva" })
+      local rewritten = require("lzy.obsidian.relink").on_note_added(
+        root .. "/otra/Duplicada.md",
+        { root = root, notify = function() end }
+      )
+
+      assert.are.equal(2, rewritten)
+      assert.are.equal(
+        "Mira [[carpeta/Duplicada]] y [[carpeta/Duplicada|con alias]].",
+        vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      )
+    end)
+
+    it("does nothing when the new note collides with nobody", function()
+      write("carpeta/Sola.md", { "# Sola" })
+      write("source.md", { "Mira [[Sola]]." })
+      vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
+      require("lzy.obsidian.notes").invalidate_index()
+
+      assert.are.equal(
+        0,
+        require("lzy.obsidian.relink").on_note_added(
+          root .. "/carpeta/Sola.md",
+          { root = root, notify = function() end }
+        )
+      )
+      assert.are.equal(
+        "Mira [[Sola]].",
+        vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      )
+    end)
+  end)
+
+  it("resolves an ambiguous name to the closest note first, as attachments already did", function()
+    write("cerca/a.md", { "# Cerca" })
+    write("lejos/muy/hondo/a.md", { "# Lejos" })
+    write("cerca/source.md", { "texto" })
+    vim.cmd.edit(root .. "/cerca/source.md")
+
+    local notes = require "lzy.obsidian.notes"
+    notes.invalidate_index()
+    local got
+    notes.resolve_async("a", function(found)
+      got = found
+    end)
+    vim.wait(3000, function()
+      return got ~= nil
+    end, 10)
+
+    assert.is_true(#got >= 2, "las dos notas homónimas deberían resolver")
+    -- Antes las notas no ordenaban nada y el ganador dependía del orden de
+    -- indexación del vault, mientras que un adjunto homónimo sí desempataba
+    -- por cercanía: misma ambigüedad, dos respuestas distintas.
+    assert.are.equal(
+      vim.fs.joinpath(root, "cerca/a.md"),
+      vim.fs.normalize(tostring(got[1].path))
+    )
+  end)
+
+  it("treats an alias collision as a collision, even though it is not in the path", function()
+    -- El rival no se llama `Unica`: la reclama por alias. Su ruta no contiene
+    -- ese nombre por ningún lado, así que comparar sufijos de ruta no lo ve --
+    -- y el nombre pelado saldría como si fuese inequívoco cuando no lo es.
+    write("x/Unica.md", { "# Unica" })
+    write("y/Distinta.md", { "---", "aliases:", "  - Unica", "---", "", "# Distinta" })
+    local coordinate = require "lzy.obsidian.coordinate"
+    local opts = { root = root, fresh = true }
+
+    assert.are.equal("x/Unica", coordinate.minimal(root .. "/x/Unica.md", opts))
+  end)
+
+  it("falls back to the leading slash when an ambiguous note sits at the vault root", function()
+    -- En la raíz no hay carpeta que añadir. La barra la vuelve una coordenada
+    -- posicional, que es lo único que la separa de quien la reclama por alias.
+    write("Raiz.md", { "# Raiz" })
+    write("z/Otra.md", { "---", "aliases:", "  - Raiz", "---", "", "# Otra" })
+    local coordinate = require "lzy.obsidian.coordinate"
+
+    assert.are.equal(
+      "/Raiz",
+      coordinate.minimal(root .. "/Raiz.md", { root = root, fresh = true })
+    )
+  end)
+
+  it("only counts a rival as sharing a suffix on a folder boundary", function()
+    write("otra/Nota.md", { "# Una" })
+    write("miotra/Nota.md", { "# Otra" })
+    local coordinate = require "lzy.obsidian.coordinate"
+    local opts = { root = root, fresh = true }
+
+    -- `miotra/Nota` termina en la cadena "otra/Nota", pero no en el segmento:
+    -- si se comparasen como texto, ninguno de los dos sería nunca separable.
+    assert.are.equal("otra/Nota", coordinate.minimal(root .. "/otra/Nota.md", opts))
+    assert.are.equal("miotra/Nota", coordinate.minimal(root .. "/miotra/Nota.md", opts))
+  end)
+
+  it("writes a markdown destination as a root path, encoded, never a bare name", function()
+    write("docs/Software wrapper.md", { "# SW" })
+    local coordinate = require "lzy.obsidian.coordinate"
+
+    -- Un basename pelado resolvería aquí (buscamos por el vault) y daría 404
+    -- en GitHub, que sólo mira la ruta literal.
+    assert.are.equal(
+      "/docs/Software%20wrapper.md",
+      coordinate.markdown(root .. "/docs/Software wrapper.md", { root = root })
+    )
+    -- Y la misma nota dentro de un wikilink va pelada y con el espacio literal.
+    assert.are.equal(
+      "Software wrapper",
+      coordinate.minimal(root .. "/docs/Software wrapper.md", { root = root, fresh = true })
+    )
   end)
 
   it("uses an empty shortest target for a heading in the current note", function()
@@ -1940,12 +2265,19 @@ describe("Nyabsidian structured links and attachments", function()
       write("docs/caos/nota.md", { "# Caos" })
 
       for _, syntax in ipairs(SYNTAXES) do
+        -- Cada sintaxis inserta SU forma canónica: en `[[` el destino va sin
+        -- extensión, en las Markdown el `.md` es obligatorio (sin él GitHub da
+        -- 404). Ver docs/todo-markdown.md §1.5 y §1.6.
+        local function target(name)
+          return syntax == "[[" and (name:gsub("%.md$", "")) or name
+        end
+
         local inside = complete(syntax .. "/docs/")
-        local arch = item(inside, "/docs/archlinux.md")
+        local arch = item(inside, target "/docs/archlinux.md")
         assert.is_not_nil(arch, "the folder's notes are missing in " .. syntax)
         assert.are.equal("Nota del vault", arch.detail)
         assert.are.equal(vim.lsp.protocol.CompletionItemKind.File, arch.kind)
-        assert.is_not_nil(item(inside, "/docs/windows11.md"))
+        assert.is_not_nil(item(inside, target "/docs/windows11.md"))
         -- Las subcarpetas siguen ofreciéndose, y antes que las notas.
         local caos = item(inside, "/docs/caos/")
         assert.is_not_nil(caos)
@@ -1953,8 +2285,8 @@ describe("Nyabsidian structured links and attachments", function()
 
         -- Y filtrando por lo tecleado.
         local filtered = complete(syntax .. "/docs/arch")
-        assert.is_not_nil(item(filtered, "/docs/archlinux.md"))
-        assert.is_nil(item(filtered, "/docs/windows11.md"))
+        assert.is_not_nil(item(filtered, target "/docs/archlinux.md"))
+        assert.is_nil(item(filtered, target "/docs/windows11.md"))
       end
     end)
 
@@ -2210,7 +2542,7 @@ describe("Nyabsidian structured links and attachments", function()
     it("copies a pasteable [[Note#anchor]] link when the cursor is on a heading", function()
       write("Windows 11.md", { "# My Header", "", "body" })
       vim.cmd.edit(root .. "/Windows 11.md")
-      assert.are.equal("[[Windows 11#my-header]]", copy_at(1, 3))
+      assert.are.equal("[[Windows 11#My Header]]", copy_at(1, 3))
     end)
 
     it("falls back to a link to the current note on plain text with nothing else to copy", function()

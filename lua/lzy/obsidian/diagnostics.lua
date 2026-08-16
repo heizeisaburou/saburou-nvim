@@ -77,6 +77,164 @@ local function note_refs(bufnr)
   return out
 end
 
+--- Enlaces que resuelven AQUÍ y se rompen fuera.
+---
+--- El diagnóstico de más abajo sólo ve enlaces que no resuelven, y ése es
+--- justo el punto ciego: nuestro motor busca por todo el vault y perdona la
+--- extensión, mientras que GitHub sigue la ruta literal. Un destino que aquí
+--- se ve perfecto puede ser un 404 publicado, y nadie se entera.
+---
+--- Es todo sintáctico a propósito: no toca disco ni resuelve nada, así que
+--- corre en la misma pasada sin coste. Ver docs/todo-markdown.md §1.6.
+---@param bufnr integer
+---@param root string|nil
+---@return vim.Diagnostic[]
+local function portability_warnings(bufnr, root)
+  local util = require "obsidian.util"
+  local uv = vim.uv or vim.loop
+  local out = {}
+
+  local source = vim.api.nvim_buf_get_name(bufnr)
+  local source_dir = source ~= "" and vim.fs.dirname(source) or nil
+
+  ---@param target string ya decodificado
+  ---@return string|nil
+  local function locate(target)
+    if vim.startswith(target, "/") then
+      return root and vim.fs.joinpath(root, target:sub(2)) or nil
+    end
+    return source_dir and vim.fs.joinpath(source_dir, target) or nil
+  end
+
+  ---@param path string|nil
+  ---@return string|nil kind "file" | "directory"
+  local function kind_of(path)
+    if not path then
+      return nil
+    end
+    local stat = uv.fs_stat(path)
+    return stat and stat.type or nil
+  end
+
+  --- Dentro de un span de código no hay enlaces, hay texto sobre enlaces: la
+  --- documentación de esta config está llena de `[x](algo.md)` explicando la
+  --- sintaxis, y avisar ahí es puro ruido.
+  ---@param line string
+  ---@param col integer 1-based
+  ---@return boolean
+  local function inside_code(line, col)
+    local prefix = line:sub(1, col - 1)
+    return #prefix:gsub("[^`]", "") % 2 == 1
+  end
+
+  ---@param row integer 0-based
+  ---@param start_col integer
+  ---@param end_col integer
+  ---@param severity integer
+  ---@param message string
+  local function add(row, start_col, end_col, severity, message)
+    out[#out + 1] = {
+      lnum = row,
+      col = start_col,
+      end_lnum = row,
+      end_col = end_col,
+      severity = severity,
+      source = "nyabsidian",
+      message = message,
+    }
+  end
+
+  -- Un bloque de código no contiene enlaces, contiene texto sobre enlaces.
+  -- Esta misma documentación (docs/todo-markdown.md) está llena de ejemplos de
+  -- destinos rotos dentro de fences, a propósito.
+  local fence = nil
+
+  for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+    local marker = line:match "^%s*(```+)" or line:match "^%s*(~~~+)"
+    if fence then
+      if marker and marker:sub(1, 1) == fence:sub(1, 1) and #marker >= #fence then
+        fence = nil
+      end
+      goto continue
+    elseif marker then
+      fence = marker
+      goto continue
+    end
+
+    -- Un destino con espacio crudo: CommonMark corta ahí. `[x](/a/b c.md)` se
+    -- lee como `/a/b` y el resto se pierde -- en GitHub, pandoc, mdBook y
+    -- marksman por igual. Sólo es legal si lo que sigue al espacio es el
+    -- título entrecomillado.
+    local search = 1
+    while true do
+      local open_start, open_end = line:find("%]%(", search)
+      if not open_start then
+        break
+      end
+      local close = line:find(")", open_end + 1, true)
+      if not close then
+        break
+      end
+      local inside = line:sub(open_end + 1, close - 1)
+      if inside:sub(1, 1) ~= "<" and not inside_code(line, open_start) then
+        local dest, rest = inside:match "^(%S+)%s+(.*)$"
+        if dest and rest ~= "" and not rest:match "^[\"'(]" then
+          add(
+            row - 1,
+            open_end,
+            close - 1,
+            vim.diagnostic.severity.ERROR,
+            ("El espacio corta el destino: se lee '%s' y se pierde el resto. Escríbelo como %%20."):format(
+              dest
+            )
+          )
+        elseif not dest then
+          -- Destino sin espacios: comprobamos que sea portable de verdad, no
+          -- que lo parezca. Aquí hace falta mirar el disco: un destino sin
+          -- extensión puede ser una carpeta o un fichero sin extensión (los
+          -- dos válidos en GitHub), y sólo es un problema cuando el enlace
+          -- depende de que nosotros le añadamos el `.md`.
+          local plain = (inside:gsub("%s.*$", "")):gsub("#.*$", "")
+          if
+            plain ~= ""
+            and not util.is_uri(plain)
+            and not plain:match "^[%a][%w+.-]*:"
+            and not plain:match "^#"
+          then
+            local decoded = vim.uri_decode(plain) or plain
+            local literal = kind_of(locate(decoded))
+            if not literal and kind_of(locate(decoded .. ".md")) == "file" then
+              add(
+                row - 1,
+                open_end,
+                close - 1,
+                vim.diagnostic.severity.WARN,
+                "El destino sólo existe con '.md'; sin la extensión GitHub da 404."
+              )
+            elseif not literal and not decoded:find("/", 1, true) then
+              -- Un nombre suelto que no está al lado de esta nota resuelve
+              -- aquí porque buscamos por todo el vault. GitHub no busca.
+              add(
+                row - 1,
+                open_end,
+                close - 1,
+                vim.diagnostic.severity.HINT,
+                "Nombre suelto: aquí resuelve por búsqueda, pero GitHub sólo mira esta carpeta. Usa la ruta desde la raíz."
+              )
+            end
+          end
+        end
+      end
+      search = close + 1
+    end
+    ::continue::
+  end
+
+  return out
+end
+
+M.portability_warnings = portability_warnings
+
 ---@param bufnr integer
 local function refresh(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
@@ -99,9 +257,14 @@ local function refresh(bufnr)
     require("lzy.obsidian.notes").invalidate_index()
   end)
 
+  -- Sintáctico y sin disco: se calcula siempre, incluso si no hay ni un enlace
+  -- roto, porque justamente avisa de enlaces que sí resuelven.
+  local portability_ok, portability = pcall(portability_warnings, bufnr, vault_root(bufnr))
+  portability = portability_ok and portability or {}
+
   local ok, refs = pcall(note_refs, bufnr)
   if not ok or #refs == 0 then
-    return vim.diagnostic.set(NS, bufnr, {})
+    return vim.diagnostic.set(NS, bufnr, portability)
   end
 
   local gen = (generations[bufnr] or 0) + 1
@@ -123,7 +286,7 @@ local function refresh(bufnr)
     pending = pending + 1
   end
 
-  local diagnostics = {}
+  local diagnostics = portability
   local function finish()
     pending = pending - 1
     if pending > 0 then

@@ -48,12 +48,36 @@ function M.needle(query)
   return stripped
 end
 
----Percent-encoding por segmento, conservando los separadores.
+--- Lo que rompe el parseo de un destino de enlace, y sólo eso:
+---   - espacio y tabulador: **cortan** el destino en CommonMark
+---   - `()` lo cierran, `<>` lo delimitan, `"'` abrirían un título
+---   - `[]{}|\`^` confunden a un parser u otro
+---
+--- `/` y `#` NO están: son estructura, no contenido. Varios sitios codifican
+--- `ruta#fragmento` de una pieza, y escapar la almohadilla ahí se comería el
+--- separador. Quien necesite un `#` literal dentro de un segmento lo escapa por
+--- su cuenta (ver lzy.obsidian.headings.anchor_text).
+local UNSAFE = '[ \t\r\n"\'()<>%[%]{}|\\`^]'
+
+---Percent-encoding **mínimo** para un destino de enlace.
+---
+---Único codificador del proyecto, a propósito. Antes había dos y el resultado
+---dependía de por qué ruta hubieras llegado: `obsidian.util.urlencode` dejaba
+---la `ú` literal y `vim.uri_encode` la convertía en `%c3%ba`, así que la misma
+---nota se enlazaba de dos formas distintas según si el candidato venía de la
+---búsqueda de notas o del recorrido de carpetas.
+---
+---Gana la forma legible: un acento no le molesta a nadie —GitHub sirve UTF-8
+---en la ruta igual de bien— y percent-encodearlo sólo ensucia el enlace. Se
+---escapa lo que de verdad lo rompería.
+---
+---Espera una ruta **sin** escapar; quien reciba destinos ya escritos debe
+---decodificar antes, o `%20` se convertiría en `%2520`.
 ---@param path string
 ---@return string
 function M.encode(path)
-  return (path:gsub("[^/]+", function(segment)
-    return vim.uri_encode(segment)
+  return (path:gsub(UNSAFE, function(char)
+    return ("%%%02X"):format(char:byte())
   end))
 end
 

@@ -331,6 +331,15 @@ M.config = {
 
   marksman = {
     cmd = { "marksman", "server" },
+    -- Su resolutor es más estricto que el nuestro (indexa por título y por
+    -- nombre exacto), así que marca en rojo enlaces que aquí se siguen sin
+    -- problema. El handler filtra ESOS y sólo esos: ver
+    -- lzy.marksman.publish_diagnostics.
+    handlers = {
+      ["textDocument/publishDiagnostics"] = function(...)
+        return require("lzy.marksman").publish_diagnostics(...)
+      end,
+    },
     -- marksman sobra cuando obsidian.nvim gestiona el buffer (obsidian-ls):
     -- resuelve enlaces wiki complejos ("~ > .zshrc") que marksman no puede.
     -- root_dir devuelve nil para notas de vault (.obsidian/.nyabsidian) y

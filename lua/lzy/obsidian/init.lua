@@ -453,14 +453,13 @@ local function make_opts()
 
     -- El default de obsidian.nvim es `zettel_id`: el nombre que tecleas no
     -- llega a ser el id de la nota, solo su etiqueta, así que el enlace que se
-    -- inserta acaba siendo `[[1786869003-VDUY|lo que escribiste]]`. Con
-    -- `title_id` el id es el slug del título, el archivo se llama igual y el
-    -- enlace es legible. Solo afecta a notas nuevas.
+    -- inserta acaba siendo `[[1786869003-VDUY|lo que escribiste]]`.
     --
-    -- Crear desde un enlace ya escrito (`lzy.obsidian.new_note`) sigue siendo
-    -- verbatim a propósito: ahí el nombre ya está en el buffer y slugificarlo
-    -- rompería el enlace que lo pidió.
-    note_id_func = require("obsidian.builtin").title_id,
+    -- El id es el título tal cual, no su slug: "Mi Nota" -> `Mi Nota.md`. Así
+    -- esta puerta y la de crear desde un enlace ya escrito
+    -- (`lzy.obsidian.new_note.create`, verbatim desde siempre) producen el
+    -- mismo nombre. Solo afecta a notas nuevas.
+    note_id_func = require("lzy.obsidian.new_note").verbatim_id,
 
     -- Default de obsidian.nvim es { " ", "~", "!", ">", "x" }: pone "~"
     -- justo después de "[ ]", antes que "x". Poco natural para toggle
@@ -1554,6 +1553,7 @@ local function install_runtime()
   pcall(vim.api.nvim_del_user_command, "NyabsidianConvertLink")
   pcall(vim.api.nvim_del_user_command, "NyabsidianFetchTitle")
   pcall(vim.api.nvim_del_user_command, "NyabsidianSmartCopy")
+  pcall(vim.api.nvim_del_user_command, "NyabsidianRelink")
 
   vim.api.nvim_create_user_command("NyabsidianRefresh", function()
     M.refresh { notify = true }
@@ -1586,6 +1586,12 @@ local function install_runtime()
   vim.api.nvim_create_user_command("NyabsidianFetchTitle", function()
     require("lzy.obsidian.link_actions").fetch_web_title()
   end, { desc = "Use the web page title as the Markdown link label" })
+
+  vim.api.nvim_create_user_command("NyabsidianRelink", function()
+    require("lzy.obsidian.relink").run()
+  end, {
+    desc = "Llevar todos los enlaces del vault a su forma canónica (pide confirmación)",
+  })
 
   vim.api.nvim_create_user_command("NyabsidianSmartCopy", function()
     require("lzy.obsidian.smart_copy").smart_copy()

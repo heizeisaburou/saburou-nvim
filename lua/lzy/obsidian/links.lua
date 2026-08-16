@@ -713,6 +713,57 @@ local function patch_action_follow()
   actions.__nyabsidian_attachments = true
 end
 
+--- Crear una nota puede volver ambiguos enlaces que ya existían: si aparece una
+--- segunda `Setup`, todos los `[[Setup]]` del vault dejan de apuntar a la que
+--- apuntaban. `lzy.obsidian.new_note.create` ya lo repara, pero ésa es sólo una
+--- de las puertas -- `:Obsidian new` y `new_from_template` crean la nota por su
+--- cuenta y no pasan por ahí, así que la corrección no llegaba a ocurrir y
+--- creabas una nota sin que nada avisara.
+---
+--- La puerta es barata: `on_note_added` mira si el nombre colisiona (un lookup)
+--- y sale sin hacer nada en la inmensa mayoría de las altas.
+local function patch_note_creation()
+  local actions = require "obsidian.actions"
+  if actions.__nyabsidian_relink then
+    return
+  end
+
+  ---@param note obsidian.Note|?
+  local function reconcile(note)
+    if not note or not note.path then
+      return
+    end
+    pcall(function()
+      require("lzy.obsidian.notes").invalidate_index()
+      require("lzy.obsidian.relink").on_note_added(tostring(note.path), { notify = notify })
+    end)
+  end
+
+  local original_new = actions.new
+  actions.new = function(id, callback)
+    return original_new(id, function(note)
+      reconcile(note)
+      if callback then
+        callback(note)
+      end
+    end)
+  end
+
+  local original_from_template = actions.new_from_template
+  if original_from_template then
+    actions.new_from_template = function(id, template, callback)
+      return original_from_template(id, template, function(note)
+        reconcile(note)
+        if callback then
+          callback(note)
+        end
+      end)
+    end
+  end
+
+  actions.__nyabsidian_relink = true
+end
+
 local function patch_smart_action()
   local actions = require "obsidian.actions"
   if actions.__nyabsidian_heading_enter then
@@ -728,6 +779,22 @@ local function patch_smart_action()
       -- heading en tarea. Sin folding, el comportamiento seguro es Enter.
       return "<CR>"
     end
+
+    -- Enlace-imagen (badge `[![alt](img)](url)`, ver
+    -- attachments.cursor_linked_image): el `api.cursor_link()` nativo que usa
+    -- `obsidian.actions.smart_action` no ve el enlace exterior (columna sobre
+    -- `](url)`, tras la imagen), así que ahí no detectaba enlace y `<CR>`
+    -- caía a otra acción. Y donde sí lo detecta (sobre el alt text o la URL
+    -- de la imagen), el `<cmd>Obsidian follow_link<cr>` resultante dispara
+    -- `vim.lsp.buf.definition`, que no pasa por `actions.follow_link`
+    -- parcheado y pierde la prioridad del enlace exterior sobre la imagen.
+    -- Despachar directo a la versión parcheada evita ambos problemas.
+    if
+      require("lzy.obsidian.attachments").cursor_linked_image(vim.api.nvim_get_current_buf())
+    then
+      return "<cmd>lua require('obsidian.actions').follow_link()<CR>"
+    end
+
     return original()
   end
   actions.__nyabsidian_heading_enter = true
@@ -1138,6 +1205,7 @@ function M.setup(opts)
   patch_cursor_autolink()
   patch_definition()
   patch_action_follow()
+  patch_note_creation()
   patch_smart_action()
   patch_prepare_rename()
   patch_rename()

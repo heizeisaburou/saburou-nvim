@@ -137,17 +137,39 @@ end
 
 ---@param path string
 ---@return string
+-- Codificador único del proyecto (ver lzy.link_target.encode).
 local function encode(path)
-  return require("obsidian.util").urlencode(path, { keep_path_sep = true })
+  return require("lzy.link_target").encode(path)
+end
+
+--- El destino tal cual se inserta, según la sintaxis que lo va a alojar.
+---
+--- Un `[[wiki]]` lo resuelve nuestro motor buscando por el vault: admite el
+--- espacio literal y no necesita extensión — el vault tiene 9101 wikilinks y
+--- ni uno lleva `.md`. El destino de un enlace markdown lo resuelve GitHub
+--- siguiendo la ruta literal: ahí un espacio **corta el destino** y sin `.md`
+--- da 404. Antes se codificaba siempre, así que completar dentro de `[[`
+--- producía `[[Nota%20mía.md]]`.
+---
+--- Ver docs/todo-markdown.md §1.5 y §1.6.
+---@param target string
+---@param kind string|nil `context.kind`: "wiki" | "inline" | "definition"
+---@return string
+local function write_target(target, kind)
+  if kind == "wiki" then
+    return (target:gsub("%.md$", ""))
+  end
+  return encode(target)
 end
 
 ---@param bufnr integer
 ---@param query string
 ---@param note obsidian.Note
 ---@param root string
+---@param kind string|nil `context.kind`
 ---@return string|nil target lo que se inserta
 ---@return string|nil root_relative el mismo destino medido desde la raíz del vault
-local function note_target(bufnr, query, note, root)
+local function note_target(bufnr, query, note, root, kind)
   local coord = require "lzy.link_target"
   local path = vim.fs.normalize(tostring(note.path))
   if vim.fn.isabsolutepath(path) == 0 then
@@ -169,7 +191,7 @@ local function note_target(bufnr, query, note, root)
   else
     target = root_relative
   end
-  return encode(target), root_relative
+  return write_target(target, kind), root_relative
 end
 
 ---La aguja de la búsqueda por nombre, o nil si no toca buscar.
@@ -229,7 +251,7 @@ local function complete_target(params, context, callback)
   end
 
   for _, entry in ipairs(coord.entries(query, root, { files = true })) do
-    local target = encode(entry.target)
+    local target = write_target(entry.target, context.kind)
     local directory = entry.kind == "directory"
     local scope = entry.scope == "system" and "del sistema" or "del vault"
     add {
@@ -251,7 +273,7 @@ local function complete_target(params, context, callback)
 
   require("obsidian.search").find_notes_async(needle, function(notes)
     for _, note in ipairs(notes) do
-      local target, root_relative = note_target(bufnr, query, note, root)
+      local target, root_relative = note_target(bufnr, query, note, root, context.kind)
       if target and root_relative then
         add {
           label = target,

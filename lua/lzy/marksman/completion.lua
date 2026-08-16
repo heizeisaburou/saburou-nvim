@@ -129,6 +129,27 @@ function M.source()
 
 		local source_dir = vim.fs.dirname(source_path)
 		local items = {}
+
+		--- El destino tal cual se inserta, según la sintaxis que lo aloja.
+		---
+		--- Un `[[wiki]]` va con el nombre legible: espacio literal, sin `.md` y
+		--- sin escapes. Un destino Markdown va con la ruta escapada y con
+		--- extensión. Aquí se insertaba siempre la forma Markdown, así que en
+		--- `[[` salía `[[/Espacios%20y%20mayús.md]]` -- forma correcta, sintaxis
+		--- equivocada. Mismo criterio que lzy.obsidian.completion.
+		local function write_target(target, path)
+			if ctx.kind ~= "wiki" then
+				return coord.encode(target)
+			end
+			local bare = target:gsub("^/", ""):gsub("%.md$", "")
+			if not path then
+				return bare -- una carpeta: no tiene nombre de nota que renderizar
+			end
+			-- El nombre lo escribe el proyecto en su estilo, para no discrepar del
+			-- linter del servidor dentro del mismo buffer (ver wiki_style).
+			local name = require("lzy.marksman.workspace").wiki_name(path, root)
+			return (bare:gsub("[^/]+$", (name:gsub("%%", "%%%%"))))
+		end
 		local function range()
 			return {
 				start = { line = ctx.row, character = ctx.range.start_col },
@@ -140,7 +161,7 @@ function M.source()
 		-- nada hasta acertar a ciegas el nombre del archivo. Las notas del nivel
 		-- ya las pone el índice del proyecto, más abajo.
 		for _, dir in ipairs(coord.entries(query, root)) do
-			local target = coord.encode(dir.target)
+			local target = write_target(dir.target)
 			items[#items + 1] = {
 				label = target,
 				filterText = target,
@@ -161,13 +182,16 @@ function M.source()
 					target = "/" .. root_relative
 				end
 				if target then
-					target = coord.encode(target)
+					-- El filtro se puntúa contra la coordenada TECLEADA, no contra
+					-- lo que se inserta: en `[[` el destino pierde la barra, y
+					-- filtrar `/docs` contra `docs/api` da score 0 en cmp -- el
+					-- item desaparece, que es el síntoma de "empezar por / no hace
+					-- nada". Por eso el filtro usa la forma con coordenada.
+					local typed = target
+					target = write_target(target, path)
 					items[#items + 1] = {
 						label = target,
-						-- Debe hablar el idioma de la coordenada tecleada: filtrar
-						-- `/docs` contra `docs/api.md` da score 0 en cmp y el item
-						-- desaparece, que es el síntoma de "empezar por / no hace nada".
-						filterText = coord.filter_text(query, target, root_relative),
+						filterText = coord.filter_text(query, typed, root_relative),
 						detail = "Nota del proyecto Marksman",
 						kind = vim.lsp.protocol.CompletionItemKind.File,
 						textEdit = { newText = target, range = range() },

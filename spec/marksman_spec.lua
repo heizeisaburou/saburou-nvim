@@ -171,6 +171,29 @@ describe("Marksman adapter", function()
 		assert.are.equal("/notes/renamed.md", replacement)
 	end)
 
+	it("qualifies a wikilink with the minimal suffix and a markdown link with the root path", function()
+		-- Las dos sintaxis se desambiguan distinto a propósito: un `[[wiki]]` lo
+		-- resuelve un motor que busca, así que le vale el sufijo mínimo; un
+		-- destino Markdown lo resuelve GitHub siguiendo la ruta literal, donde un
+		-- sufijo daría 404. Antes las dos salían con la ruta entera.
+		local target = write("a/b/c/target.md", { "# Target" })
+		write("x/y/z/renamed.md", { "# Homónimo" })
+		write("source.md", { "[[target]]", "[W](target.md)" })
+
+		local edit = assert(require("lzy.marksman.rename").note_edit(target, "renamed", root))
+		local written = {}
+		for _, change in ipairs(edit.documentChanges) do
+			if change.textDocument then
+				for _, single in ipairs(change.edits) do
+					written[#written + 1] = single.newText
+				end
+			end
+		end
+		table.sort(written)
+
+		assert.are.same({ "/a/b/c/renamed.md", "c/renamed" }, written)
+	end)
+
 	it("adds reference-definition fragments to Marksman's heading rename", function()
 		local target = write("target.md", { "# Target", "", "## Old heading" })
 		local source = write("source.md", {
@@ -215,7 +238,414 @@ describe("Marksman adapter", function()
 		)
 		local changes = edit.changes[vim.uri_from_fname(source)]
 		assert.are.equal(1, #changes)
-		assert.are.equal(vim.uri_encode("nueva-sección"), changes[1].newText)
+		-- Se escapa lo que rompe el destino y nada más: la `ó` se queda legible
+		-- en vez de convertirse en `%c3%b3`. Antes esto dependía de qué
+		-- codificador te tocara (ver lzy.link_target.encode).
+		assert.are.equal("nueva-sección", changes[1].newText)
+	end)
+
+	it("renames into a wikilink with literal spaces, and only escapes the Markdown one", function()
+		-- Renombrar a "Espacios y mayús" dejaba `[[Espacios%20y%20mayús]]`: el
+		-- escape es cosa del destino Markdown, donde el espacio corta el destino.
+		-- Dentro de `[[...]]` no hay nada que cortar y el espacio va literal.
+		local target = write("espacios-y-mayús.md", { "# vieja" })
+		write("source.md", {
+			"[[espacios-y-mayús]]",
+			"[[/espacios-y-mayús]]",
+			"[[espacios-y-mayús|como se lee]]",
+			"[x](/espacios-y-may%C3%BAs.md)",
+		})
+
+		local edit = assert(
+			require("lzy.marksman.rename").note_edit(target, "Espacios y mayús", root)
+		)
+		local written = {}
+		for _, change in ipairs(edit.documentChanges) do
+			if change.textDocument then
+				for _, single in ipairs(change.edits) do
+					written[#written + 1] = single.newText
+				end
+			end
+		end
+		table.sort(written)
+
+		-- El `.marksman.toml` de estas pruebas no declara `completion.wiki.style`,
+		-- así que manda el default de marksman: `title-slug`. Nosotros escribimos
+		-- en el estilo del PROYECTO, no en el nuestro, para no dejar el buffer con
+		-- las dos formas (la del linter del servidor y la nuestra).
+		assert.are.same({
+			"/Espacios%20y%20mayús.md", -- Markdown: escapado y con extensión
+			"/espacios-y-mayús", -- wiki con barra: sin escapar
+			"espacios-y-mayús", -- wiki desnudo
+			"espacios-y-mayús", -- y el que lleva alias, que se conserva
+		}, written)
+	end)
+
+	it("repoints the link when you create the note under a different name", function()
+		-- El caso real: sigues un `[[mi-nota]]` que escribió el servidor en slug,
+		-- lo creas como "Mi nota", y el enlace tiene que quedar apuntando ahí --
+		-- en la forma de SU sintaxis, nunca con %20 dentro de `[[...]]`.
+		write("source.md", {
+			"Wiki [[mi-nota]] y con alias [[mi-nota|como se lee]].",
+			"Markdown [x](mi-otra)",
+		})
+		local source = vim.fs.joinpath(root, "source.md")
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+		local bufnr = vim.api.nvim_get_current_buf()
+		local marksman = require("lzy.marksman")
+		local new_note = require("lzy.marksman.new_note")
+
+		local function create_and_repoint(row, col, name)
+			vim.api.nvim_win_set_cursor(0, { row, col })
+			local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+			local ref = assert(require("lzy.marksman.parser").at(lines, row - 1, col))
+			local created, renamed = new_note.create(ref.path, {
+				source_path = source,
+				root = root,
+				ask = function()
+					return name
+				end,
+				open = function() end,
+			})
+			assert.is_true(renamed, "el nombre elegido difiere del que pedía el enlace")
+			marksman.repoint(bufnr, ref, created, root)
+		end
+
+		create_and_repoint(1, 7, "Mi nota")
+		create_and_repoint(2, 15, "Mi otra")
+
+		assert.are.same({
+			-- En el estilo del proyecto (slug por defecto), y el alias intacto.
+			"Wiki [[mi-nota]] y con alias [[mi-nota|como se lee]].",
+			-- El destino Markdown sí va escapado y con extensión.
+			"Markdown [x](/Mi%20otra.md)",
+		}, vim.api.nvim_buf_get_lines(bufnr, 0, -1, false))
+		assert.is_not_nil(vim.uv.fs_stat(vim.fs.joinpath(root, "Mi nota.md")))
+	end)
+
+	it("writes wikilinks in the style the project declares, not in ours", function()
+		-- `.marksman.toml` es la declaración de estilo del proyecto y manda sobre
+		-- todos los que escriben en él. Antes escribíamos siempre verbatim, así
+		-- que en un proyecto con el default (`title-slug`) el linter del servidor
+		-- proponía `[[mi-nota]]` y nuestro rename dejaba `[[Mi nota]]`.
+		write(".marksman.toml", { "[core]", "title_from_heading = true", "[completion.wiki]", 'style = "file-stem"' })
+		local workspace = require("lzy.marksman.workspace")
+		assert.are.equal("file-stem", workspace.wiki_style(root))
+
+		local target = write("vieja.md", { "# vieja" })
+		write("source.md", { "[[vieja]]", "[W](/vieja.md)" })
+
+		local edit = assert(require("lzy.marksman.rename").note_edit(target, "Espacios y mayús", root))
+		local written = {}
+		for _, change in ipairs(edit.documentChanges) do
+			if change.textDocument then
+				for _, single in ipairs(change.edits) do
+					written[#written + 1] = single.newText
+				end
+			end
+		end
+		table.sort(written)
+
+		assert.are.same({
+			"/Espacios%20y%20mayús.md", -- Markdown: siempre escapado
+			"Espacios y mayús", -- wiki: verbatim, porque el proyecto lo pide
+		}, written)
+	end)
+
+	it("reads the wiki style from the project, defaulting to Marksman's own", function()
+		local workspace = require("lzy.marksman.workspace")
+		-- El spec escribe un `.marksman.toml` sin la clave: manda el default.
+		assert.are.equal("title-slug", workspace.wiki_style(root))
+
+		local note = write("Mi Nota.md", { "# Mi Nota" })
+		assert.are.equal("mi-nota", workspace.wiki_name(note, root))
+	end)
+
+	describe("relink", function()
+		local function apply(root_dir)
+			local relink = require("lzy.marksman.relink")
+			local plan = assert(relink.plan({ root = root_dir }))
+			vim.lsp.util.apply_workspace_edit(relink.workspace_edit(plan), "utf-8")
+			return plan
+		end
+
+		it("rewrites every link to the form the project declares", function()
+			write(".marksman.toml", { "[core]", "title_from_heading = true", "[completion.wiki]", 'style = "file-stem"' })
+			write("docs/Una nota nueva.md", { "# Una nota", "" })
+			local source = write("source.md", {
+				"[[una-nota-nueva]]", -- slug del nombre
+				"[[una-nota]]", -- slug del TÍTULO: no nombra ningún fichero
+				"[[una nota nueva|con alias]]", -- caja distinta, alias del autor
+				"[W](docs/Una%20nota%20nueva.md)", -- relativo, no canónico
+				"[[fantasma]]", -- no resuelve: intacto
+				"[Web](https://ejemplo.com)", -- externo: intacto
+			})
+			vim.cmd("edit! " .. vim.fn.fnameescape(source))
+
+			apply(root)
+
+			assert.are.same({
+				-- `file-stem`: el nombre del fichero, tal cual.
+				"[[Una nota nueva]]",
+				"[[una-nota]]", -- intacto: no resuelve, no se adivina
+				"[[Una nota nueva|con alias]]",
+				"[W](/docs/Una%20nota%20nueva.md)",
+				"[[fantasma]]",
+				"[Web](https://ejemplo.com)",
+			}, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+		end)
+
+		it("follows the slug style when the project asks for it", function()
+			-- El spec escribe un `.marksman.toml` sin la clave: manda `title-slug`,
+			-- que slugifica el TÍTULO -- por eso sale `una-nota` y no el nombre.
+			write("docs/Una nota nueva.md", { "# Una nota", "" })
+			local source = write("source.md", { "[[Una nota nueva]]", "[[una-nota-nueva]]" })
+			vim.cmd("edit! " .. vim.fn.fnameescape(source))
+
+			apply(root)
+
+			-- El estilo decide la FORMA (guiones), pero la identidad sigue siendo
+			-- el nombre completo del fichero, no una derivada del título.
+			assert.are.same(
+				{ "[[una-nota-nueva]]", "[[una-nota-nueva]]" },
+				vim.api.nvim_buf_get_lines(0, 0, -1, false)
+			)
+		end)
+
+		it("never rewrites a working link into an ambiguous one", function()
+			-- Con `title-slug` la identidad es el TÍTULO, y los títulos no son
+			-- únicos: dos notas de la misma carpeta con el mismo H1 dan el mismo
+			-- destino, y ni añadir la carpeta las separa. Sin la comprobación de
+			-- ida y vuelta, canonizar convertía dos enlaces que funcionaban en uno
+			-- ambiguo -- rompía justo lo que venía a arreglar.
+			-- Dos nombres distintos que slugifican igual: el sistema de ficheros los
+			-- distingue, pero `title-slug` no puede representarlos por separado --
+			-- y añadir la carpeta tampoco, porque comparten carpeta.
+			write("docs/Mi Nota.md", { "# Una" })
+			write("docs/mi-nota.md", { "# Otra" })
+			write("docs/Otra cosa.md", { "# Tercera" })
+			local source = write("source.md", { "[[Mi Nota]]", "[[Otra cosa]]" })
+			vim.cmd("edit! " .. vim.fn.fnameescape(source))
+
+			local workspace = require("lzy.marksman.workspace")
+			assert.is_nil(
+				workspace.canonical_target(vim.fs.joinpath(root, "docs/Mi Nota.md"), root, "wiki", source),
+				"sin forma inequívoca, no se propone ninguna"
+			)
+			assert.are.equal(
+				"otra-cosa",
+				workspace.canonical_target(vim.fs.joinpath(root, "docs/Otra cosa.md"), root, "wiki", source)
+			)
+
+			apply(root)
+			assert.are.same({
+				"[[Mi Nota]]", -- intacto: canonizarlo lo volvería ambiguo
+				"[[otra-cosa]]", -- éste sí, porque su nombre no colisiona
+			}, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+		end)
+
+		it("leaves a project that is already canonical alone", function()
+			write("docs/nota.md", { "# nota", "" })
+			write("source.md", { "[[nota]]", "[W](/docs/nota.md)" })
+			assert.are.equal(0, assert(require("lzy.marksman.relink").plan({ root = root })).count)
+		end)
+	end)
+
+	it("drops the server's 'non-existent' warning for links that do resolve here", function()
+		-- Su resolutor es más estricto que el nuestro: indexa por título (el H1) y
+		-- por nombre exacto, así que marca en rojo enlaces perfectamente
+		-- seguibles. Se filtran ESOS y sólo esos -- un enlace roto de verdad falla
+		-- en los dos y el aviso sobrevive.
+		write("Una nota nueva.md", { "# Una nota", "" })
+		local source = write("source.md", { "[[una-nota-nueva]]", "[[esto-no-existe]]" })
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+		local bufnr = vim.api.nvim_get_current_buf()
+		local marksman = require("lzy.marksman")
+
+		local function diag(message)
+			return { message = message, range = { start = { line = 0, character = 0 } } }
+		end
+
+		assert.is_true(
+			marksman.resolvable_elsewhere(diag("Link to non-existent document 'una-nota-nueva'"), bufnr)
+		)
+		assert.is_false(
+			marksman.resolvable_elsewhere(diag("Link to non-existent document 'esto-no-existe'"), bufnr)
+		)
+		-- Y no se toca ningún otro diagnóstico del servidor.
+		assert.is_false(
+			marksman.resolvable_elsewhere(diag("Link to non-existent heading 'una-nota-nueva'"), bufnr)
+		)
+	end)
+
+	it("owns the ambiguity verdict instead of letting both criteria argue", function()
+		-- Él mide la ambigüedad contra los TÍTULOS: dos notas encabezadas
+		-- `# Una nota` le parecen el mismo destino aunque se llamen distinto, y
+		-- marcaba `[[una-nota]]` como ambiguo cuando para nosotros señala un solo
+		-- fichero. Su veredicto se filtra entero y emitimos el nuestro.
+		write("Una nota.md", { "# Una nota" })
+		write("Una nota nueva.md", { "# Una nota" })
+		local source = write("source.md", { "[[una-nota]]" })
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+		local bufnr = vim.api.nvim_get_current_buf()
+		local marksman = require("lzy.marksman")
+		require("lzy.marksman.workspace").invalidate_files()
+
+		local function diag(message)
+			return { message = message, range = { start = { line = 0, character = 0 } } }
+		end
+		assert.is_true(
+			marksman.resolvable_elsewhere(diag("Ambiguous link to document 'una-nota'"), bufnr),
+			"su ambigüedad se filtra: para nosotros no lo es"
+		)
+		-- Y nosotros no decimos nada, porque resuelve a un solo fichero.
+		assert.are.same({}, require("lzy.marksman.diagnostics").collect(bufnr))
+
+		-- Pero si colisionan los NOMBRES, la ambigüedad sí es nuestra.
+		write("otra/Una nota.md", { "# Distinta" })
+		require("lzy.marksman.workspace").invalidate_files()
+		local found = require("lzy.marksman.diagnostics").collect(bufnr)
+		assert.are.equal(1, #found)
+		assert.matches("ambiguo", found[1].message)
+	end)
+
+	it("diagnoses the links the server accepts but we do not", function()
+		-- El servidor da por bueno `[[una-nota]]` porque el H1 dice `# Una nota`,
+		-- así que no avisa; nosotros no lo resolvemos, así que dejaba de seguirse
+		-- en silencio. Nadie lo diagnosticaba.
+		write("Una nota nueva.md", { "# Una nota", "" })
+		local source = write("source.md", {
+			"[[Una nota nueva]]", -- existe
+			"[[una-nota-nueva]]", -- variante del nombre: existe
+			"[[una-nota]]", -- el título: NO nombra ningún fichero
+			"[Web](https://ejemplo.com)", -- externo: no es asunto nuestro
+			"```",
+			"[[dentro-de-un-fence]]",
+			"```",
+		})
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+		require("lzy.marksman.workspace").invalidate_files()
+
+		local found = require("lzy.marksman.diagnostics").collect(0)
+		assert.are.equal(1, #found, "sólo el que no nombra ningún fichero")
+		assert.are.equal(2, found[1].lnum, "la tercera línea")
+		assert.matches("una%-nota", found[1].message)
+	end)
+
+	it("identifies a note by its name, so a title-shaped link does not exist", function()
+		-- La identidad es el NOMBRE del fichero. `Una nota nueva.md` encabezada
+		-- `# Una nota` no responde a `[[una-nota]]`: eso no nombra ningún fichero,
+		-- y darlo por bueno escondería el desajuste en vez de enseñarlo.
+		local note = write("Una nota nueva.md", { "# Una nota", "" })
+		local workspace = require("lzy.marksman.workspace")
+		local opts = { source_path = write("source.md", { "x" }), root = root }
+
+		assert.are.equal("una-nota-nueva", workspace.wiki_name(note, root))
+
+		-- Todas las variantes DEL NOMBRE resuelven: caja, guiones y escapes.
+		assert.are.same({ note }, workspace.resolve("Una nota nueva", opts))
+		assert.are.same({ note }, workspace.resolve("una nota nueva", opts))
+		assert.are.same({ note }, workspace.resolve("una-nota-nueva", opts))
+		assert.are.same({ note }, workspace.resolve("Una%20nota%20nueva", opts))
+		-- La del título, no.
+		assert.are.same({}, workspace.resolve("una-nota", opts))
+		assert.are.same({}, workspace.resolve("Una nota", opts))
+	end)
+
+	it("resolves a wikilink written in Marksman's own slug form", function()
+		-- El servidor de marksman completa `[[espacios-y-mayús]]` para un fichero
+		-- llamado `Espacios y mayús.md`: un slug que no es el nombre de nada y
+		-- que por tanto no resolvía. Se acepta al leer.
+		local note = write("Espacios y mayús.md", { "# Espacios y mayús" })
+		local workspace = require("lzy.marksman.workspace")
+		local opts = { source_path = write("source.md", { "x" }), root = root }
+
+		assert.are.same({ note }, workspace.resolve("espacios-y-mayús", opts))
+		-- El nombre de verdad sigue mandando, y el slug no pisa nada exacto.
+		assert.are.same({ note }, workspace.resolve("Espacios y mayús", opts))
+		-- Un slug que no corresponde a nada sigue sin resolver.
+		assert.are.same({}, workspace.resolve("no-existe-esto", opts))
+	end)
+
+	it("offers to create the note a link asks for, named exactly like the link", function()
+		local new_note = require("lzy.marksman.new_note")
+		write("source.md", { "x" })
+		local source = vim.fs.joinpath(root, "source.md")
+
+		local created = new_note.create("Nota Nueva", {
+			source_path = source,
+			root = root,
+			ask = function(default)
+				return default
+			end,
+			open = function() end,
+		})
+
+		-- Verbatim: ni slug ni id generado, para que otros [[Nota Nueva]] resuelvan.
+		assert.are.equal(vim.fs.joinpath(root, "Nota Nueva.md"), created)
+		assert.are.equal("# Nota Nueva", vim.fn.readfile(created)[1])
+
+		-- Subcarpeta pedida en el enlace, y saneado de lo que rompe un wikilink.
+		local nested = new_note.create("sub/Otra [rara]", {
+			source_path = source,
+			root = root,
+			ask = function(default)
+				return default
+			end,
+			open = function() end,
+		})
+		assert.are.equal(vim.fs.joinpath(root, "sub/Otra rara.md"), nested)
+
+		-- Y si dices que no, no se crea nada.
+		assert.is_nil(new_note.create("Rechazada", {
+			source_path = source,
+			root = root,
+			ask = function()
+				return nil
+			end,
+			notify = function() end,
+		}))
+		assert.is_nil(vim.uv.fs_stat(vim.fs.joinpath(root, "Rechazada.md")))
+	end)
+
+	it("smart-copies outside a vault, emitting Markdown instead of wikilinks", function()
+		write(".marksman.toml", { "[core]" })
+		local note = write("docs/Guía rápida.md", {
+			"# Guía rápida",
+			"",
+			"Con `git status` inline y un [Enlace](otra.md).",
+			"",
+			"## Sección Dos",
+		})
+		vim.cmd("edit! " .. vim.fn.fnameescape(note))
+		vim.bo.filetype = "markdown"
+		vim.treesitter.start(0, "markdown")
+		vim.treesitter.get_parser(0, "markdown"):parse(true)
+
+		local function copy_at(row, col)
+			vim.api.nvim_win_set_cursor(0, { row, col })
+			local got
+			require("lzy.obsidian.smart_copy").smart_copy({
+				copy = function(text)
+					got = text
+				end,
+				notify = function() end,
+			})
+			return got
+		end
+
+		-- Sobre un heading: enlace Markdown con etiqueta legible y destino
+		-- escapado. El anchor va en la forma canónica de marksman (slug).
+		assert.are.equal("[Guía rápida](/docs/Guía%20rápida.md#guía-rápida)", copy_at(1, 3))
+		assert.are.equal("[Sección Dos](/docs/Guía%20rápida.md#sección-dos)", copy_at(5, 4))
+
+		-- Lo genérico sigue funcionando igual que en el vault.
+		local line = vim.api.nvim_buf_get_lines(0, 2, 3, false)[1]
+		assert.are.equal("git status", copy_at(3, line:find("git status") + 2))
+		assert.are.equal("otra.md", copy_at(3, line:find("otra%.md") + 2))
+
+		-- Y sin nada bajo el cursor, un enlace al fichero, no un wikilink.
+		assert.are.equal("[Guía rápida](/docs/Guía%20rápida.md)", copy_at(3, 1))
 	end)
 
 	it("renders linked content and a styled empty-note notice", function()
@@ -558,8 +988,11 @@ describe("Marksman adapter", function()
 			source:complete({}, function(value)
 				result = value
 			end)
+			-- Cada sintaxis inserta SU forma: en `[[` el nombre legible, en las
+			-- Markdown la ruta escapada desde la raiz.
+			local wanted = line:match("%[%[") and "alpha" or "/alpha.md"
 			local alpha = vim.iter(result.items):find(function(item)
-				return item.textEdit.newText == "/alpha.md"
+				return item.textEdit.newText == wanted
 			end)
 			assert.is_not_nil(alpha, line)
 			assert.are.same({ line = row - 1, character = expected_starts[row] }, alpha.textEdit.range.start)
@@ -587,9 +1020,10 @@ describe("Marksman adapter", function()
 			result = value
 		end)
 		local api = vim.iter(result.items):find(function(item)
-			return item.textEdit.newText == "/docs/api.md"
+			return item.textEdit.newText == "docs/api"
 		end)
 		assert.is_not_nil(api)
+		-- El filtro conserva la coordenada aunque el destino insertado no la lleve.
 		assert.are.equal("/docs/api.md", api.filterText)
 		-- Con nvim-cmp disponible se comprueba el efecto real: lo tecleado tiene
 		-- que puntuar contra el filtro. "/docs" contra "docs/api.md" daba 0.
@@ -627,7 +1061,8 @@ describe("Marksman adapter", function()
 
 		-- La carpeta del proyecto, que es lo que faltaba: sin ella `[[/` no daba
 		-- nada hasta acertar a ciegas el nombre del archivo.
-		local docs = assert(find("/docs/"), "no folder from the project root")
+		-- Sin barra inicial: en `[[` la coordenada va en su forma simple.
+		local docs = assert(find("docs/"), "no folder from the project root")
 		assert.are.equal("Carpeta del proyecto", docs.detail)
 		assert.are.equal(vim.lsp.protocol.CompletionItemKind.Folder, docs.kind)
 		assert.are.same({ line = 0, character = 2 }, docs.textEdit.range.start)
@@ -639,9 +1074,9 @@ describe("Marksman adapter", function()
 			"no folder from the system root"
 		)
 		-- Las notas siguen ahí; la carpeta no las sustituye.
-		assert.is_not_nil(find("/docs/api.md"))
+		assert.is_not_nil(find("docs/api"))
 		-- Solo el primer nivel: bajar es tarea del siguiente `/`.
-		assert.is_nil(find("/docs/deep/"))
+		assert.is_nil(find("docs/deep/"))
 
 		vim.cmd.stopinsert()
 		vim.api.nvim_buf_delete(bufnr, { force = true })
@@ -663,7 +1098,7 @@ describe("Marksman adapter", function()
 			result = value
 		end)
 		local deep = vim.iter(result.items):find(function(item)
-			return item.textEdit.newText == "/docs/deep/"
+			return item.textEdit.newText == "docs/deep/"
 		end)
 		assert.is_not_nil(deep)
 

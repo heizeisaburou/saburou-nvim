@@ -59,8 +59,41 @@ end
 ---@param root string
 ---@param opts { markdown?: boolean }|nil
 ---@return string[]
+local files_cache = {}
+
+---Invalida la lista cacheada de ficheros del proyecto. Lo llaman los flujos que
+---crean notas, para que el diagnóstico no marque "no existe" una nota que
+---acaba de aparecer.
+---@param root string|nil sin argumento, invalida todo
+function M.invalidate_files(root)
+	if root == nil then
+		files_cache = {}
+		return
+	end
+	root = normalize(root)
+	for key in pairs(files_cache) do
+		if key:sub(1, #root) == root then
+			files_cache[key] = nil
+		end
+	end
+end
+
+---@param root string
+---@param opts { markdown?: boolean }|nil
+---@return string[]
 function M.files(root, opts)
 	opts = opts or {}
+
+	-- `resolve` llama aquí, y a `resolve` se le pregunta una vez por enlace: sin
+	-- caché, diagnosticar una nota con veinte enlaces recorría el proyecto
+	-- veinte veces. TTL corto, e invalidable para las altas (`invalidate_files`).
+	local key = normalize(root) .. (opts.markdown and "\0md" or "\0all")
+	local now = vim.uv.now()
+	local cached = files_cache[key]
+	if cached and now - cached.updated < 2000 then
+		return cached.files
+	end
+
 	local result = {}
 	for relative, kind in
 		vim.fs.dir(root, {
@@ -76,6 +109,7 @@ function M.files(root, opts)
 		end
 	end
 	table.sort(result)
+	files_cache[key] = { updated = now, files = result }
 	return result
 end
 
@@ -157,6 +191,43 @@ function M.resolve(target, opts)
 			add_existing(result, seen, path, false)
 		end
 	end
+
+	-- Rescate por slug, y sólo si no ha coincidido nada.
+	--
+	-- El servidor de marksman escribe los wikilinks en forma canónica: para
+	-- `Espacios y mayús.md` inserta `[[espacios-y-mayús]]`, que no es el nombre
+	-- de ningún fichero y por tanto no resolvía -- ni se podía seguir, ni
+	-- crear. Aceptarlo al LEER es coherente con lo que ya hacemos con los
+	-- anchors (`#Mi Heading` y `#mi-heading` resuelven igual) y desbloquea los
+	-- enlaces que él mismo haya dejado escritos. Lo que insertamos nosotros
+	-- sigue siendo el nombre legible.
+	--
+	-- Sólo para destinos desnudos: con carpeta, el sufijo ya es una coordenada
+	-- y compararlo por slug abriría falsos positivos.
+	if #result == 0 and not normalized_target:find("/", 1, true) then
+		local wanted = M.slug((normalized_target:gsub("%.[^./]+$", "")))
+		if wanted ~= "" then
+			-- Sólo por nombre de fichero, nunca por título.
+			--
+			-- La identidad de una nota es su nombre (ver `wiki_name`), así que
+			-- `[[una-nota]]` con un fichero llamado `Una nota nueva.md`
+			-- sencillamente **no existe**, por mucho que su H1 diga `# Una nota`.
+			-- Resolverlo por título daba por bueno un enlace que no nombra ningún
+			-- fichero y escondía el desajuste en vez de enseñarlo.
+			--
+			-- Hubo una pasada por título aquí: la puse cuando `wiki_name` todavía
+			-- slugificaba el H1 y escribíamos enlaces que no sabíamos releer. Al
+			-- mover la identidad al nombre, esa incoherencia desapareció en su
+			-- origen y la tolerancia se quedó sin motivo.
+			for _, path in ipairs(M.files(root, { markdown = not opts.all_files })) do
+				local stem = vim.fs.basename(path):gsub("%.[^./]+$", "")
+				if M.slug(stem) == wanted then
+					add_existing(result, seen, path, false)
+				end
+			end
+		end
+	end
+
 	table.sort(result)
 	return result
 end
@@ -182,6 +253,140 @@ function M.slug(fragment)
 	local slug = table.concat(result):gsub("%-+", "-"):gsub("^%-", "")
 	slug = slug:gsub("%-$", "")
 	return slug
+end
+
+local style_cache = {}
+
+---El estilo con que ESTE proyecto escribe los wikilinks.
+---
+---`.marksman.toml` es la declaración de estilo del proyecto, así que manda
+---sobre todos los que escriben en él, nosotros incluidos:
+---
+---    [completion.wiki]
+---    style = "file-stem"     -> [[Mi nota]]
+---    style = "title-slug"    -> [[mi-nota]]
+---
+---Sin declararlo, marksman usa `title-slug` (medido contra el servidor). Antes
+---escribíamos siempre verbatim, así que en un proyecto sin configurar el linter
+---del servidor proponía `[[mi-nota]]` y nuestro rename dejaba `[[Mi nota]]`: el
+---mismo buffer con dos formas.
+---
+---El lector es deliberadamente mínimo -- una sola clave, no un parser TOML --,
+---así que no entiende comentarios raros ni sintaxis exótica. Si no la reconoce,
+---cae al default, que es el del servidor.
+---@param root string
+---@return "file-stem"|"title-slug"
+function M.wiki_style(root)
+	root = normalize(root)
+	local now = vim.uv.now()
+	local cached = style_cache[root]
+	if cached and now - cached.updated < 2000 then
+		return cached.style
+	end
+
+	local style = "title-slug"
+	local ok, lines = pcall(vim.fn.readfile, vim.fs.joinpath(root, ".marksman.toml"))
+	if ok then
+		local in_section = false
+		for _, line in ipairs(lines) do
+			local section = line:match("^%s*%[([^%]]+)%]")
+			if section then
+				in_section = vim.trim(section) == "completion.wiki"
+			elseif in_section then
+				local value = line:match('^%s*style%s*=%s*"([^"]+)"')
+					or line:match("^%s*style%s*=%s*'([^']+)'")
+				if value == "file-stem" or value == "title-slug" then
+					style = value
+					break
+				end
+			end
+		end
+	end
+
+	style_cache[root] = { updated = now, style = style }
+	return style
+end
+
+---El nombre con el que este proyecto escribe un wikilink a `path`.
+---
+---El estilo decide la **forma** —`Mi nota` o `mi-nota`— pero la identidad es
+---siempre el **nombre del fichero completo**, nunca una derivada del título.
+---
+---Marksman, con `title-slug`, slugifica el título (el H1). Nosotros no, y es
+---deliberado: el título es un identificador con fugas.
+---
+---  * **Es lossy.** Una nota `matematicas-aritmetica.md` encabezada
+---    `# Matematicas` se enlazaría como `[[matematicas]]`, que dice menos que
+---    el nombre y se vuelve ambiguo en cuanto aparece otra nota de matemáticas.
+---  * **No es único.** Dos guías con `# Introducción` dan el mismo destino, y
+---    ni añadir la carpeta las separa si comparten carpeta. Los nombres de
+---    fichero sí son únicos: lo garantiza el sistema de ficheros.
+---  * **No es estable.** Editar el H1 cambiaría en silencio la forma canónica
+---    de todos los enlaces que apuntan a esa nota.
+---
+---Cuando el H1 coincide con el nombre —lo normal, y lo que asume
+---`title_from_heading`— las dos definiciones dan lo mismo y no hay divergencia.
+---Sólo se separan en notas cuyo H1 ya discrepa de su propio nombre.
+---@param path string
+---@param root string
+---@return string
+function M.wiki_name(path, root)
+	local stem = vim.fs.basename(path):gsub("%.[^./]+$", "")
+	if M.wiki_style(root) == "file-stem" then
+		return stem
+	end
+	return M.slug(stem)
+end
+
+---La forma canónica del destino a `path`, en la sintaxis que lo va a alojar.
+---
+---Único sitio donde se decide esto. Antes lo calculaban por su cuenta el
+---rename, el reapuntado al crear y el completado, y de ahí salieron varias
+---divergencias seguidas.
+---
+---  wiki      el nombre en el estilo del proyecto (`wiki_name`), ampliado con
+---            la carpeta si ese nombre no es inequívoco
+---  markdown  ruta desde la raíz, escapada y con extensión: la resuelve GitHub
+---            siguiendo la ruta literal, no buscando
+---@param path string
+---@param root string
+---@param kind string|nil `ref.kind`
+---@param source_path string|nil desde dónde se enlaza (para desambiguar)
+---@return string|nil
+function M.canonical_target(path, root, kind, source_path)
+	local relative = vim.fs.relpath(normalize(root), normalize(path))
+	if not relative then
+		return nil
+	end
+	if kind ~= "wiki" then
+		return "/" .. require("lzy.link_target").encode(relative)
+	end
+
+	-- Ida y vuelta: una forma sólo es canónica si vuelve a resolver a ESTE
+	-- fichero y a ninguno más.
+	--
+	-- Con `title-slug` la identidad es el título, y los títulos **no son
+	-- únicos**: dos notas distintas de la misma carpeta con el mismo H1 dan el
+	-- mismo destino, y ni añadir la carpeta lo separa. Sin esta comprobación,
+	-- canonizar convertía dos enlaces que funcionaban en uno ambiguo -- rompía
+	-- justo lo que venía a arreglar. Cuando no hay forma inequívoca se devuelve
+	-- nil y quien llama deja el enlace como está.
+	local name = M.wiki_name(path, root)
+	local wanted = normalize(path)
+	local function unique_to_us(candidate)
+		local matches = M.resolve(candidate, { source_path = source_path or path, root = root })
+		return #matches == 1 and normalize(matches[1]) == wanted
+	end
+
+	if unique_to_us(name) then
+		return name
+	end
+	local dir = vim.fs.dirname(relative)
+	local qualified = "/" .. (dir == "." and name or dir .. "/" .. name)
+	if unique_to_us(qualified) then
+		return qualified
+	end
+	return nil
 end
 
 ---@param lines string[]

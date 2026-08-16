@@ -368,6 +368,41 @@ function M.anchor_segment(name)
   return require("obsidian.util").standardize_anchor("#" .. name):gsub("^#", "")
 end
 
+--- Cómo se ESCRIBE un anchor, que no es lo mismo que cómo se resuelve.
+---
+--- `M.resolve` estandariza los dos lados antes de comparar, así que un enlace
+--- resuelve igual escrito `#Mi Heading` que `#mi-heading`. El slug nunca fue
+--- un requisito del motor: era solo la forma que elegíamos al escribir. Y era
+--- la forma equivocada -- la app de Obsidian escribe el texto del heading tal
+--- cual, y es lo que ya usa la inmensa mayoría del vault. Cada rename que
+--- pasaba por aquí convertía ese estilo al slug y erosionaba el vault.
+---
+--- Lo único que sigue dependiendo de la sintaxis es qué puede representar cada
+--- una:
+---   - wiki `[[Nota#Mi Heading]]`: admite espacios y mayúsculas tal cual.
+---   - markdown `[x](nota.md#Mi%20Heading)`: NO. Un espacio corta el destino
+---     y el parser se queda con medio enlace, así que se percent-encodea
+---     siempre (antes solo se hacía si el anchor ya venía encodeado).
+---@param name string Texto del heading.
+---@param kind string|? Sintaxis que aloja el anchor (`ref.kind`).
+---@return string
+function M.anchor_text(name, kind)
+  if kind == "markdown" or kind == "reference" then
+    -- Mismo codificador que los destinos (lzy.link_target.encode): escapa el
+    -- espacio y deja legible lo que no molesta. El `#` sí hay que escaparlo
+    -- aquí, y sólo aquí: dentro de un segmento de anchor sería una división de
+    -- nivel falsa, mientras que en un destino es el separador legítimo.
+    return (require("lzy.link_target").encode(name):gsub("#", "%%23"))
+  end
+  if name:find "[%[%]|#]" then
+    -- `]]` cierra el enlace, `|` abre el alias y `#` baja un nivel: un heading
+    -- que los contenga no es representable verbatim dentro de `[[...]]`. Solo
+    -- ahí se cae al anchor canónico, que sí lo es.
+    return M.anchor_segment(name)
+  end
+  return name
+end
+
 ---@param name string
 ---@return string|? err
 function M.validate_name(name)
@@ -386,16 +421,6 @@ function M.validate_name(name)
   if M.anchor_segment(name) == "" then
     return "El heading nuevo debe contener algún carácter válido para construir su enlace"
   end
-end
-
----@param anchor string
----@param ref obsidian.parse.Ref
----@return string
-local function replacement_text(anchor, ref)
-  if ref.kind == "markdown" and (ref.anchor or ""):find("%%[%da-fA-F][%da-fA-F]") then
-    return require("obsidian.util").urlencode(anchor)
-  end
-  return anchor
 end
 
 ---@param edits_by_path table<string, lsp.TextEdit[]>
@@ -460,7 +485,6 @@ function M.rename(note, section, new_name, callback, opts)
   local edits_by_path = {}
   local skipped_ambiguous = 0
   local changed_refs = 0
-  local new_anchor = M.anchor_segment(new_name)
   local parse_refs = require("obsidian.parse.refs")
 
   for _, source_path in ipairs(paths) do
@@ -493,7 +517,7 @@ function M.rename(note, section, new_name, callback, opts)
                     start = { line = row - 1, character = part.start_col },
                     ["end"] = { line = row - 1, character = part.end_col },
                   },
-                  newText = replacement_text(new_anchor, ref),
+                  newText = M.anchor_text(new_name, ref.kind),
                 })
                 changed_refs = changed_refs + 1
               end

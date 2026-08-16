@@ -278,6 +278,72 @@ local function note_target_name(path)
   return note_name:gsub("%.md$", "")
 end
 
+--- ¿Estamos en un vault, o en markdown suelto (marksman)?
+---
+--- La copia inteligente vale igual en los dos sitios; lo único que cambia es la
+--- sintaxis que se fabrica cuando no hay nada literal que copiar. Fuera de un
+--- vault los wikilinks no son la lengua franca, así que se emite un enlace
+--- Markdown con etiqueta legible y destino escapado: `[Título](/ruta%20fea.md)`.
+---@param bufnr integer
+---@return boolean
+local function in_vault(bufnr)
+  local ok, attachments = pcall(require, "lzy.obsidian.attachments")
+  return ok and attachments.in_vault(bufnr) or false
+end
+
+--- Destino Markdown desde la raíz del proyecto, escapado.
+---@param path string
+---@param root string
+---@return string
+local function markdown_target(path, root)
+  local relative = vim.fs.relpath(vim.fs.normalize(root), vim.fs.normalize(path))
+  local encode = require("lzy.link_target").encode
+  return relative and "/" .. encode(relative) or encode(path)
+end
+
+--- `[Título](/ruta.md#anchor)` para el heading bajo el cursor, en marksman.
+---@param bufnr integer
+---@param row0 integer 0-based
+---@return string|?
+local function marksman_heading_link(bufnr, row0)
+  local ok_ws, workspace = pcall(require, "lzy.marksman.workspace")
+  if not ok_ws then
+    return nil
+  end
+  local path = vim.api.nvim_buf_get_name(bufnr)
+  local root = workspace.root(bufnr)
+  if path == "" or not root then
+    return nil
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  for _, heading in ipairs(workspace.headings(lines)) do
+    if heading.row == row0 then
+      -- El anchor va en la forma canónica de marksman (slug con desempate de
+      -- duplicados), que es la que renderiza GitHub. La etiqueta se queda con
+      -- el texto tal cual: eso es lo que se lee.
+      return ("[%s](%s#%s)"):format(heading.text, markdown_target(path, root), heading.anchor)
+    end
+  end
+end
+
+--- `[Nombre](/ruta.md)` al fichero actual, en marksman.
+---@param bufnr integer
+---@return string|?
+local function marksman_self_link(bufnr)
+  local ok_ws, workspace = pcall(require, "lzy.marksman.workspace")
+  if not ok_ws then
+    return nil
+  end
+  local path = vim.api.nvim_buf_get_name(bufnr)
+  local root = workspace.root(bufnr)
+  if path == "" or not root then
+    return nil
+  end
+  local label = vim.fs.basename(path):gsub("%.[^.]+$", "")
+  return ("[%s](%s)"):format(label, markdown_target(path, root))
+end
+
 ---@param bufnr integer
 ---@param row0 integer 0-based
 ---@return string|?
@@ -296,7 +362,10 @@ local function heading_link_at_cursor(bufnr, row0)
     return nil
   end
 
-  local anchor = headings.anchor_segment(decl.text)
+  -- El enlace se pega dentro de `[[...]]`, así que el anchor va con el texto
+  -- del heading tal cual (ver headings.anchor_text): es lo que escribe la app
+  -- de Obsidian y lo que ya usa el vault. Resuelve igual que el slug.
+  local anchor = headings.anchor_text(decl.text, "wiki")
   if not anchor or anchor == "" then
     return nil
   end
@@ -356,12 +425,29 @@ function M.smart_copy(opts)
     return finish(block_code, "bloque de código")
   end
 
-  -- 2. Enlace bajo el cursor.
-  local ok_links, links = pcall(require, "lzy.obsidian.links")
-  if ok_links and links.cursor_context then
-    local ok_ctx, ctx = pcall(links.cursor_context)
-    if ok_ctx and ctx and ctx.component and ctx.component.text and ctx.component.text ~= "" then
-      return finish(ctx.component.text, "enlace")
+  -- 2. Enlace bajo el cursor. Cada motor tiene su parser, pero los dos
+  --    devuelven lo mismo: qué componente exacto (etiqueta, destino, anchor...)
+  --    está bajo el cursor, ya sin delimitadores.
+  local vault = in_vault(bufnr)
+  if vault then
+    local ok_links, links = pcall(require, "lzy.obsidian.links")
+    if ok_links and links.cursor_context then
+      local ok_ctx, ctx = pcall(links.cursor_context)
+      if ok_ctx and ctx and ctx.component and ctx.component.text and ctx.component.text ~= "" then
+        return finish(ctx.component.text, "enlace")
+      end
+    end
+  else
+    local ok_parser, parser = pcall(require, "lzy.marksman.parser")
+    if ok_parser then
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      local ok_ref, ref = pcall(parser.at, lines, row0, col)
+      if ok_ref and ref then
+        local ok_part, component = pcall(parser.component, ref, col)
+        if ok_part and component and component.text and component.text ~= "" then
+          return finish(component.text, "enlace")
+        end
+      end
     end
   end
 
@@ -372,14 +458,15 @@ function M.smart_copy(opts)
   end
 
   -- 4. Línea de heading.
-  local heading_link = heading_link_at_cursor(bufnr, row0)
+  local heading_link = vault and heading_link_at_cursor(bufnr, row0)
+    or marksman_heading_link(bufnr, row0)
   if heading_link then
     return finish(heading_link, "header")
   end
 
   -- 5. Nada bajo el cursor: en vez de dejar la tecla "vacía", copiar un
   --    enlace a la nota actual entera.
-  local self_link = self_note_link(bufnr)
+  local self_link = vault and self_note_link(bufnr) or marksman_self_link(bufnr)
   if self_link then
     copy(self_link)
     return notify(("Nada que copiar en esta posición: copiando enlace a esta nota -> %s"):format(self_link))

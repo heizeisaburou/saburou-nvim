@@ -63,6 +63,72 @@ fuera de la sintaxis Markdown.
 Qué carpeta se entrega como root y si se permite arrancar sin ella son decisiones del cliente
 LSP, no de `.marksman.toml`.
 
+### `completion.wiki.style`: por proyecto y sólo por fichero
+
+El servidor completa los wikilinks **en slug** por defecto: para `Espacios y mayús.md` inserta
+`[[espacios-y-mayús]]`. Se cambia así, en la raíz del proyecto:
+
+```toml
+[completion.wiki]
+style = "file-stem"     # -> [[Espacios y mayús]]
+```
+
+**No se puede poner por defecto desde la config de Neovim.** Medido con los cuatro escenarios:
+
+| configuración                        | lo que ofrece el servidor |
+| ------------------------------------ | ------------------------- |
+| nada                                 | `[[espacios-y-mayús]]`    |
+| sólo `init_options` del LSP          | `[[espacios-y-mayús]]`    |
+| `.marksman.toml` sin la clave        | `[[espacios-y-mayús]]`    |
+| `.marksman.toml` **con** la clave    | `[[Espacios y mayús]]`    |
+
+O sea que marksman **ignora `initializationOptions`** para esto: sólo lee el fichero. Por eso no
+le pasamos ninguno desde `lzy/lspconfig.lua` — sería un ajuste muerto que daría falsa sensación de
+estar configurado. Si quieres nombres legibles en un proyecto, el `.marksman.toml` va en ese
+proyecto.
+
+**Y esa clave nos manda a nosotros también**, pero sólo en la **forma**, no en la identidad. El
+fichero gobierna cómo escriben nuestro completado, el rename y el reapuntado: con `file-stem`
+`[[Mi nota]]`, sin declararla `[[mi-nota]]`.
+
+Lo que **no** copiamos es de dónde sale el nombre. Marksman, con `title-slug`, slugifica el
+**título** (el H1); nosotros usamos siempre el **nombre completo del fichero**. El título es un
+identificador con fugas:
+
+- **Es lossy.** `matematicas-aritmetica.md` encabezada `# Matematicas` se enlazaría `[[matematicas]]`,
+  que dice menos que el nombre y se vuelve ambiguo en cuanto aparece otra nota de matemáticas.
+- **No es único.** Dos guías con `# Introducción` dan el mismo destino, y ni añadir la carpeta las
+  separa si la comparten. Los nombres de fichero sí son únicos: lo garantiza el sistema de ficheros.
+- **No es estable.** Editar un H1 cambiaría en silencio la forma canónica de todos los enlaces que
+  apuntan a esa nota.
+
+Cuando el H1 coincide con el nombre —lo normal, y lo que asume `title_from_heading`— las dos
+definiciones dan lo mismo. Sólo se separan en notas cuyo H1 ya discrepa de su propio nombre, y ahí
+preferimos el nombre. La forma por título se sigue **leyendo**, que es lo que hace que los enlaces
+del servidor resuelvan igual.
+
+Antes escribíamos siempre verbatim, y eso dejaba el mismo buffer con las dos formas: el linter
+proponía `[[mi-nota]]` y nuestro rename dejaba `[[Mi nota]]`. Nada se rompía —las dos resuelven—
+pero el proyecto quedaba mezclado.
+
+`:MarksmanRelink` reescribe todos los enlaces del proyecto a la forma que ese `.marksman.toml`
+declara, así que cambiar la clave y ejecutarlo deja el proyecto entero coherente. Pide confirmación
+y dice en qué estilo va a escribir. No toca enlaces externos, ni los que no resuelven, ni los
+ambiguos.
+
+Que quede en slug **no rompe nada por nuestra parte**:
+
+- `lzy.marksman.workspace.resolve` acepta la forma en slug al leer, así que `[[espacios-y-mayús]]`
+  resuelve, se sigue y se puede crear igual (ver «leer indulgente» en `docs/todo-markdown.md`).
+- Y como su resolutor es **más estricto** que el nuestro —él indexa por título (el H1) y por nombre
+  exacto—, marcaba en rojo enlaces perfectamente seguibles. Un handler de `publishDiagnostics`
+  descarta su «Link to non-existent document» **sólo cuando nosotros sí resolvemos el destino**;
+  un enlace roto de verdad falla en los dos y el aviso sigue saliendo.
+- Nuestro propio completado ofrece a la vez el nombre legible, que es el que insertamos nosotros.
+
+Así que en un proyecto sin `.marksman.toml` verás dos candidatos en `[[` —el del servidor y el
+nuestro— pero ya **con la misma forma**, porque los dos siguen el estilo del proyecto.
+
 ## Fronteras
 
 | Capa                    | Decide                                                     |

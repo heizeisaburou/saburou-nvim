@@ -14,10 +14,14 @@ local function read_lines(path)
 end
 
 local function encode_component(value)
-	return vim.uri_encode(vim.uri_decode(value) or value)
+	-- Decodifica primero: el destino puede venir ya escapado del buffer, y
+	-- re-escaparlo convertiria %20 en %2520.
+	return require("lzy.link_target").encode(vim.uri_decode(value) or value)
 end
 
-local function replacement_path(raw_path, new_path)
+---@param kind string|nil `ref.kind`
+---@param root string
+local function replacement_path(raw_path, new_path, kind, root)
 	local decoded = vim.uri_decode(raw_path) or raw_path
 	local slash = math.max(decoded:match(".*()/") or 0, decoded:match(".*()\\") or 0)
 	local prefix = decoded:sub(1, slash)
@@ -26,6 +30,18 @@ local function replacement_path(raw_path, new_path)
 	if not old_base:match("%.[^%.]+$") then
 		new_base = new_base:gsub("%.[^%.]+$", "")
 	end
+
+	-- Dentro de `[[...]]` el espacio va literal: escapar aquí es lo que convertía
+	-- un rename a "Espacios y mayús" en `[[Espacios%20y%20mayús]]`. El escape es
+	-- cosa del destino Markdown, donde el espacio sí corta.
+	--
+	-- Y la forma del nombre la decide el proyecto, no nosotros: en un proyecto
+	-- con `style = "title-slug"` (el default de marksman) su linter propone
+	-- `[[mi-nota]]`, así que escribir `[[Mi nota]]` dejaba el buffer con las dos.
+	if kind == "wiki" then
+		return prefix .. require("lzy.marksman.workspace").wiki_name(new_path, root)
+	end
+
 	local result = encode_component(prefix .. new_base):gsub("%%2F", "/")
 	result = result:gsub("%%2f", "/")
 	return result
@@ -59,15 +75,56 @@ local function bare_path_collides(raw_path, old_path, new_path, root)
 	return false
 end
 
-local function safe_replacement_path(raw_path, old_path, new_path, root)
-	if not bare_path_collides(raw_path, old_path, new_path, root) then
-		return replacement_path(raw_path, new_path)
+---Los ficheros que responden al mismo nombre pelado que `new_path`, para que la
+---primitiva compartida pueda desambiguar sin conocer el índice de un vault
+---(fuera de un vault no hay ninguno).
+local function homonyms_of(new_path, old_path, root)
+	local wanted = vim.fs.basename(new_path):gsub("%.[^%.]+$", ""):lower()
+	local found = {}
+	for _, path in ipairs(require("lzy.marksman.workspace").files(root, { markdown = true })) do
+		if
+			vim.fs.normalize(path) ~= vim.fs.normalize(old_path)
+			and vim.fs.basename(path):gsub("%.[^%.]+$", ""):lower() == wanted
+		then
+			found[#found + 1] = path
+		end
 	end
-	local relative = assert(vim.fs.relpath(root, new_path))
+	return found
+end
+
+---@param kind string|nil `ref.kind`
+local function safe_replacement_path(raw_path, old_path, new_path, root, kind)
+	if not bare_path_collides(raw_path, old_path, new_path, root) then
+		return replacement_path(raw_path, new_path, kind, root)
+	end
+
+	local relative
+	if kind == "wiki" then
+		-- Un `[[wiki]]` lo resuelve un motor que busca, así que le vale el sufijo
+		-- MÍNIMO que separe: `c/nota` donde antes salía `a/b/c/nota`. Misma
+		-- primitiva que el lado Obsidian, para que los dos desambigüen igual.
+		relative = require("lzy.obsidian.coordinate").minimal(new_path, {
+			root = root,
+			homonyms = homonyms_of(new_path, old_path, root),
+		})
+		-- El sufijo lo decide la desambiguación; cómo se escribe el NOMBRE, el
+		-- proyecto (ver workspace.wiki_style).
+		local name = require("lzy.marksman.workspace").wiki_name(new_path, root)
+		relative = relative:gsub("[^/]+$", (name:gsub("%%", "%%%%")))
+	else
+		-- Un destino Markdown lo resuelve GitHub siguiendo la ruta literal: un
+		-- sufijo mínimo depende de la búsqueda y ahí daría 404. Ruta desde la
+		-- raíz, siempre (docs/todo-markdown.md §1.6).
+		relative = "/" .. assert(vim.fs.relpath(root, new_path))
+	end
+
 	if not (vim.uri_decode(raw_path) or raw_path):match("%.[^%.]+$") then
 		relative = relative:gsub("%.[^%.]+$", "")
+	elseif not relative:match("%.[^%.]+$") then
+		relative = relative .. (vim.fs.basename(new_path):match("%.[^%.]+$") or "")
 	end
-	local encoded = encode_component("/" .. relative):gsub("%%2F", "/")
+
+	local encoded = encode_component(relative):gsub("%%2F", "/")
 	return encoded:gsub("%%2f", "/")
 end
 
@@ -207,7 +264,7 @@ function M.note_edit(old_path, new_name, root)
 						source_path,
 						ref.range.start_row,
 						ref.path_range,
-						safe_replacement_path(ref.path, old_path, new_path, root)
+						safe_replacement_path(ref.path, old_path, new_path, root, ref.kind)
 					)
 					count = count + 1
 				elseif #matches > 1 and contains_path(matches, old_path) then
@@ -333,7 +390,7 @@ function M.augment_heading_edit(edit, target_path, old_fragment, new_name, root,
 					-- sintaxis wiki no es una excepción ni una segunda etiqueta.
 					local replacement = anchor_change.new_anchor
 					if ref.fragment:find("%%[%da-fA-F][%da-fA-F]") then
-						replacement = vim.uri_encode(replacement)
+						replacement = require("lzy.link_target").encode(replacement)
 					end
 					local existing = edit_at_range(edit, uri, ref.range.start_row, lsp_range)
 					if existing then

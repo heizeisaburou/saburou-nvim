@@ -293,6 +293,41 @@ local function fuzzy_resolve(index, key)
   return #fuzzy > 0 and fuzzy or nil
 end
 
+---@param value string
+---@return string forma canónica para comparar: sin escapes, sin acentos de
+---caja y reducida al slug
+local function comparable(value)
+  local decoded = vim.uri_decode(value) or value
+  -- `vim.fn.tolower` sí entiende UTF-8, a diferencia de `:lower()`.
+  return require("lzy.obsidian.headings").anchor_segment(vim.fn.tolower(decoded))
+end
+
+--- Busca `target` de forma indulgente: escapes deshechos, caja real (también
+--- con acentos) y slug. Recorre el índice, así que se usa **sólo** cuando la
+--- vía exacta no ha encontrado nada.
+---@param index nyabsidian.NoteIndex
+---@param target string
+---@return string[]|nil
+function M.tolerant_lookup(index, target)
+  local ok, wanted = pcall(comparable, target)
+  if not ok or wanted == "" then
+    return nil
+  end
+
+  local found = {}
+  for key, paths in pairs(index.by_reference_id) do
+    local ok_key, candidate = pcall(comparable, key)
+    if ok_key and candidate == wanted then
+      for _, path in ipairs(paths) do
+        if not vim.tbl_contains(found, path) then
+          found[#found + 1] = path
+        end
+      end
+    end
+  end
+  return #found > 0 and found or nil
+end
+
 --- Intenta resolver `target` contra el índice rápido.
 ---@param target string
 ---@return string[]|? paths nil si no se pudo/debió intentar por esta vía
@@ -325,6 +360,19 @@ local function try_fast_resolve(target)
     return exact
   end
 
+  -- Rescate: sólo cuando la vía exacta no ha encontrado nada.
+  --
+  -- Cubre tres formas que el vault no escribe pero que llegan igual (pegadas
+  -- de otra herramienta, de un export, de marksman): el destino escapado
+  -- (`Espacios%20y%20may%C3%BAs`), el slug (`espacios-y-mayús`), y la misma
+  -- caja en no-ASCII -- porque `:lower()` de Lua es byte a byte y deja la `Ú`
+  -- intacta, así que `ESPACIOS Y MAYÚS` no casaba con `espacios y mayús`
+  -- aunque la resolución se supone insensible a mayúsculas (§1.1).
+  local rescued = M.tolerant_lookup(index, target)
+  if rescued then
+    return rescued
+  end
+
   -- `fuzzy_resolve` devuelve nil si no hay candidatos; acá lo normalizamos
   -- a `{}` porque, a esta altura, SÍ intentamos las dos vías (exact y
   -- fuzzy) contra un índice que replica el mismo criterio que usaría
@@ -332,17 +380,137 @@ local function try_fast_resolve(target)
   return fuzzy_resolve(index, key) or {}
 end
 
+--- Rutas de las notas que responden a `name` como nombre, título o alias.
+---
+--- Es el lookup sobre el que se calcula la ambigüedad (ver
+--- lzy.obsidian.coordinate). Saber si un nombre pelado colisiona tiene que ser
+--- barato: se pregunta por cada enlace que se escribe, y antes eso costaba un
+--- recorrido completo del vault leyendo cada nota de disco.
+---@param name string
+---@param root string|table|nil Por defecto, el vault activo.
+---@return string[] paths
+function M.reference_paths(name, root)
+  root = root and tostring(root) or current_vault_root()
+  if not root or name == nil or name == "" then
+    return {}
+  end
+  local found = get_note_index(root).by_reference_id[tostring(name):lower()]
+  -- Copia: el índice está cacheado y compartido, quien pregunte no debe poder
+  -- mutarlo sin querer.
+  return found and vim.list_extend({}, found) or {}
+end
+
+--- Resolución sincrónica contra el índice, sin caer al resolutor completo.
+---
+--- Para reescrituras masivas (`lzy.obsidian.relink`), que tienen que mirar
+--- miles de enlaces y no pueden encadenar un callback por cada uno. Si el
+--- índice no lo resuelve, devuelve vacío y quien llama **deja el enlace como
+--- está**: en una pasada que reescribe ficheros, no saber es razón para no
+--- tocar, no para adivinar.
+---@param target string ya sin fragmento
+---@param root string|table|nil
+---@return string[] paths
+function M.resolve_sync(target, root)
+  root = root and tostring(root) or current_vault_root()
+  if not root or not target or target == "" then
+    return {}
+  end
+  local index = get_note_index(root)
+
+  local decoded = vim.uri_decode(target) or target
+  decoded = require("obsidian.util").unescape_single_backslash(decoded):gsub("\\", "/")
+  decoded = decoded:gsub("^%./", ""):gsub("^/", "")
+  if decoded == "" then
+    return {}
+  end
+
+  if not decoded:find("/", 1, true) then
+    local paths = index.by_reference_id[decoded:lower()]
+    return paths and vim.list_extend({}, paths) or {}
+  end
+
+  -- Con carpeta, la coordenada es un sufijo de ruta: se compara contra la ruta
+  -- desde la raíz, con y sin extensión de nota.
+  local wanted = decoded:lower()
+  local found = {}
+  for _, note in ipairs(index.notes) do
+    local relative = vim.fs.relpath(root, note.path)
+    if relative then
+      relative = relative:lower()
+      local stem = relative:gsub("%.[^./]+$", "")
+      for _, candidate in ipairs { relative, stem } do
+        if candidate == wanted or candidate:sub(-(#wanted + 1)) == "/" .. wanted then
+          found[#found + 1] = note.path
+          break
+        end
+      end
+    end
+  end
+  return found
+end
+
+--- Ordena candidatos como `attachments.best_match_order`: gana el más local al
+--- fichero que enlaza y, a igualdad, la ruta más corta.
+---
+--- Las notas no ordenaban nada, así que ante dos notas homónimas el "ganador"
+--- dependía del orden de indexación del vault mientras que un adjunto homónimo
+--- sí desempataba por cercanía. Misma ambigüedad, dos respuestas distintas.
+---@generic T
+---@param items T[]
+---@param source_dir string|nil
+---@param get_path fun(item: T): string
+---@return T[]
+local function by_locality(items, source_dir, get_path)
+  if not source_dir or source_dir == "" or #items < 2 then
+    return items
+  end
+  source_dir = vim.fs.normalize(source_dir)
+
+  local indexed = {}
+  for position, item in ipairs(items) do
+    local path = vim.fs.normalize(tostring(get_path(item)))
+    indexed[#indexed + 1] = {
+      item = item,
+      local_to_source = path:sub(1, #source_dir + 1) == source_dir .. "/",
+      length = #path,
+      position = position,
+    }
+  end
+  table.sort(indexed, function(a, b)
+    if a.local_to_source ~= b.local_to_source then
+      return a.local_to_source
+    elseif a.length ~= b.length then
+      return a.length < b.length
+    end
+    -- Estable: a igualdad total, el orden de indexación del vault.
+    return a.position < b.position
+  end)
+  return vim.tbl_map(function(entry)
+    return entry.item
+  end, indexed)
+end
+
+M.by_locality = by_locality
+
 ---@param target string
 ---@param callback fun(notes: obsidian.Note[])
----@param opts { notes?: obsidian.note.LoadOpts, trust_not_found?: boolean }|nil
+---@param opts { notes?: obsidian.note.LoadOpts, trust_not_found?: boolean, source_path?: string }|nil
 function M.resolve_async(target, callback, opts)
   local fast_paths = try_fast_resolve(target)
 
+  local source_path = opts and opts.source_path or vim.api.nvim_buf_get_name(0)
+  local source_dir = source_path ~= "" and vim.fs.dirname(source_path) or nil
+  local function ordered(notes)
+    return by_locality(notes, source_dir, function(note)
+      return tostring(note.path)
+    end)
+  end
+
   local function fallback()
     require("obsidian.search").resolve_note_async(target, function(notes)
-      callback(vim.tbl_filter(function(note)
+      callback(ordered(vim.tbl_filter(function(note)
         return matches_explicit_path(target, note)
-      end, notes))
+      end, notes)))
     end, opts)
   end
 
@@ -386,9 +554,9 @@ function M.resolve_async(target, callback, opts)
 
   if ok and #notes > 0 then
     return vim.schedule(function()
-      callback(vim.tbl_filter(function(note)
+      callback(ordered(vim.tbl_filter(function(note)
         return matches_explicit_path(target, note)
-      end, notes))
+      end, notes)))
     end)
   end
 
