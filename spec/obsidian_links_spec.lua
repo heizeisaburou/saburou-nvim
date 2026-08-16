@@ -1603,6 +1603,32 @@ describe("Nyabsidian structured links and attachments", function()
     assert.is_nil(found[11], "y dentro de un fence tampoco")
   end)
 
+  it("keeps the smart action, gx and hover out of code blocks too", function()
+    write("Mi Nota.md", { "# Mi Nota" })
+    write("accion.md", {
+      "```toml",
+      'style = "file-stem"     # -> [[Mi Nota]]',
+      "```",
+      "",
+      "De verdad: [[Mi Nota]]",
+    })
+    vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/accion.md"))
+    local actions = require "obsidian.actions"
+    local attachments = require "lzy.obsidian.attachments"
+    local links = require "lzy.obsidian.links"
+
+    -- Dentro del bloque: Enter hace lo de siempre y no hay enlace que ver.
+    vim.api.nvim_win_set_cursor(0, { 2, 30 })
+    assert.are.equal("<CR>", actions.smart_action())
+    assert.is_nil(attachments.cursor_ref(0))
+    assert.is_nil(links.cursor_ref(0))
+
+    -- Fuera sigue siendo un enlace de verdad.
+    vim.api.nvim_win_set_cursor(0, { 5, 15 })
+    assert.are_not.equal("<CR>", actions.smart_action())
+    assert.is_not_nil(links.cursor_ref(0))
+  end)
+
   it("ignores links inside code blocks, both for diagnostics and rewrites", function()
     -- Un `[[x]]` dentro de un fence es un ejemplo, no un enlace. Diagnosticarlo
     -- es ruido; **reescribirlo** al canonizar corrompe el bloque de código, que

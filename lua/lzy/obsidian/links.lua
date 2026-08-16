@@ -182,6 +182,11 @@ end
 ---@param col integer 0-based byte column
 ---@return obsidian.parse.Ref|table|?
 local function ref_at(bufnr, row, col)
+  -- Un `[[x]]` de un ejemplo no es un enlace: ni se sigue, ni se renombra, ni
+  -- tiene hover.
+  if require("lzy.link_target").in_excluded_row(bufnr, row) then
+    return nil
+  end
   local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
   local parsed_refs = require("obsidian.parse.refs").extract(line, { row = row })
   local ranged_refs = require("lzy.obsidian.attachments").parse_refs(line, row)
@@ -773,6 +778,15 @@ local function patch_smart_action()
 
   actions.smart_action = function()
     local api = require "obsidian.api"
+
+    -- Dentro de un bloque de código no hay enlace que seguir ni checkbox que
+    -- marcar: hay texto sobre enlaces. Enter hace lo de siempre. (El
+    -- `cursor_link()` de upstream sí lo ve, así que hay que cortar antes.)
+    local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+    if require("lzy.link_target").in_excluded_row(vim.api.nvim_get_current_buf(), row) then
+      return "<CR>"
+    end
+
     local folding = vim.g.markdown_folding == 1 or vim.wo.foldmethod == "expr"
     if not folding and (api.cursor_heading() or api.cursor_frontmatter()) then
       -- Upstream cae aquí en `checkbox.create_new` y puede convertir un

@@ -105,6 +105,33 @@ function M.excluded_rows(lines)
   return excluded
 end
 
+---@type table<integer, { tick: integer, rows: table<integer, boolean> }>
+local excluded_cache = {}
+
+---¿La fila bajo el cursor es de las que no contienen enlaces?
+---
+---Lo preguntan las acciones puntuales -- seguir, `gx`, hover, rename -- y en
+---una sola pulsación se consulta varias veces, así que el resultado se memoiza
+---por `changedtick`: un parseo por cambio del buffer, no por llamada.
+---@param bufnr integer
+---@param row integer 0-based
+---@return boolean
+function M.in_excluded_row(bufnr, row)
+  local ok, tick = pcall(vim.api.nvim_buf_get_changedtick, bufnr)
+  if not ok then
+    return false
+  end
+  local entry = excluded_cache[bufnr]
+  if not entry or entry.tick ~= tick then
+    entry = {
+      tick = tick,
+      rows = M.excluded_rows(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)),
+    }
+    excluded_cache[bufnr] = entry
+  end
+  return entry.rows[row] == true
+end
+
 ---Percent-encoding **mínimo** para un destino de enlace.
 ---
 ---Único codificador del proyecto, a propósito. Antes había dos y el resultado

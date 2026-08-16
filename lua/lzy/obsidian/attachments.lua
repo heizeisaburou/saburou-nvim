@@ -854,6 +854,9 @@ function M.cursor_ref(bufnr)
     return nil
   end
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  if require("lzy.link_target").in_excluded_row(bufnr, row - 1) then
+    return nil
+  end
   local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
   for _, ref in ipairs(M.parse_refs(line, row - 1)) do
     if
@@ -882,6 +885,9 @@ function M.cursor_linked_image(bufnr)
     return nil
   end
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  if require("lzy.link_target").in_excluded_row(bufnr, row - 1) then
+    return nil
+  end
   local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
   for _, ref in ipairs(M.parse_refs(line, row - 1)) do
     local image = ref.image_target_range
