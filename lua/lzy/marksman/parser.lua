@@ -217,36 +217,9 @@ end
 ---@param lines string[]
 ---@return table<integer, boolean>
 function M.excluded_rows(lines)
-	local excluded = {}
-	local text = table.concat(lines, "\n") .. "\n"
-	local ok, parser = pcall(vim.treesitter.get_string_parser, text, "markdown")
-	local tree = ok and parser:parse()[1] or nil
-	if not tree then
-		return excluded
-	end
-	local excluded_nodes = {
-		fenced_code_block = true,
-		indented_code_block = true,
-		minus_metadata = true,
-		plus_metadata = true,
-		html_block = true,
-	}
-	local function walk(node)
-		if excluded_nodes[node:type()] then
-			local start_row, _, end_row = node:range()
-			for row = start_row, end_row - 1 do
-				excluded[row] = true
-			end
-			return
-		end
-		for child in node:iter_children() do
-			if child:named() then
-				walk(child)
-			end
-		end
-	end
-	walk(tree:root())
-	return excluded
+	-- Implementación compartida: la misma estructura de Markdown la necesitan
+	-- los diagnósticos y las reescrituras de los dos motores.
+	return require("lzy.link_target").excluded_rows(lines)
 end
 
 ---@param line string

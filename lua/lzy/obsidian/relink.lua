@@ -133,8 +133,12 @@ function M.plan(opts)
   for _, source_path in ipairs(index.references) do
     if coordinate.is_note(source_path) then
       local edits = {}
-      for row, line in ipairs(read_lines(source_path)) do
-        for _, ref in ipairs(attachments.parse_refs(line, row - 1)) do
+      -- Nunca dentro de un bloque de código: ahí un `[[x]]` es un ejemplo y
+      -- canonizarlo corrompe el bloque.
+      local lines = read_lines(source_path)
+      local excluded = require("lzy.link_target").excluded_rows(lines)
+      for row, line in ipairs(lines) do
+        for _, ref in ipairs(excluded[row - 1] and {} or attachments.parse_refs(line, row - 1)) do
           local kind = ref.kind
           if (kind == "wiki" or kind == "markdown") and ref.target_range then
             local coord, fragment = split_fragment(ref.target)

@@ -1603,6 +1603,35 @@ describe("Nyabsidian structured links and attachments", function()
     assert.is_nil(found[11], "y dentro de un fence tampoco")
   end)
 
+  it("ignores links inside code blocks, both for diagnostics and rewrites", function()
+    -- Un `[[x]]` dentro de un fence es un ejemplo, no un enlace. Diagnosticarlo
+    -- es ruido; **reescribirlo** al canonizar corrompe el bloque de código, que
+    -- es lo grave: la documentación de esta config está llena de ejemplos así.
+    write("docs/Mi Nota.md", { "# Mi Nota" })
+    write("doc.md", {
+      "```toml",
+      "# ejemplo: [[docs/Mi Nota]] y [[Fantasma Inventado]]",
+      "```",
+      "",
+      "De verdad: [[Fantasma Inventado]]",
+    })
+    local source = root .. "/doc.md"
+    vim.cmd("edit! " .. vim.fn.fnameescape(source))
+    require("lzy.obsidian.notes").invalidate_index()
+
+    -- Sólo se ve el enlace de fuera del bloque.
+    local refs = require("lzy.obsidian.diagnostics").note_refs(0)
+    assert.are.equal(1, #refs, "el del fence no cuenta")
+    assert.are.equal(4, refs[1].range.start_row, "la última línea")
+    assert.are.equal("Fantasma Inventado", refs[1].target)
+
+    -- Y el `[[docs/Mi Nota]]` del ejemplo no se acorta a `[[Mi Nota]]`.
+    local plan = assert(require("lzy.obsidian.relink").plan { root = root })
+    for path in pairs(plan.changes) do
+      assert.are_not.equal(source, path, "no se reescribe dentro de un bloque de código")
+    end
+  end)
+
   it("reads escaped, slugged and differently-cased targets, accents included", function()
     -- El vault no escribe ninguna de estas formas, pero llegan igual: pegadas
     -- de otra herramienta, de un export o de marksman. Se aceptan al LEER.

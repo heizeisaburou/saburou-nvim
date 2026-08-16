@@ -59,6 +59,52 @@ end
 --- su cuenta (ver lzy.obsidian.headings.anchor_text).
 local UNSAFE = '[ \t\r\n"\'()<>%[%]{}|\\`^]'
 
+---Las filas que NO contienen enlaces aunque lo parezcan: bloques de código
+---(con fence o sangrados), frontmatter y HTML.
+---
+---Un `[[Mi Nota]]` dentro de un ```` ```toml ```` es un ejemplo, no un enlace.
+---Tratarlo como enlace tiene dos consecuencias, y la segunda es destructiva:
+---diagnosticar «no existe» sobre un ejemplo es ruido, pero **reescribirlo** al
+---canonizar corrompe el bloque de código.
+---
+---Vive aquí, y no en un motor, porque es estructura de Markdown: la usan igual
+---los diagnósticos y las reescrituras de los dos lados.
+---@param lines string[]
+---@return table<integer, boolean> filas 0-based
+function M.excluded_rows(lines)
+  local excluded = {}
+  local text = table.concat(lines, "\n") .. "\n"
+  local ok, parser = pcall(vim.treesitter.get_string_parser, text, "markdown")
+  local tree = ok and parser:parse()[1] or nil
+  if not tree then
+    return excluded
+  end
+
+  local excluded_nodes = {
+    fenced_code_block = true,
+    indented_code_block = true,
+    minus_metadata = true,
+    plus_metadata = true,
+    html_block = true,
+  }
+  local function walk(node)
+    if excluded_nodes[node:type()] then
+      local start_row, _, end_row = node:range()
+      for row = start_row, end_row - 1 do
+        excluded[row] = true
+      end
+      return
+    end
+    for child in node:iter_children() do
+      if child:named() then
+        walk(child)
+      end
+    end
+  end
+  walk(tree:root())
+  return excluded
+end
+
 ---Percent-encoding **mínimo** para un destino de enlace.
 ---
 ---Único codificador del proyecto, a propósito. Antes había dos y el resultado

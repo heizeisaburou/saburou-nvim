@@ -488,8 +488,11 @@ function M.rename(note, section, new_name, callback, opts)
   local parse_refs = require("obsidian.parse.refs")
 
   for _, source_path in ipairs(paths) do
-    for row, line in ipairs(read_lines(source_path)) do
-      for _, ref in ipairs(parse_refs.extract(line, { row = row - 1 })) do
+    -- Los ejemplos dentro de un bloque de código no son referencias.
+    local source_lines = read_lines(source_path)
+    local excluded = require("lzy.link_target").excluded_rows(source_lines)
+    for row, line in ipairs(source_lines) do
+      for _, ref in ipairs(excluded[row - 1] and {} or parse_refs.extract(line, { row = row - 1 })) do
         if ref.anchor then
           local targets, ambiguous = ref_targets_note(ref, source_path, target_path, root, index)
           if ambiguous then

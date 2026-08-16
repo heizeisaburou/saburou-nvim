@@ -1250,8 +1250,13 @@ function M.rename(old_path, new_name, opts)
   for _, source_path in ipairs(reference_files(ctx.root, index)) do
     local ext = source_path:match("%.([^./]+)$"):lower()
     local edits = {}
-    for row, line in ipairs(read_lines(source_path)) do
-      local refs = ext == "canvas" and canvas_refs(line, row - 1) or M.parse_refs(line, row - 1)
+    local source_lines = read_lines(source_path)
+    -- Un canvas es JSON, no Markdown: ahí no hay bloques de código que saltar.
+    local excluded = ext == "canvas" and {}
+      or require("lzy.link_target").excluded_rows(source_lines)
+    for row, line in ipairs(source_lines) do
+      local refs = ext == "canvas" and canvas_refs(line, row - 1)
+        or (excluded[row - 1] and {} or M.parse_refs(line, row - 1))
       for _, ref in ipairs(refs) do
         local result = M.resolve(ref.target, {
           source_path = source_path,

@@ -58,8 +58,11 @@ local function note_refs(bufnr)
   -- notes.lua. M.rename ya usa este mismo patrón internamente.
   local index = root and attachments.build_index(root) or nil
 
-  for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    for _, ref in ipairs(attachments.parse_refs(line, row - 1)) do
+  -- Un `[[x]]` dentro de un bloque de código es un ejemplo, no un enlace.
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local excluded = require("lzy.link_target").excluded_rows(lines)
+  for row, line in ipairs(lines) do
+    for _, ref in ipairs(excluded[row - 1] and {} or attachments.parse_refs(line, row - 1)) do
       if
         (ref.kind == "wiki" or ref.kind == "markdown")
         and not util.is_uri(ref.target)
@@ -409,5 +412,6 @@ end
 
 -- API pequeña para pruebas.
 M.refresh = refresh
+M.note_refs = note_refs
 
 return M
