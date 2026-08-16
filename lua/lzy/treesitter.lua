@@ -14,9 +14,6 @@ M.languages = {
   --
   --
   --
-  -- `asm` cubre el default de Neovim (GAS/AT&T); `nasm` es el filetype y el
-  -- parser propios del dialecto Intel, que Neovim asigna cuando el archivo
-  -- declara `asmsyntax=nasm`.
   -- "asm",
   -- "erlang",
   -- "fish",
@@ -29,8 +26,6 @@ M.languages = {
   -- "r",
   -- "solidity",
   -- "sql",
-  -- Sin entrada para WebAssembly (wat/wasm): no existe parser catalogado en
-  -- nvim-treesitter todavía, ver next-languages.md.
   -- "bash",
   -- "c_sharp",
   -- "c",
@@ -196,7 +191,11 @@ local function archive_targets(languages)
         targets[#targets + 1] = url
       end
 
-      if type(info.revision) ~= "string" or #info.revision ~= 40 or not info.revision:match "^%x+$" then
+      if
+        type(info.revision) ~= "string"
+        or #info.revision ~= 40
+        or not info.revision:match "^%x+$"
+      then
         pinned = false
       end
     end
@@ -294,18 +293,26 @@ local function run_install(targets, best_effort)
 
     if err then
       vim.schedule(function()
-        notify("La instalación de parsers terminó con un error:\n" .. tostring(err), vim.log.levels.ERROR)
+        notify(
+          "La instalación de parsers terminó con un error:\n" .. tostring(err),
+          vim.log.levels.ERROR
+        )
       end)
     elseif success == false then
       vim.schedule(function()
-        notify("No se pudieron instalar todos los parsers. Revisa :messages.", vim.log.levels.ERROR)
+        notify(
+          "No se pudieron instalar todos los parsers. Revisa :messages.",
+          vim.log.levels.ERROR
+        )
       end)
     end
   end)
 
   if not awaited then
     restore_system()
-    stop_with_error("No se pudo supervisar la instalación de parsers:\n" .. tostring(await_error))
+    stop_with_error(
+      "No se pudo supervisar la instalación de parsers:\n" .. tostring(await_error)
+    )
   end
 end
 
@@ -340,7 +347,10 @@ local function preflight_windows(targets, pinned)
       }, function(choice)
         if choice ~= retry then
           install_running = false
-          notify("Instalación cancelada; no se ha cambiado la configuración de curl.", vim.log.levels.INFO)
+          notify(
+            "Instalación cancelada; no se ha cambiado la configuración de curl.",
+            vim.log.levels.INFO
+          )
           return
         end
 
@@ -353,7 +363,9 @@ local function preflight_windows(targets, pinned)
       return
     end
 
-    stop_with_error("curl no pudo comprobar la descarga; no se instalará ningún parser:\n" .. detail)
+    stop_with_error(
+      "curl no pudo comprobar la descarga; no se instalará ningún parser:\n" .. detail
+    )
   end)
 end
 
@@ -380,7 +392,7 @@ function M.install_all()
 
   local targets, pinned = archive_targets(languages)
   if #targets > 0 and vim.fn.executable "curl" ~= 1 then
-    stop_with_error("No se encuentra curl en el PATH; no se puede ejecutar :TSInstallAll.")
+    stop_with_error "No se encuentra curl en el PATH; no se puede ejecutar :TSInstallAll."
     return
   end
 
