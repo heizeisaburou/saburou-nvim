@@ -8,7 +8,7 @@
 alcanzado una fase en la que principalmente me ocupo de arreglar bugs o dar soporte a lenguajes
 de programación diversos.
 
-Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
+- Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
 
 ## Installation
 
@@ -16,11 +16,12 @@ Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [!
 
 ### Imprescindibles
 
-#working-on-this
-
-- **[Neovim](https://neovim.io/) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim
+- **[Neovim](/docs/neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim
   0.12. No se garantiza compatibilidad con versiones anteriores ni futuras.
-- **[Git](https://git-scm.com/)** — necesario para clonar el repositorio y para que `lazy.nvim` instale los plugins.
+
+- **[Git](https://git-scm.com/)** — necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
+  que la mayoría de linters reconozcan el rootdir.
+
 - **[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)** — necesario para compilar e instalar `tree-sitter-cli`.
 - **[Node.js](https://nodejs.org/)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de
   JavaScript/TypeScript usadas por la configuración, incluidos servidores LSP, herramientas
