@@ -170,14 +170,21 @@ La acción inteligente solo devuelve `za` sobre headings y frontmatter cuando el
 está activo. Sin folding devuelve Enter normal, evitando que `checkbox.create_new` convierta un
 heading en una tarea.
 
+Escribir un destino es escribir un destino, así que la completion es la misma en las tres
+sintaxis: `[[destino`, `[texto](destino` y `[id]: destino`. La barra abre navegación por rutas
+(`/` lista la raíz del vault y la del sistema, `/docs/` lo que hay dentro; las carpetas van
+primero porque son el camino) y `./` o `../` miden desde la nota. En `[[` la búsqueda de notas
+por nombre la sigue poniendo obsidian-ls; donde obsidian-ls no completa nada —un enlace o embed
+Markdown y una definición— la pone Nyabsidian. Siempre se sustituye solo el path: un `<...>` o un
+`#fragment` ya escritos sobreviven intactos.
+
 También se manejan las referencias Markdown `[texto][id]`, `[id][]` y `[id]` con una definición
 `[id]: destino "description"`. La definición pertenece a la nota actual y sus tres componentes
 son independientes:
 
 - `id` tiene rename global sobre la definición y todos sus usos, y se ofrece en completion al
   escribir una referencia;
-- un destino local completa notas del vault y conserva `<...>` y cualquier fragment al reemplazar
-  únicamente el path; navegación y rename usan Nyabsidian;
+- un destino local completa como cualquier otro destino; navegación y rename usan Nyabsidian;
 - una URL externa se delega en obsidian.nvim;
 - `description` tiene prepareRename/rename local sobre el texto interior y conserva sus
   delimitadores originales: `"..."`, `'...'` o `(...)`.

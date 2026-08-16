@@ -1883,7 +1883,11 @@ describe("Nyabsidian structured links and attachments", function()
     end, list.items))
   end)
 
-  describe("browsing a path inside [[", function()
+  describe("browsing a path inside a link", function()
+    -- Escribir una ruta es escribir una ruta: las tres sintaxis de destino se
+    -- comportan igual. `[Algo](/` era la que no hacía nada.
+    local SYNTAXES = { "[[", "[Algo](", "[id]: " }
+
     ---@return lsp.CompletionList
     local function complete(line)
       write("wiki.md", { line })
@@ -1895,6 +1899,9 @@ describe("Nyabsidian structured links and attachments", function()
       }, function(value)
         result = value
       end)
+      assert(vim.wait(2000, function()
+        return result ~= nil
+      end, 10), "completion did not finish")
       return result
     end
 
@@ -1907,20 +1914,22 @@ describe("Nyabsidian structured links and attachments", function()
     it("opens both roots on the bare slash, without waiting for a letter", function()
       write("docs/archlinux.md", { "# Arch" })
 
-      local result = complete "[[/"
-      local docs = item(result, "/docs/")
-      assert.is_not_nil(docs, "no folder from the vault root")
-      assert.are.equal("Carpeta del vault", docs.detail)
-      assert.are.same({ line = 0, character = 2 }, docs.textEdit.range.start)
-      -- La barra es ambigua a propósito: también la raíz del sistema.
-      assert.is_not_nil(
-        vim.iter(result.items):find(function(entry)
-          return entry.detail == "Carpeta del sistema"
-        end),
-        "no folder from the system root"
-      )
-      -- Un nivel cada vez: lo de dentro de docs llega al bajar, no antes.
-      assert.is_nil(item(result, "/docs/archlinux.md"))
+      for _, syntax in ipairs(SYNTAXES) do
+        local result = complete(syntax .. "/")
+        local docs = item(result, "/docs/")
+        assert.is_not_nil(docs, "no folder from the vault root in " .. syntax)
+        assert.are.equal("Carpeta del vault", docs.detail)
+        assert.are.same({ line = 0, character = #syntax }, docs.textEdit.range.start)
+        -- La barra es ambigua a propósito: también la raíz del sistema.
+        assert.is_not_nil(
+          vim.iter(result.items):find(function(entry)
+            return entry.detail == "Carpeta del sistema"
+          end),
+          "no folder from the system root in " .. syntax
+        )
+        -- Un nivel cada vez: lo de dentro de docs llega al bajar, no antes.
+        assert.is_nil(item(result, "/docs/archlinux.md"))
+      end
     end)
 
     it("lists the notes of a folder once you are inside it", function()
@@ -1930,21 +1939,60 @@ describe("Nyabsidian structured links and attachments", function()
       write("docs/windows11.md", { "# Windows" })
       write("docs/caos/nota.md", { "# Caos" })
 
-      local inside = complete "[[/docs/"
-      local arch = item(inside, "/docs/archlinux.md")
-      assert.is_not_nil(arch, "the folder's notes are missing")
-      assert.are.equal("Nota del vault", arch.detail)
-      assert.are.equal(vim.lsp.protocol.CompletionItemKind.File, arch.kind)
-      assert.is_not_nil(item(inside, "/docs/windows11.md"))
-      -- Las subcarpetas siguen ofreciéndose, y antes que las notas.
-      local caos = item(inside, "/docs/caos/")
-      assert.is_not_nil(caos)
-      assert.is_true(caos.sortText < arch.sortText)
+      for _, syntax in ipairs(SYNTAXES) do
+        local inside = complete(syntax .. "/docs/")
+        local arch = item(inside, "/docs/archlinux.md")
+        assert.is_not_nil(arch, "the folder's notes are missing in " .. syntax)
+        assert.are.equal("Nota del vault", arch.detail)
+        assert.are.equal(vim.lsp.protocol.CompletionItemKind.File, arch.kind)
+        assert.is_not_nil(item(inside, "/docs/windows11.md"))
+        -- Las subcarpetas siguen ofreciéndose, y antes que las notas.
+        local caos = item(inside, "/docs/caos/")
+        assert.is_not_nil(caos)
+        assert.is_true(caos.sortText < arch.sortText)
 
-      -- Y filtrando por lo tecleado.
-      local filtered = complete "[[/docs/arch"
-      assert.is_not_nil(item(filtered, "/docs/archlinux.md"))
-      assert.is_nil(item(filtered, "/docs/windows11.md"))
+        -- Y filtrando por lo tecleado.
+        local filtered = complete(syntax .. "/docs/arch")
+        assert.is_not_nil(item(filtered, "/docs/archlinux.md"))
+        assert.is_nil(item(filtered, "/docs/windows11.md"))
+      end
+    end)
+
+    it("searches notes by name where obsidian-ls does not complete at all", function()
+      -- En `[[` la búsqueda por nombre ya la pone el proveedor original; en un
+      -- enlace Markdown o en una definición no la pone nadie.
+      write("docs/archlinux.md", { "# Arch" })
+
+      for _, syntax in ipairs { "[Algo](", "[id]: " } do
+        local result = complete(syntax .. "archl")
+        local arch = item(result, "docs/archlinux.md")
+        assert.is_not_nil(arch, "the note was not found by name in " .. syntax)
+        assert.are.equal("Nota del vault", arch.detail)
+        assert.are.same({ line = 0, character = #syntax }, arch.textEdit.range.start)
+      end
+    end)
+
+    it("replaces only the path of a Markdown link, never its fragment", function()
+      write("docs/archlinux.md", { "# Arch" })
+
+      local line = "[Algo](/docs/arch#instalación)"
+      write("wiki.md", { line })
+      vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+      local result
+      require("lzy.obsidian.completion").custom_completion({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 0, character = #"[Algo](/docs/arch" },
+      }, function(value)
+        result = value
+      end)
+      assert(vim.wait(2000, function()
+        return result ~= nil
+      end, 10), "completion did not finish")
+
+      local arch = item(result, "/docs/archlinux.md")
+      assert.is_not_nil(arch)
+      assert.are.same({ line = 0, character = 7 }, arch.textEdit.range.start)
+      assert.are.same({ line = 0, character = #"[Algo](/docs/arch" }, arch.textEdit.range["end"])
     end)
 
     it("resolves the note it just inserted", function()
@@ -1975,17 +2023,53 @@ describe("Nyabsidian structured links and attachments", function()
     end)
   end)
 
-  it("finds the target of a wiki link being typed, and stops at label or anchor", function()
-    local wiki = require("lzy.obsidian.completion").wiki_target_context
-    local start_col, search = wiki("texto [[/do", 11)
-    assert.are.equal(8, start_col)
-    assert.are.equal("/do", search)
-    assert.are.equal("", select(2, wiki("[[", 2)))
+  it("finds the target being typed in any link syntax, not only in [[", function()
+    local context = require("lzy.obsidian.completion").target_context
+    ---@param line string
+    ---@param character integer
+    local function found(line, character)
+      local ctx = assert(context(line, character), "no target in " .. line)
+      return {
+        kind = ctx.kind,
+        search = ctx.search,
+        start_col = ctx.start_col,
+        end_col = ctx.end_col,
+      }
+    end
+
+    assert.are.same(
+      { kind = "wiki", search = "/do", start_col = 8, end_col = 11 },
+      found("texto [[/do", 11)
+    )
+    assert.are.equal("", context("[[", 2).search)
     -- A partir del `|` o del `#` manda el proveedor original.
-    assert.is_nil(wiki("[[nota|Ali", 10))
-    assert.is_nil(wiki("[[nota#anc", 10))
-    assert.is_nil(wiki("[[nota]] ya cerrado", 19))
-    assert.is_nil(wiki("sin corchetes", 13))
+    assert.is_nil(context("[[nota|Ali", 10))
+    assert.is_nil(context("[[nota#anc", 10))
+    assert.is_nil(context("[[nota]] ya cerrado", 19))
+    assert.is_nil(context("sin corchetes", 13))
+
+    -- El mismo destino con los delimitadores de un enlace o embed Markdown.
+    assert.are.same(
+      { kind = "inline", search = "/do", start_col = 13, end_col = 16 },
+      found("texto [Algo](/do", 16)
+    )
+    assert.are.same(
+      { kind = "inline", search = "/im", start_col = 8, end_col = 11 },
+      found("![Logo](/im", 11)
+    )
+    -- Un fragment ya escrito no entra en el reemplazo, y desde él manda el
+    -- proveedor original.
+    assert.are.equal(10, found("[Algo](/do#head)", 10).end_col)
+    assert.is_nil(context("[Algo](/do#head)", 12))
+    -- La etiqueta no es un destino, y un enlace ya cerrado tampoco.
+    assert.is_nil(context("[Al", 3))
+    assert.is_nil(context("[Algo](/do) ya cerrado", 22))
+
+    -- Y con los de una definición.
+    assert.are.same(
+      { kind = "definition", search = "/do", start_col = 6, end_col = 9 },
+      found("[id]: /do", 9)
+    )
   end)
 
   describe("smart copy", function()

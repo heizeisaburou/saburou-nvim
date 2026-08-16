@@ -2,16 +2,61 @@
 
 local M = {}
 
----@class nyabsidian.DefinitionCompletionContext
----@field search string
----@field raw_target string
----@field start_col integer
----@field end_col integer
----@field angled boolean
+--- Un destino de enlace a medio teclear. La sintaxis que lo envuelve cambia
+--- --`[[destino`, `[texto](destino`, `[id]: destino`-- pero la pregunta es la
+--- misma en las tres, así que se reducen a un único contexto y una única
+--- completion: escribir una ruta es escribir una ruta.
+---@class nyabsidian.TargetContext
+---@field kind "wiki"|"inline"|"definition"
+---@field search string lo tecleado desde el inicio del destino hasta el cursor
+---@field raw_target string el destino entero, esté tecleado del todo o no
+---@field start_col integer 0-based, inicio del trozo de línea que se sustituye
+---@field end_col integer 0-based, final de ese trozo
+---@field notes boolean si además de rutas hay que buscar notas por nombre
 
+--- El destino que arranca en `token_start` y acaba donde diga la sintaxis: en
+--- `>` si viene entre `<...>`, y si no en el primer carácter de `stop`. Solo se
+--- sustituye el path: un `#fragment` ya escrito sobrevive intacto.
 ---@param line string
 ---@param character integer 0-based byte column
----@return nyabsidian.DefinitionCompletionContext|nil
+---@param token_start integer 1-based, primer byte tras el delimitador de apertura
+---@param stop string patrón Lua de los caracteres que cierran el destino
+---@return { search: string, raw_target: string, start_col: integer, end_col: integer }|nil
+local function target_bounds(line, character, token_start, stop)
+  local angled = line:sub(token_start, token_start) == "<"
+  local content_start = token_start + (angled and 1 or 0)
+  local token_finish = content_start
+  while token_finish <= #line do
+    local char = line:sub(token_finish, token_finish)
+    if angled and char == ">" or not angled and char:match(stop) then
+      break
+    end
+    token_finish = token_finish + 1
+  end
+
+  local start_col, target_end = content_start - 1, token_finish - 1
+  if character < start_col or character > target_end then
+    return nil
+  end
+  local raw_target = line:sub(content_start, token_finish - 1)
+  local hash = raw_target:find("#", 1, true)
+  local path_end = hash and start_col + hash - 1 or target_end
+  if character > path_end then
+    return nil -- headings y blocks siguen perteneciendo al proveedor original
+  end
+
+  return {
+    search = line:sub(content_start, character),
+    raw_target = raw_target,
+    start_col = start_col,
+    end_col = path_end,
+  }
+end
+
+---El destino de una definición `[id]: destino "descripción"`.
+---@param line string
+---@param character integer 0-based byte column
+---@return nyabsidian.TargetContext|nil
 local function definition_target_context(line, character)
   local indent = line:match "^( *)" or ""
   if #indent > 3 or line:sub(#indent + 1, #indent + 1) ~= "[" then
@@ -35,46 +80,75 @@ local function definition_target_context(line, character)
   while line:sub(token_start, token_start):match "[ \t]" do
     token_start = token_start + 1
   end
-  local angled = line:sub(token_start, token_start) == "<"
-  local content_start = token_start + (angled and 1 or 0)
-  local token_finish = content_start
-  while token_finish <= #line do
-    local char = line:sub(token_finish, token_finish)
-    if angled and char == ">" or not angled and char:match "[ \t]" then
-      break
-    end
-    token_finish = token_finish + 1
-  end
+  local bounds = target_bounds(line, character, token_start, "[ \t]")
+  return bounds and vim.tbl_extend("error", bounds, { kind = "definition", notes = true })
+end
 
-  local start_col, target_end = content_start - 1, token_finish - 1
-  if character < start_col or character > target_end then
+---El destino de un enlace o embed Markdown a medio teclear: lo que va tras
+---`](`. Es el mismo caso que `[[`, y hasta ahora era el que faltaba: aquí
+---obsidian-ls no completa nada, ni rutas ni notas.
+---@param line string
+---@param character integer 0-based byte column
+---@return nyabsidian.TargetContext|nil
+local function inline_target_context(line, character)
+  local open = line:sub(1, character):match ".*()%]%("
+  if not open then
     return nil
   end
-  local raw_target = line:sub(content_start, token_finish - 1)
-  local hash = raw_target:find("#", 1, true)
-  local path_end = hash and start_col + hash - 1 or target_end
-  if character > path_end then
-    return nil -- headings y blocks siguen perteneciendo al proveedor original
-  end
+  local bounds = target_bounds(line, character, open + 2, "[%s%)]")
+  return bounds and vim.tbl_extend("error", bounds, { kind = "inline", notes = true })
+end
 
+---El destino de un enlace wiki a medio teclear: lo que va tras el último `[[`
+---mientras no aparezca `]`, `|` ni `#` (a partir de ahí ya es etiqueta o ancla,
+---territorio del proveedor original), que además ya busca notas por nombre.
+---@param line string
+---@param character integer 0-based byte column
+---@return nyabsidian.TargetContext|nil
+local function wiki_target_context(line, character)
+  local prefix = line:sub(1, character)
+  local open = prefix:match ".*()%[%["
+  if not open then
+    return nil
+  end
+  local search = prefix:sub(open + 2)
+  if search:find "[%]|#]" then
+    return nil
+  end
   return {
-    search = line:sub(content_start, character),
-    raw_target = raw_target,
-    start_col = start_col,
-    end_col = path_end,
-    angled = angled,
+    kind = "wiki",
+    search = search,
+    raw_target = search,
+    start_col = open + 1,
+    end_col = character,
+    notes = false,
   }
+end
+
+---Un destino de enlace bajo el cursor, sea cual sea su sintaxis.
+---@param line string
+---@param character integer 0-based byte column
+---@return nyabsidian.TargetContext|nil
+local function target_context(line, character)
+  return definition_target_context(line, character)
+    or wiki_target_context(line, character)
+    or inline_target_context(line, character)
+end
+
+---@param path string
+---@return string
+local function encode(path)
+  return require("obsidian.util").urlencode(path, { keep_path_sep = true })
 end
 
 ---@param bufnr integer
 ---@param query string
 ---@param note obsidian.Note
+---@param root string
 ---@return string|nil target lo que se inserta
 ---@return string|nil root_relative el mismo destino medido desde la raíz del vault
-local function note_target(bufnr, query, note)
+local function note_target(bufnr, query, note, root)
   local coord = require "lzy.link_target"
-  local api = require "obsidian.api"
-  local root = vim.fs.normalize(tostring(api.resolve_workspace_dir()))
   local path = vim.fs.normalize(tostring(note.path))
   if vim.fn.isabsolutepath(path) == 0 then
     path = vim.fs.joinpath(root, path)
@@ -95,53 +169,101 @@ local function note_target(bufnr, query, note)
   else
     target = root_relative
   end
-  local encode = require("obsidian.util").urlencode
-  return encode(target, { keep_path_sep = true }), root_relative
+  return encode(target), root_relative
 end
 
+---La aguja de la búsqueda por nombre, o nil si no toca buscar.
+---@param query string lo tecleado, coordenada incluida
+---@return string|nil
+local function note_needle(query)
+  local coord = require "lzy.link_target"
+  local search = vim.fs.basename(coord.needle(query)):gsub("%.md$", "")
+  if search == "" then
+    -- Un nivel recién abierto (`/`, `/docs/`) ya lo lista la navegación de
+    -- rutas; buscar la cadena vacía traería el vault entero de una vez.
+    return nil
+  end
+  -- Una coordenada explícita ya expresa intención suficiente: `/do` debe
+  -- responder en el acto, sin esperar al mínimo de caracteres que sí se le
+  -- exige a una búsqueda desnuda. Mismo criterio que en marksman.
+  if not coord.is_explicit(query) and #search < (Obsidian.opts.completion.min_chars or 2) then
+    return nil
+  end
+  return search
+end
+
+---`/` es navegación de rutas, y obsidian.nvim no la hace: su completion de
+---enlaces es una búsqueda de notas por nombre, así que ni ofrece las carpetas
+---por las que bajar ni entiende un destino que empieza por `/`. Aquí se recorre
+---el nivel entero --carpetas y notas-- igual que en marksman, y se añade la
+---búsqueda por nombre en las sintaxis donde el proveedor original no llega.
 ---@param params lsp.CompletionParams
----@param context nyabsidian.DefinitionCompletionContext
+---@param context nyabsidian.TargetContext
 ---@param callback fun(result: lsp.CompletionList)
-local function complete_definition_target(params, context, callback)
+local function complete_target(params, context, callback)
   local util = require "obsidian.util"
   if util.is_uri(context.raw_target) or context.raw_target:match "^[%a][%w+.-]*:" then
     return callback { isIncomplete = false, items = {} }
   end
 
   local coord = require "lzy.link_target"
-  local decoded = vim.uri_decode(context.search) or context.search
-  local search = vim.fs.basename(coord.needle(decoded)):gsub("%.md$", "")
-  local min_chars = Obsidian.opts.completion.min_chars or 2
-  -- Una coordenada explícita ya expresa intención suficiente: `/` a secas debe
-  -- listar la raíz del vault en el acto, sin esperar al mínimo de caracteres
-  -- que sí se le exige a una búsqueda desnuda. Mismo criterio que en marksman.
-  if not coord.is_explicit(decoded) and #search < min_chars then
-    return callback { isIncomplete = true, items = {} }
+  local bufnr = vim.uri_to_bufnr(params.textDocument.uri)
+  local root = vim.fs.normalize(tostring(require("obsidian.api").resolve_workspace_dir()))
+  local query = vim.uri_decode(context.search) or context.search
+
+  local items, seen = {}, {}
+  local function add(item)
+    if not seen[item.textEdit.newText] then
+      seen[item.textEdit.newText] = true
+      items[#items + 1] = item
+    end
+  end
+  local function edit(target)
+    return {
+      newText = target,
+      range = {
+        start = { line = params.position.line, character = context.start_col },
+        ["end"] = { line = params.position.line, character = context.end_col },
+      },
+    }
   end
 
-  local bufnr = vim.uri_to_bufnr(params.textDocument.uri)
-  require("obsidian.search").find_notes_async(search, function(notes)
-    local items = {}
+  for _, entry in ipairs(coord.entries(query, root, { files = true })) do
+    local target = encode(entry.target)
+    local directory = entry.kind == "directory"
+    local scope = entry.scope == "system" and "del sistema" or "del vault"
+    add {
+      label = target,
+      filterText = target,
+      -- Las carpetas primero: son el camino, no el destino.
+      sortText = (directory and "0" or "1") .. target:lower(),
+      detail = (directory and "Carpeta " or "Nota ") .. scope,
+      kind = directory and vim.lsp.protocol.CompletionItemKind.Folder
+        or vim.lsp.protocol.CompletionItemKind.File,
+      textEdit = edit(target),
+    }
+  end
+
+  local needle = context.notes and note_needle(query) or nil
+  if not needle then
+    return callback { isIncomplete = true, items = items }
+  end
+
+  require("obsidian.search").find_notes_async(needle, function(notes)
     for _, note in ipairs(notes) do
-      local target, root_relative = note_target(bufnr, decoded, note)
+      local target, root_relative = note_target(bufnr, query, note, root)
       if target and root_relative then
-        items[#items + 1] = {
+        add {
           label = target,
-          filterText = coord.filter_text(decoded, target, root_relative),
-          sortText = target:lower(),
+          filterText = coord.filter_text(query, target, root_relative),
+          sortText = "1" .. target:lower(),
           detail = "Nota del vault",
           kind = vim.lsp.protocol.CompletionItemKind.File,
           documentation = {
             kind = "markdown",
             value = note:display_info { label = target },
           },
-          textEdit = {
-            newText = target,
-            range = {
-              start = { line = params.position.line, character = context.start_col },
-              ["end"] = { line = params.position.line, character = context.end_col },
-            },
-          },
+          textEdit = edit(target),
         }
       end
     end
@@ -171,65 +293,6 @@ local function definitions(bufnr)
   return result
 end
 
----El destino de un enlace wiki a medio teclear: lo que va tras el último `[[`
----mientras no aparezca `]`, `|` ni `#` (a partir de ahí ya es etiqueta o ancla,
----territorio del proveedor original).
----@param line string
----@param character integer 0-based byte column
----@return integer|nil start_col
----@return string|nil search
-local function wiki_target_context(line, character)
-  local prefix = line:sub(1, character)
-  local open = prefix:match ".*()%[%["
-  if not open then
-    return nil
-  end
-  local search = prefix:sub(open + 2)
-  if search:find "[%]|#]" then
-    return nil
-  end
-  return open + 1, search
-end
-
----`[[/` es navegación de rutas, y obsidian.nvim no la hace: su completion de
----enlaces es una búsqueda de notas por nombre, así que ni ofrece las carpetas
----por las que bajar ni entiende un destino que empieza por `/`. Aquí se recorre
----el nivel entero -- carpetas y notas -- igual que en marksman.
----@param params lsp.CompletionParams
----@param start_col integer
----@param search string
----@param callback fun(result: lsp.CompletionList)
-local function complete_wiki_target(params, start_col, search, callback)
-  local coord = require "lzy.link_target"
-  local query = vim.uri_decode(search) or search
-  local root = vim.fs.normalize(tostring(require("obsidian.api").resolve_workspace_dir()))
-  local encode = require("obsidian.util").urlencode
-
-  local items = {}
-  for _, entry in ipairs(coord.entries(query, root, { files = true })) do
-    local target = encode(entry.target, { keep_path_sep = true })
-    local directory = entry.kind == "directory"
-    local scope = entry.scope == "system" and "del sistema" or "del vault"
-    items[#items + 1] = {
-      label = target,
-      filterText = target,
-      -- Las carpetas primero: son el camino, no el destino.
-      sortText = (directory and "0" or "1") .. target:lower(),
-      detail = (directory and "Carpeta " or "Nota ") .. scope,
-      kind = directory and vim.lsp.protocol.CompletionItemKind.Folder
-        or vim.lsp.protocol.CompletionItemKind.File,
-      textEdit = {
-        newText = target,
-        range = {
-          start = { line = params.position.line, character = start_col },
-          ["end"] = { line = params.position.line, character = params.position.character },
-        },
-      },
-    }
-  end
-  callback { isIncomplete = true, items = items }
-end
-
 ---@param line string
 ---@param character integer
 ---@return integer|nil start_col
@@ -257,15 +320,9 @@ local function custom_completion(params, callback)
     params.position.line + 1,
     false
   )[1] or ""
-  local target = definition_target_context(line, params.position.character)
+  local target = target_context(line, params.position.character)
   if target then
-    return complete_definition_target(params, target, callback)
-  end
-
-  local wiki_start, wiki_search = wiki_target_context(line, params.position.character)
-  if wiki_start then
-    ---@cast wiki_search -nil
-    return complete_wiki_target(params, wiki_start, wiki_search, callback)
+    return complete_target(params, target, callback)
   end
 
   local start_col = reference_id_context(line, params.position.character)
@@ -377,8 +434,8 @@ local function merge(left, right)
 end
 
 --- obsidian-ls declara `{ "[", "#", "^" }` como caracteres de disparo. La barra
---- no está, y no es un carácter de palabra, así que al teclear `[[/` el cliente
---- no pide nada: la lista no aparecía hasta escribir la primera letra después.
+--- no está, y no es un carácter de palabra, así que al teclear `/` en cualquier
+--- destino el cliente no pide nada: la lista no aparecía hasta la primera letra.
 --- Justo lo contrario de lo que hace falta, porque `/` ya es intención de sobra.
 ---@param handlers table
 local function patch_trigger_characters(handlers)
@@ -428,7 +485,9 @@ function M.setup()
   handlers.__nyabsidian_completion = true
 end
 
+M.target_context = target_context
 M.definition_target_context = definition_target_context
+M.inline_target_context = inline_target_context
 M.wiki_target_context = wiki_target_context
 M.reference_id_context = reference_id_context
 M.sanitize = sanitize

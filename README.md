@@ -12,18 +12,26 @@ Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [!
 
 ## Installation
 
-- [Windows 11](/docs/windows11.md)
+### Pre-requisitos
+
+### Imprescindibles
+
+- **[Neovim](https://neovim.io/) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim
+  0.12. No se garantiza compatibilidad con versiones anteriores ni futuras.
+- **[Git](https://git-scm.com/)** — necesario para clonar el repositorio y para que `lazy.nvim` instale los plugins.
+- **[Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)** — necesario para compilar e instalar `tree-sitter-cli`.
+- **[Node.js](https://nodejs.org/)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de
+  JavaScript/TypeScript usadas por la configuración, incluidos servidores LSP, herramientas
+  instaladas mediante Mason y `copilot.lua`.
+- **`curl`** y un compilador de C (`gcc` o `clang`) disponibles en el `PATH` — necesarios para que `lazy.nvim`,
+  `mason.nvim` y `nvim-treesitter` puedan descargar y compilar dependencias.
+- **[`tree-sitter-cli`](https://github.com/tree-sitter/tree-sitter/blob/master/crates/cli/README.md) 0.26.1 o superior** — necesario para que `nvim-treesitter` compile los
+  parsers.
+- Una **Nerd Font** configurada en la terminal para mostrar correctamente los iconos.
+
+#### Dependientes
 
 ### Guías deseadas
-
-- [Arch Linux](/docs/archlinux.md)
-
-- [macOS](/docs/macos.md)
-
-- [Fedora](/docs/fedora.md)
-
-- [Debian](/docs/debian.md)
-- [Ubuntu](/docs/ubuntu.md)
 
 ## Lenguajes soportados
 
