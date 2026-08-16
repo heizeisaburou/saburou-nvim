@@ -1885,6 +1885,23 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal("underItalic", copy_at(1, mid "underItalic"))
     end)
 
+    it("copies strikethrough content without the tildes, single or double", function()
+      write("source.md", {
+        "Tachado ~solo~ y ~~doble~~ tilde.",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      vim.bo[0].filetype = "markdown"
+      vim.treesitter.start(0, "markdown")
+      vim.treesitter.get_parser(0, "markdown"):parse(true)
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local function mid(pattern)
+        local s, e = line:find(pattern, 1, true)
+        return math.floor((s + e) / 2)
+      end
+      assert.are.equal("solo", copy_at(1, mid "solo"))
+      assert.are.equal("doble", copy_at(1, mid "doble"))
+    end)
+
     it("copies a pasteable [[Note#anchor]] link when the cursor is on a heading", function()
       write("Windows 11.md", { "# My Header", "", "body" })
       vim.cmd.edit(root .. "/Windows 11.md")

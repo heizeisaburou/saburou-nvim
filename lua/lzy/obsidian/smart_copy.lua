@@ -13,8 +13,9 @@
 --      nota, url, descripción, id de referencia...), ya sin llaves ni
 --      paréntesis alrededor -- reusa lzy.obsidian.links.cursor_context(),
 --      que ya distingue esto para hover/rename/follow.
---   3. Negrita/cursiva/negrita-cursiva: el contenido sin los delimitadores
---      (`***hola***` -> `hola`, en cualquier combinación de `*`/`_`).
+--   3. Negrita/cursiva/negrita-cursiva/tachado: el contenido sin los
+--      delimitadores (`***hola***` -> `hola`, en cualquier combinación de
+--      `*`/`_`; `~hola~` y `~~hola~~` -> `hola`, tachado simple o doble).
 --   4. Línea de heading: `[[NombreDeNota#anchor]]`, listo para pegar --
 --      mismo criterio de desambiguación de nombre que "Más corto seguro"
 --      en NyabsidianConvertLink, mismo algoritmo de slug que usan los
@@ -47,7 +48,7 @@ M.copy = default_copy
 ---@return string
 local function strip_emphasis_markup(text)
   local ch = text:sub(1, 1)
-  if ch ~= "*" and ch ~= "_" then
+  if ch ~= "*" and ch ~= "_" and ch ~= "~" then
     return text
   end
   local n = 0
@@ -223,25 +224,27 @@ end
 ---@param bufnr integer
 ---@param row0 integer 0-based
 ---@param col integer 0-based
----@return string|?
+---@return string|? text
+---@return string|? kind "formato" (negrita/cursiva) o "tachado" (`~x~`/`~~x~~`)
 local function emphasis_at_cursor(bufnr, row0, col)
-  -- markdown_inline (donde viven emphasis/strong_emphasis) es un árbol
-  -- inyectado dentro del árbol de `markdown`; get_node() no baja ahí solo
-  -- porque sí, hay que pedirlo explícitamente.
+  -- markdown_inline (donde viven emphasis/strong_emphasis/strikethrough) es
+  -- un árbol inyectado dentro del árbol de `markdown`; get_node() no baja ahí
+  -- solo porque sí, hay que pedirlo explícitamente.
   local node = node_at(bufnr, row0, col, true)
   if not node then
     return nil
   end
 
-  -- El nodo MÁS EXTERNO de negrita/cursiva que contiene el cursor: para
-  -- `***hola***` (negrita+cursiva anidadas) queremos el span completo, no
-  -- solo la capa interna.
-  local outer
+  -- El nodo MÁS EXTERNO de negrita/cursiva/tachado que contiene el cursor:
+  -- para `***hola***` (negrita+cursiva anidadas) o `~~hola~~` (tachado de
+  -- doble tilde, que el grammar anida igual que las emphasis) queremos el
+  -- span completo, no solo la capa interna.
+  local outer, outer_type
   local n = node
   while n do
     local t = n:type()
-    if t == "emphasis" or t == "strong_emphasis" then
-      outer = n
+    if t == "emphasis" or t == "strong_emphasis" or t == "strikethrough" then
+      outer, outer_type = n, t
     end
     n = n:parent()
   end
@@ -253,7 +256,8 @@ local function emphasis_at_cursor(bufnr, row0, col)
   if not ok_text or not raw or raw == "" then
     return nil
   end
-  return strip_emphasis_markup(raw)
+  local kind = outer_type == "strikethrough" and "tachado" or "formato"
+  return strip_emphasis_markup(raw), kind
 end
 
 ---@param path string ruta de la nota (obsidian.Path o string, se hace tostring)
@@ -361,10 +365,10 @@ function M.smart_copy(opts)
     end
   end
 
-  -- 3. Negrita/cursiva/negrita-cursiva bajo el cursor.
-  local emphasis_text = emphasis_at_cursor(bufnr, row0, col)
+  -- 3. Negrita/cursiva/negrita-cursiva/tachado bajo el cursor.
+  local emphasis_text, emphasis_kind = emphasis_at_cursor(bufnr, row0, col)
   if emphasis_text then
-    return finish(emphasis_text, "formato")
+    return finish(emphasis_text, emphasis_kind)
   end
 
   -- 4. Línea de heading.
