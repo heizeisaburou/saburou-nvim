@@ -49,3 +49,27 @@ opencode --version
 claude --version
 codex --version
 ```
+
+## Keybindings
+
+Cada herramienta se togglea (abre/cierra) con una combinación con `Alt`, definida a mano en
+`lua/lzy/`:
+
+| Tecla             | Qué hace                               | Modos   | Archivo                |
+| ----------------- | -------------------------------------- | ------- | ---------------------- |
+| `<A-[>`           | Claude Code: toggle                    | n, i, t | `lua/lzy/claude.lua`   |
+| `<A-]>`           | Codex: toggle                          | n, i, t | `lua/lzy/codex.lua`    |
+| `<A-o>`           | Opencode: toggle                       | n, i    | `lua/lzy/opencode.lua` |
+| `<A-p>`           | Copilot: toggle                        | n       | `lua/lzy/copilot.lua`  |
+| `<A-n>` / `<A-N>` | Copilot: sugerencia siguiente/anterior | i       | `lua/lzy/copilot.lua`  |
+
+Copilot también se togglea con `<leader>gt`; `<A-p>` es sólo un atajo más rápido.
+
+Probadas en **kitty** (config por defecto) y **PowerShell** (Windows): ninguna de las cinco combinaciones
+está tomada por el terminal ahí, así que llegan intactas a Neovim.
+
+### Si alguna no abre
+
+Seguramente tu terminal tiene esa tecla ocupada para otra cosa. Cámbiala en la config de tu
+terminal, o directamente en el archivo indicado en la tabla (busca ahí la tecla y sustitúyela por
+otra libre).

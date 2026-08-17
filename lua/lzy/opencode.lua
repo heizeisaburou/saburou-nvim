@@ -286,10 +286,7 @@ local input_keymap = {
 local function setup_custom_callback_keymaps()
   local map = vim.keymap.set
 
-  map({ "n", "i" }, "<C-/>", toggle_opencode, { desc = "Opencode: Toggle" })
-  -- EXPERIMENTAL: alias en <A-o>, a probar en Linux y Windows junto a <C-/>
-  -- (que se queda tal cual). Si estorba o no resuelve bien, se quita.
-  map({ "n", "i" }, "<A-o>", toggle_opencode, { desc = "Opencode: Toggle (experimental)" })
+  map({ "n", "i" }, "<A-o>", toggle_opencode, { desc = "Opencode: Toggle" })
   map({ "n", "v" }, "<leader>ok", M.kill_opencode, { desc = "Opencode: Kill server" })
 
   vim.api.nvim_create_autocmd("FileType", {

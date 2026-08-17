@@ -106,15 +106,13 @@ M.keys = {
   { "<leader>gd", copilot_disable, desc = "Copilot: Disable" },
   { "<leader>gs", copilot_status, desc = "Copilot: Status" },
 
-  -- EXPERIMENTAL: <A-p> como alias de toggle, a probar en Linux y Windows junto
-  -- a <leader>gt. Si no molesta, se puede quedar; si estorba, se quita.
-  { "<A-p>", copilot_toggle, mode = "n", desc = "Copilot: Toggle (experimental)" },
+  { "<A-p>", copilot_toggle, mode = "n", desc = "Copilot: Toggle" },
 
   { "<C-]>", copilot_dismiss, mode = "i", desc = "Copilot: Dismiss suggestion" },
   { "<C-\\>", copilot_suggest, mode = "i", desc = "Copilot: Suggest" },
 
-  -- Se mueven de <A-]>/<A-[> a <A-n>/<A-N> para liberar esas teclas: las usan
-  -- ahora Codex y Claude Code (ver codex.lua/claude.lua) en fase de prueba.
+  -- Movidas de <A-]>/<A-[> a <A-n>/<A-N>: esas teclas las usan Codex y Claude
+  -- Code (ver codex.lua/claude.lua).
   { "<A-n>", copilot_next, mode = "i", desc = "Copilot: Next suggestion" },
   { "<A-N>", copilot_prev, mode = "i", desc = "Copilot: Previous suggestion" },
 
