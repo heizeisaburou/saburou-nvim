@@ -28,6 +28,15 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
+  css = { "prettier" },
+  html = { "prettier" },
+  javascript = { "prettier" },
+  javascriptreact = { "prettier" },
+  rust = { "rustfmt" },
+  scss = { "prettier" },
+  typescript = { "prettier" },
+  typescriptreact = { "prettier" },
+  vue = { "prettier" }, -- Vue (framework de javascript)
   -- bash = { "shfmt" },
   -- c = { "clang_format" },
   -- clojure = { "zprint" }, -- activa edn también
@@ -78,15 +87,6 @@ local formatters_by_ft = {
   -- typst = { "typstyle" }, -- Typst
   -- yaml = { "yamlfmt" },
   -- zig = { "zigfmt" },
-  css = { "prettier" },
-  html = { "prettier" },
-  javascript = { "prettier" },
-  javascriptreact = { "prettier" },
-  rust = { "rustfmt" },
-  scss = { "prettier" },
-  typescript = { "prettier" },
-  typescriptreact = { "prettier" },
-  vue = { "prettier" }, -- Vue (framework de javascript)
 }
 
 ---@param line string
