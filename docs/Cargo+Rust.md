@@ -15,7 +15,7 @@ En Windows puedes encontrar el instalador en
 https://doc.rust-lang.org/cargo/getting-started/installation.html, o descargarlo directamente
 desde [rustup-init.exe](https://win.rustup.rs/).
 
-Cargo puede parecer una dependencia complicada por dos motivos:
+Cargo es una dependencia complicada por dos motivos:
 
 1. El _toolchain_ MSVC de Rust necesita algunas herramientas de compilación de Windows:
 

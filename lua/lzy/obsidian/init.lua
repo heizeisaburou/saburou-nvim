@@ -1623,7 +1623,7 @@ function M.setup()
 end
 
 --- Inicializa el módulo a demanda (lo usan los comandos registrados al
---- arranque por lzy.obsidian_cmd). Si lazy.nvim está presente, carga el plugin
+--- arranque por lzy.obsidian.commands). Si lazy.nvim está presente, carga el plugin
 --- primero para que su `config` ejecute M.setup(); si no, lo intenta directo.
 function M.ensure_setup()
   if state.initialized then

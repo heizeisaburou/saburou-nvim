@@ -1,7 +1,10 @@
--- lzy/obsidian_cmd.lua
+-- lzy.obsidian.commands
+--
 -- Registra los comandos Nyabsidian* al arranque, sin que obsidian.nvim (ni el
--- módulo lzy.obsidian) tenga que estar cargado. Cada comando carga el módulo
--- bajo demanda y lo inicializa la primera vez (plugin + setup).
+-- módulo lzy.obsidian) tenga que estar cargado -- vive dentro de lzy/obsidian/
+-- pero `require` no toca su init.lua, así que sigue sin arrastrar nada. Cada
+-- comando carga el módulo bajo demanda y lo inicializa la primera vez (plugin
+-- + setup).
 
 local M = {}
 

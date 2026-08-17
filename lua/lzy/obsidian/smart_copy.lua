@@ -35,10 +35,10 @@ end
 
 ---@param text string
 local function default_copy(text)
-  -- Igual que un yank normal, pero characterwise: no agrega salto de
-  -- línea (mismo criterio que yank_path en link_actions.lua).
-  vim.fn.setreg("0", text, "v")
-  vim.fn.setreg('"', text, "v")
+  -- Igual que un yank normal, pero characterwise: no agrega salto de línea, y
+  -- respeta `'clipboard'` para que `p` pegue lo copiado (ver
+  -- sabunv.util.clipboard.yank; mismo criterio que yank_path en link_actions).
+  require("sabunv.util.clipboard").yank(text)
 end
 
 M.notify = default_notify

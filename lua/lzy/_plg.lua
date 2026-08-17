@@ -350,7 +350,7 @@ return {
     init = function()
       -- Comandos Nyabsidian* disponibles desde el arranque, sin esperar a
       -- abrir un .md. El plugin sigue cargando lazy con ft=markdown.
-      require("lzy.obsidian_cmd").setup()
+      require("lzy.obsidian.commands").setup()
     end,
     config = function()
       require("lzy.obsidian").setup()

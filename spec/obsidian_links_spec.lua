@@ -2103,6 +2103,60 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal("v", vim.fn.getregtype "0")
   end)
 
+  it("yanks a copied path where the user's 'clipboard' sends a yank", function()
+    write("assets/data.bin", { "data" })
+    write("source.md", { "[[assets/data.bin]]" })
+    vim.cmd.edit(root .. "/source.md")
+    vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+    -- Con `clipboard=unnamedplus` el registro que usan `y` y `p` sin prefijo es
+    -- `+`: una copia que solo escribiera `"` y `0` no se vería al pegar.
+    --
+    -- El provider del sistema se resuelve una vez y se cachea, así que para
+    -- espiarlo (y no tocar el clipboard de verdad de quien corra los tests) hay
+    -- que pedirle a Neovim que lo vuelva a leer, antes y después.
+    local system = { "lo de antes" }
+    local previous_provider, previous_clipboard = vim.g.clipboard, vim.o.clipboard
+    local reload_provider = vim.fn["provider#clipboard#Executable"]
+    vim.g.clipboard = {
+      name = "spec",
+      copy = {
+        ["+"] = function(lines)
+          system = lines
+        end,
+        ["*"] = function(lines)
+          system = lines
+        end,
+      },
+      paste = {
+        ["+"] = function()
+          return system, "v"
+        end,
+        ["*"] = function()
+          return system, "v"
+        end,
+      },
+      cache_enabled = 0,
+    }
+    vim.o.clipboard = "unnamedplus"
+    reload_provider()
+
+    local ok, err = pcall(function()
+      require("lzy.obsidian.link_actions").copy_path {
+        notify = function() end,
+      }
+    end)
+
+    local copied = table.concat(system, "\n")
+    vim.o.clipboard = previous_clipboard
+    vim.g.clipboard = previous_provider
+    reload_provider()
+
+    assert.is_true(ok, tostring(err))
+    assert.are.equal(root .. "/assets/data.bin", copied)
+    assert.are.equal(root .. "/assets/data.bin", vim.fn.getreg '"')
+  end)
+
   it("copies a linked note's absolute path without including its heading", function()
     write("docs/target.md", { "# Heading" })
     write("source.md", { "[[docs/target#heading]]" })

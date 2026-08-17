@@ -374,11 +374,10 @@ end
 
 ---@param path string
 local function yank_path(path)
-  -- Igual que un yank normal, pero characterwise: el path no adquiere un
-  -- salto de línea. `clipboard=unnamed[plus]` sigue siendo quien decide si el
-  -- registro sin nombre se sincroniza además con el sistema.
-  vim.fn.setreg("0", path, "v")
-  vim.fn.setreg('"', path, "v")
+  -- Igual que un yank normal, pero characterwise: el path no adquiere un salto
+  -- de línea. `'clipboard'` sigue siendo quien decide si además va al sistema
+  -- (ver sabunv.util.clipboard.yank), que es lo que hace que `p` lo pegue.
+  require("sabunv.util.clipboard").yank(path)
 end
 
 ---@param value string
