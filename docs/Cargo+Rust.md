@@ -71,10 +71,6 @@ Una vez instalado elige:
 Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres instalar
 [cargo-binstall](/docs/Cargo+Rust.md#cargo-binstall) es un buen momento para hacerlo.
 
-#### Windows dependencies
-
-## Cargo dependencies
-
 ## cargo-binstall
 
 `cargo-binstall` es una herramienta adicional para Cargo que permite instalar binarios
@@ -85,8 +81,8 @@ plataformas, por lo que podrás instalarlo sin necesidad de instalar [Node.js](/
 
 > [!NOTE]
 >
-> [Node.js](/docs/Node.js.md) sigue siendo una dependencia imprescindible de la configuración ya que no solamente
-> es necesaria para poder compilar [tree-sitter-cli](/docs/tree-sitter-cli.md).
+> [Node.js](/docs/Node.js.md) sigue siendo una dependencia imprescindible de la configuración ya
+> que no solamente es necesaria para poder compilar [tree-sitter-cli](/docs/tree-sitter-cli.md).
 
 ### Installation of cargo-binstall
 
