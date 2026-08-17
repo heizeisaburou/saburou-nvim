@@ -1,6 +1,5 @@
 # saburou-nvim
 
-
 ## Brief
 
 ![Vista previa](/docs/attachments/preview.png)
