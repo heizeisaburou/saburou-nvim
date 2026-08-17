@@ -29,6 +29,14 @@ local formatters_by_ft = {
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
   rust = { "rustfmt" },
+  css = { "prettier" },
+  html = { "prettier" },
+  javascript = { "prettier" },
+  javascriptreact = { "prettier" },
+  scss = { "prettier" },
+  typescript = { "prettier" },
+  typescriptreact = { "prettier" },
+  vue = { "prettier" }, -- Vue (framework de javascript)
   -- -- erlfmt no está en el registro de Mason ni tiene binario prebuilt; ver el
   -- -- override de `erlfmt` más abajo para cómo se resuelve sin bloquear el
   -- -- formato si falta.
@@ -72,7 +80,6 @@ local formatters_by_ft = {
   -- clojure = { "zprint" }, -- activa edn también
   -- cpp = { "clang_format" },
   -- cs = { "csharpier" }, -- C#
-  -- css = { "prettier" },
   -- dart = { "dart_format" }, -- externo
   -- edn = { "zprint" }, -- .edn de Clojure
   -- eelixir = { "mix" },
@@ -84,11 +91,8 @@ local formatters_by_ft = {
   -- handlebars = { "prettier_handlebars" },
   -- haskell = { "fourmolu" },
   -- heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
-  -- html = { "prettier" },
   -- htmldjango = { "djlint" },
   -- java = { "google-java-format" },
-  -- javascript = { "prettier" },
-  -- javascriptreact = { "prettier" },
   -- jinja = { "prettier_jinja" },
   -- json = { "biome" },
   -- kotlin = { "ktlint" },
@@ -103,17 +107,13 @@ local formatters_by_ft = {
   -- qml = { "qmlformat" }, -- externo
   -- ruby = { "rubocop", timeout_ms = 10000 },
   -- scala = { "scalafmt", timeout_ms = 10000 },
-  -- scss = { "prettier" },
   -- surface = { "mix" }, -- Elixir/Phoenix
   -- svelte = { "prettier_svelte" },
   -- swift = { "swiftformat" },
   -- tex = { "latexindent" }, -- latex
   -- toml = { "taplo" }, -- toml
   -- twig = { "prettier_twig" }, -- twig
-  -- typescript = { "prettier" },
-  -- typescriptreact = { "prettier" },
   -- typst = { "typstyle" }, -- Typst
-  -- vue = { "prettier" }, -- Vue (framework de javascript)
   -- yaml = { "yamlfmt" },
   -- zig = { "zigfmt" },
 }

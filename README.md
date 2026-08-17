@@ -18,21 +18,21 @@ diversos.
 
 - **[Neovim](/docs/Neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12.
   No se garantiza compatibilidad con versiones anteriores ni futuras.
-- **[Git](/docs/Git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
-  crear el directorio `.git` en la raíz de tu proyecto ya que es la manera en la que la mayoría de
-  los linters de distintos lenguajes reconocen el directorio raíz.
-- **[Cargo+Rust](/docs/Cargo+Rust.md)** — necesario para compilar e instalar `tree-sitter-cli`.
-- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que `nvim-treesitter` compile los parsers.
 - Una **[Nerd Font](https://www.nerdfonts.com/)** configurada en la terminal para mostrar correctamente los iconos.
 	- Nota: Elige una variante que no termine en `Mono` para que los iconos no se vean todos del
 	  mismo tamaño
-- **[Node.js](/docs/Node.js.md)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de
-  JavaScript/TypeScript usadas por la configuración, como por ejemplo para instalar `prettier` que
-  es un formateador core de la configuración porque lo utilizamos para markdown, para varias
-  herramientas instaladas mediante `Mason` y `copilot.lua`.
-
+- **[Git](/docs/Git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
+  crear el directorio `.git` en la raíz de tu proyecto ya que es la manera en la que la mayoría de
+  los linters de distintos lenguajes reconocen el directorio raíz.
 - **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `mason.nvim` y `nvim-treesitter` puedan descargar
   dependencias opcionales de la configuración.
+- **[Cargo+Rust](/docs/Cargo+Rust.md)** — necesario para compilar e instalar `tree-sitter-cli`.
+- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que `nvim-treesitter` compile los parsers.
+- **[Node.js](/docs/Node.js.md)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de
+  JavaScript/TypeScript usadas por la configuración, como por ejemplo para instalar `prettier` que
+  es un formateador core de la configuración porque lo utilizamos para `markdown`, para varias
+  herramientas instaladas mediante `Mason`, `copilot.lua` y también para poder instalar `codex`, `claude`
+  y `copilot` en tu sistema.
 - **[Compilador de C](/docs/Compilador%20de%20C.md)** — necesario para que `mason.nvim` y `nvim-treesitter` puedan compilar
   dependencias opcionales de la configuración (incluidos los parsers de Tree-sitter). En Linux,
   `gcc` o `clang` disponible en el `PATH`; en Windows es `MSVC`.
