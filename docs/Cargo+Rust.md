@@ -8,9 +8,9 @@ Cargo es el gestor de paquetes y de compilación de Rust; instalarlo instala tam
 toolchain de Rust. Aquí hace falta para compilar (o, con `cargo-binstall`, instalar ya compilado)
 `tree-sitter-cli`; también es lo que necesitas si además quieres programar en Rust.
 
-Esta nota cubre la instalación en Windows —la parte laboriosa, por las herramientas de
-[Compilador de C](/docs/Compilador%20de%20C.md) que pide el toolchain— y, aparte, cómo instalar `cargo-binstall`, la herramienta
-que permite saltarse la compilación cuando hay binario precompilado disponible.
+Esta nota cubre la instalación en Windows —la parte laboriosa, por las herramientas de [MSVC](/docs/Compilador%20de%20C.md#msvc) que
+pide el toolchain— y, aparte, cómo instalar `cargo-binstall`, la herramienta que permite saltarse
+la compilación cuando hay binario precompilado disponible.
 
 ## Installation
 
