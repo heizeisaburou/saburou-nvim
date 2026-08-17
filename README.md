@@ -30,13 +30,11 @@ diversos.
   JavaScript/TypeScript usadas por la configuración, incluidos servidores LSP, herramientas
   instaladas mediante Mason y `copilot.lua`.
 
-- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `lazy.nvim`, `mason.nvim` y `nvim-treesitter`
-  puedan descargar dependencias opcionales de la configuración.
+- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `mason.nvim` y `nvim-treesitter` puedan descargar
+  dependencias opcionales de la configuración.
 - **[Compilador de C](/docs/Compilador%20de%20C.md)** — necesario para que `mason.nvim` y `nvim-treesitter` puedan compilar
   dependencias opcionales de la configuración (incluidos los parsers de Tree-sitter). En Linux,
-  `gcc` o `clang` disponible en el `PATH`; en Windows es MSVC, que ya instalas como requisito de
-  [Cargo+Rust](/docs/Cargo+Rust.md) y que `tree-sitter build` localiza por su cuenta, sin necesidad de `PATH` ni de una
-  terminal de desarrollo.
+  `gcc` o `clang` disponible en el `PATH`; en Windows es `MSVC`.
 
 #### Circunstanciales
 
@@ -178,10 +176,10 @@ siempre es el que esperarías.
 > [!WARNING]
 >
 > Cada herramienta arrastra lo suyo, y ahí es donde la cosa se complica de verdad. Descomentar
-> `sql` te pide [Python](/docs/Python.md); un servidor de Groovy o de Kotlin, un JDK; varios
-> formateadores, [Node.js](/docs/Node.js.md). Por eso vienen desactivados: no para esconderlos,
-> sino para que la instalación por defecto no te obligue a instalar medio ecosistema. Los
-> comentarios de cada lista avisan de los casos raros.
+> `sql` te pide [Python](/docs/Python.md); un servidor de Groovy o de Kotlin, un JDK; varios formateadores,
+> [Node.js](/docs/Node.js.md). Por eso vienen desactivados: no para esconderlos, sino para que la instalación por
+> defecto no te obligue a instalar medio ecosistema. Los comentarios de cada lista avisan de los
+> casos raros.
 
 #### Tus mapeos y tus manías
 

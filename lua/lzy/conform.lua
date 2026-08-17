@@ -1114,19 +1114,19 @@ local formatters = {
   -- los enlaces cuentan como icono + label y los code spans/autolinks como su
   -- contenido renderizado. Los enlaces son atómicos: nunca se parten.
   --
-  -- Toca los párrafos de prosa y los ítems de lista (incluidos los anidados),
-  -- que sufren el mismo problema: un ítem con un wiki-link largo salta de
-  -- línea aunque lo que se ve quepa de sobra. El resto (fences de código,
-  -- cabeceras, blockquotes, tablas, reglas, definiciones de enlace, HTML) se
-  -- pasa intacto. Implementado en `hzsr.md` (Lua puro, sin dependencias).
+  -- Toca los párrafos de prosa, los ítems de lista (incluidos los anidados) y
+  -- el contenido de las citas, callouts incluidos: todos sufren el mismo
+  -- problema, un enlace largo salta de línea aunque lo que se ve quepa de
+  -- sobra. El resto (fences de código, cabeceras, tablas, reglas, definiciones
+  -- de enlace, HTML) se pasa intacto. Implementado en `hzsr.md` (Lua puro, sin
+  -- dependencias).
   markdown_wrap = {
     format = function(_, ctx, lines, callback)
-      local width = line_length
-      local out = {}
-      local n = #lines
-      local i = 1
-      local fence_char = nil
-      local math_block = false
+      -- La pasada completa sobre una secuencia de líneas, con el ancho
+      -- disponible para ellas. Declarada antes de tiempo porque el contenido de
+      -- una cita se reenvuelve con esta misma pasada, un nivel de `>` adentro.
+      ---@type fun(src: string[], width: integer): string[]
+      local process
 
       -- Línea de apertura/cierre de fence: ``` o ~~~, posiblemente con info
       -- string en la apertura (```lua).
@@ -1216,6 +1216,13 @@ local formatters = {
         if line:match "^%s*%[[^%]]*%]:%s" then
           return false -- definición de enlace de referencia
         end
+        if line:match "^%s*%[!%w+%]" then
+          -- Header de callout, ya pelado el `>` de la cita. No es prosa: unirlo
+          -- al cuerpo lo convertiría en el título del callout, y partirlo
+          -- convertiría el resto del título en cuerpo. El `%w+` deja fuera el
+          -- `[![badge](img)](url)` con el que empieza algún ítem de lista.
+          return false
+        end
         local indent = line:match "^ +"
         if (indent and #indent >= 4) or line:match "^\t" then
           return false -- código indentado
@@ -1253,7 +1260,7 @@ local formatters = {
       -- Envuelve las líneas de un párrafo ya unido y las devuelve con la
       -- sangría dada; `first` sustituye a la sangría en la primera línea (el
       -- marcador del ítem de lista, que ocupa las mismas columnas).
-      local function wrap_block(text, indent, first)
+      local function wrap_block(text, indent, first, width)
         local wrapped =
           hzsr.md.wrap_paragraph(text, math.max(1, width - #indent), { bufnr = ctx and ctx.buf })
         local result = {}
@@ -1290,7 +1297,7 @@ local formatters = {
       --
       -- Devuelve nil si el bloque contiene algo que no sea prosa (tablas,
       -- código sangrado, citas...); entonces el llamante lo deja intacto.
-      local function wrap_list(block)
+      local function wrap_list(block, width)
         local result = {}
         local index = 1
 
@@ -1326,83 +1333,158 @@ local formatters = {
 
           vim.list_extend(
             result,
-            wrap_block(join_paragraph(content), string.rep(" ", indent), prefix)
+            wrap_block(join_paragraph(content), string.rep(" ", indent), prefix, width)
           )
         end
 
         return result
       end
 
-      while i <= n do
-        local line = lines[i]
+      -- Marcador de cita: hasta 3 espacios de sangría, `>` y el espacio
+      -- opcional que CommonMark no cuenta como contenido. Devuelve el marcador
+      -- normalizado (`> `) y el resto de la línea.
+      --
+      -- Con más sangría ya no es una cita de primer nivel (es una cita dentro de
+      -- un ítem de lista, o código sangrado): no hay match y el bloque se queda
+      -- como está.
+      local function quote_peel(line)
+        local indent, rest = line:match "^( ? ? ?)>(.*)$"
 
-        if line == "" then
-          out[#out + 1] = line
-          i = i + 1
-        elseif fence_char then
-          out[#out + 1] = line
-          if fence_close(line, fence_char) then
-            fence_char = nil
+        if not indent then
+          return nil
+        end
+
+        return indent .. "> ", (rest:gsub("^ ", ""))
+      end
+
+      -- Reenvuelve una cita midiendo el ancho visible de su contenido. Prettier
+      -- la parte igual que un párrafo suelto: cuenta el markup completo del
+      -- enlace y una línea que se ve corta salta de línea.
+      --
+      -- Pela un nivel de `>`, reenvuelve lo de dentro con esta misma pasada
+      -- —así salen gratis los párrafos, las listas y las citas anidadas— y
+      -- vuelve a poner el marcador, descontando del ancho lo que ocupa. Un `>` a
+      -- secas queda como línea vacía al pelarlo, que es justo lo que `process`
+      -- entiende como separación entre bloques.
+      --
+      -- El header de un callout (`> [!NOTE]`, con título o sin él) se pasa
+      -- intacto: `markdown_callouts` ya garantiza que el cuerpo va detrás de un
+      -- `>`, y aquí lo único que hace falta es no tocar esa primera línea.
+      --
+      -- Devuelve nil si alguna línea del bloque no es una línea de cita;
+      -- entonces el llamante lo deja intacto.
+      local function wrap_quote(block, width)
+        local prefix
+        local inner = {}
+
+        for _, line in ipairs(block) do
+          local marker, rest = quote_peel(line)
+
+          if not marker then
+            return nil
           end
-          i = i + 1
-        elseif math_block then
-          out[#out + 1] = line
-          if math_line(line) == "open" then
-            math_block = false
-          end
-          i = i + 1
-        else
-          local kind = math_line(line)
-          if kind then
-            math_block = kind == "open"
+
+          prefix = prefix or marker
+          inner[#inner + 1] = rest
+        end
+
+        local result = {}
+
+        if inner[1] and inner[1]:match "^%s*%[!%w+%]" then
+          result[1] = prefix .. table.remove(inner, 1)
+        end
+
+        local blank = (prefix:gsub("%s+$", ""))
+
+        for _, line in ipairs(process(inner, math.max(1, width - #prefix))) do
+          result[#result + 1] = line == "" and blank or prefix .. line
+        end
+
+        return result
+      end
+
+      function process(src, width)
+        local out = {}
+        local n = #src
+        local i = 1
+        local fence_char = nil
+        local math_block = false
+
+        while i <= n do
+          local line = src[i]
+
+          if line == "" then
             out[#out + 1] = line
             i = i + 1
+          elseif fence_char then
+            out[#out + 1] = line
+            if fence_close(line, fence_char) then
+              fence_char = nil
+            end
+            i = i + 1
+          elseif math_block then
+            out[#out + 1] = line
+            if math_line(line) == "open" then
+              math_block = false
+            end
+            i = i + 1
           else
-            local char, single_line = fence_open(line)
-            if char then
-              if not single_line then
-                fence_char = char
-              end
+            local kind = math_line(line)
+            if kind then
+              math_block = kind == "open"
               out[#out + 1] = line
               i = i + 1
             else
-              local start = i
-              while i <= n and lines[i] ~= "" do
-                i = i + 1
-              end
-
-              local block = {}
-              for k = start, i - 1 do
-                block[#block + 1] = lines[k]
-              end
-
-              local is_prose = true
-              for _, l in ipairs(block) do
-                if not is_plain_line(l) then
-                  is_prose = false
-                  break
+              local char, single_line = fence_open(line)
+              if char then
+                if not single_line then
+                  fence_char = char
                 end
-              end
+                out[#out + 1] = line
+                i = i + 1
+              else
+                local start = i
+                while i <= n and src[i] ~= "" do
+                  i = i + 1
+                end
 
-              local wrapped
-              if is_prose then
-                -- La sangría del párrafo (1-3 espacios, o la de un párrafo
-                -- suelto dentro de un ítem) se conserva y descuenta del ancho.
-                local indent = block[1]:match "^ *"
-                wrapped = wrap_block(join_paragraph(block), indent)
-              elseif list_prefix(block[1]) then
-                wrapped = wrap_list(block)
-              end
+                local block = {}
+                for k = start, i - 1 do
+                  block[#block + 1] = src[k]
+                end
 
-              for _, l in ipairs(wrapped or block) do
-                out[#out + 1] = l
+                local is_prose = true
+                for _, l in ipairs(block) do
+                  if not is_plain_line(l) then
+                    is_prose = false
+                    break
+                  end
+                end
+
+                local wrapped
+                if is_prose then
+                  -- La sangría del párrafo (1-3 espacios, o la de un párrafo
+                  -- suelto dentro de un ítem) se conserva y descuenta del ancho.
+                  local indent = block[1]:match "^ *"
+                  wrapped = wrap_block(join_paragraph(block), indent, nil, width)
+                elseif list_prefix(block[1]) then
+                  wrapped = wrap_list(block, width)
+                elseif quote_peel(block[1]) then
+                  wrapped = wrap_quote(block, width)
+                end
+
+                for _, l in ipairs(wrapped or block) do
+                  out[#out + 1] = l
+                end
               end
             end
           end
         end
+
+        return out
       end
 
-      callback(nil, out)
+      callback(nil, process(lines, line_length))
     end,
   },
 

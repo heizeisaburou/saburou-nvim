@@ -257,4 +257,87 @@ describe("Conform Markdown pipeline", function()
         .. "[[Windows 11 - Maquina Virtual#drivers|drivers]].",
     }, run("markdown_wrap", input))
   end)
+
+  it("reflows quoted prose by visible width, discounting the marker", function()
+    -- Prettier parte la cita por lo mismo que el resto: cuenta el destino
+    -- entero del enlace (104 columnas en bruto) aunque lo que se ve quepa de
+    -- sobra (66 contando icono + label).
+    local input = {
+      "> NOTA: Si vienes desde otra nota, empieza a leer desde",
+      "> [Windows](/docs/Compilador%20de%20C.md#windows).",
+    }
+    local expected = {
+      "> NOTA: Si vienes desde otra nota, empieza a leer desde "
+        .. "[Windows](/docs/Compilador%20de%20C.md#windows).",
+    }
+    local wrapped = run("markdown_wrap", input)
+    assert.are.same(expected, wrapped)
+    assert.are.same(expected, run("markdown_wrap", wrapped))
+    assert.is_true(#wrapped[1] > 97)
+    assert.is_true(hzsr.md.visible_width(wrapped[1]) <= 97)
+  end)
+
+  it("reflows the body of a callout without touching its header or separators", function()
+    local input = {
+      "> [!NOTE] Un título que se queda como está",
+      ">",
+      "> Cuerpo con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que",
+      "> debería juntarse.",
+      ">",
+      "> - ítem con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que",
+      ">   también debería juntarse.",
+    }
+    local expected = {
+      "> [!NOTE] Un título que se queda como está",
+      ">",
+      "> Cuerpo con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que debería juntarse.",
+      ">",
+      "> - ítem con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que también debería "
+        .. "juntarse.",
+    }
+    local wrapped = run("markdown_wrap", input)
+    assert.are.same(expected, wrapped)
+    assert.are.same(expected, run("markdown_wrap", wrapped))
+  end)
+
+  it("discounts one quote marker per level when measuring nested content", function()
+    local input = {
+      "> > cita anidada con [Windows](/docs/Compilador%20de%20C.md#windows) y texto",
+      "> > que debería juntarse.",
+    }
+    local expected = {
+      "> > cita anidada con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que debería "
+        .. "juntarse.",
+    }
+    assert.are.same(expected, run("markdown_wrap", input))
+
+    -- El ancho disponible baja lo que ocupa el marcador: medido como se ve, el
+    -- contenido de la cita anidada cabe en 97 menos las cuatro columnas de
+    -- `> > `.
+    local content = expected[1]:sub(5)
+    assert.is_true(4 + hzsr.md.visible_width(content) <= 97)
+  end)
+
+  it("leaves fences, tables and deeper indentation inside a quote untouched", function()
+    local fence = {
+      "> ```powershell",
+      "> cl   /nologo    algo.c",
+      "> ```",
+    }
+    assert.are.same(fence, run("markdown_wrap", fence))
+
+    local table_in_quote = {
+      "> | a | b |",
+      "> | - | - |",
+    }
+    assert.are.same(table_in_quote, run("markdown_wrap", table_in_quote))
+
+    -- Con más de tres espacios ya no es una cita de primer nivel, así que no
+    -- se toca (aquí sería la cita de un ítem de lista).
+    local indented = {
+      "    > cita muy sangrada con [Windows](/docs/Compilador%20de%20C.md#windows) y",
+      "    > texto que se queda como está.",
+    }
+    assert.are.same(indented, run("markdown_wrap", indented))
+  end)
 end)
