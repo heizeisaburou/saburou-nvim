@@ -5,12 +5,12 @@ Volver a [README](/README.md)
 
 ## Brief
 
-Neovim es un editor de texto modal, continuación de Vim con foco en extensibilidad: configuración y
-plugins en Lua, LSP y Tree-sitter integrados.
+Neovim es un editor de texto modal, continuación de Vim con foco en extensibilidad: configuración
+y plugins en Lua, LSP y Tree-sitter integrados.
 
-Esta nota cubre cómo instalar la versión exacta que necesita `saburou-nvim` (**0.12+**, sin
-garantía de compatibilidad con versiones anteriores ni futuras) sin que una actualización del
-sistema te la cambie sin avisar: descargas oficiales, gestor de paquetes, Snap, Flatpak y binario
+Esta nota cubre cómo instalar la versión exacta que necesita `saburou-nvim` (**0.12+**, sin garantía de
+compatibilidad con versiones anteriores ni futuras) sin que una actualización del sistema te la
+cambie sin avisar: descargas oficiales, gestor de paquetes, Snap, Flatpak y binario
 autocontenido, en Windows, Linux y macOS.
 
 ## Installation
@@ -49,16 +49,16 @@ winget install Neovim.Neovim --version 0.12.4
 
 #### Using your package manager
 
-Si tu distribución es _non-rolling_, como p.e. _Ubuntu_, puedes utilizar su gestor de paquetes
-para instalar Neovim siempre que la versión disponible coincida con [README](/README.md#installation). En este caso,
-_normalmente_ no tendrás que preocuparte de que Neovim se actualice inesperadamente a una versión
-incompatible.
+Si tu distribución es _non-rolling_, como p.e. _Ubuntu_, puedes utilizar su gestor de paquetes para
+instalar Neovim siempre que la versión disponible coincida con la versión indicada en [README](/README.md#installation).
+En este caso, _normalmente_ no tendrás que preocuparte de que Neovim se actualice inesperadamente a
+una versión incompatible ―que no sea rolling no necesariamente significa que no actualizan sus
+paquetes.
 
-Si tu distribución es _rolling_, como p.e. _Arch Linux_, también puedes instalar Neovim mediante
-su gestor de paquetes, pero debes tener en cuenta que la versión se actualizará junto con el
-resto del sistema. Puede coincidir con la versión requerida durante un tiempo, pero eventualmente
-una actualización puede llevar Neovim a una versión que todavía no sea compatible con esta
-configuración.
+Si tu distribución es _rolling_, como p.e. _Arch Linux_, también puedes instalar Neovim mediante su
+gestor de paquetes, pero debes tener en cuenta que la versión se actualizará junto con el resto
+del sistema. Puede coincidir con la versión requerida durante un tiempo, pero eventualmente una
+actualización puede llevar Neovim a una versión incompatible con esta configuración.
 
 > [!NOTE]
 >
@@ -71,6 +71,9 @@ configuración.
 >   compatible. Si necesitas garantizar que la configuración permanezca en una versión concreta,
 >   utiliza un método de instalación que permita fijarla independientemente del resto del
 >   sistema.
+> - Aunque no sea recomendable, también es válido congelar `neovim` en tu gestor de paquetes
+>   siempre. Si eventualmente esto rompe algo siempre puedes descongelar el paquete y buscar otro
+>   método de instalación.
 
 ##### Arch Linux
 
@@ -92,8 +95,8 @@ sudo apt install neovim
 
 #### Using Snap
 
-Snap es una opción válida para instalar Neovim si queremos mantener una versión concreta,
-**siempre que la revisión correspondiente a esa versión esté disponible en el Snap Store**.
+Snap es una opción válida para instalar Neovim si queremos mantener una versión concreta, **siempre
+que la revisión correspondiente a esa versión esté disponible en el Snap Store**.
 
 Podemos consultar las versiones y revisiones disponibles con:
 
