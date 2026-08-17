@@ -66,3 +66,4 @@ Comprueba la instalación con:
 ```sh
 rg --version
 ```
+

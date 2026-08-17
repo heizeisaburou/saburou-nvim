@@ -212,4 +212,10 @@ Puedes descargar _AppImage_ si quieres un ejecutable autocontenido compatible co
 
 ### macOS
 
-[macOS support](/docs/macOS%20support.md)
+##### Complete self-contained application
+
+- Puedes descargarlo desde [Release requerida](/docs/Neovim.md#release-requerida).
+	- macOS (ARM): `nvim-macos-arm64.tar.gz`
+	- macOS (x64): `nvim-macos-x86_64.tar.gz`
+- Para hacerlo funcionar como comando, visita
+  [Software Wrapper#Programa autocontenido compuesto por varios archivos](/docs/Software%20wrapper.md#programa-autocontenido-compuesto-por-varios-archivos).

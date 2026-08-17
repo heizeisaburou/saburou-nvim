@@ -10,7 +10,19 @@ diversos.
 
 - Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
 
+## Agradecimientos
+
+- POLA y [Misitox](https://github.com/mateolgallegoss) por ser los primeros betatesters de Windows.
+	- :TODO: Pedir el github a POLA.
+- [@SamuelGiron1](https://github.com/SamuelGiron1) por ayudarme a crear la documentación de instalación completa de macOS + la
+  instalación de Python y Golang, y por ser el primer betatester de macOS.
+
 ## Installation
+
+> [!note] Si usas macOS
+>
+> La documentación de macOS está completa, pero no dispongo de un equipo macOS con el que probarla
+> ni con el que reproducir bugs. Antes de instalar, lee [macOS support](/docs/macOS%20support.md).
 
 ### Pre-requisitos
 
@@ -18,9 +30,8 @@ diversos.
 
 - **[Neovim](/docs/Neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12.
   No se garantiza compatibilidad con versiones anteriores ni futuras.
-- Una **[Nerd Font](https://www.nerdfonts.com/)** configurada en la terminal para mostrar correctamente los iconos.
-	- Nota: Elige una variante que no termine en `Mono` para que los iconos no se vean todos del
-	  mismo tamaño
+- Una **[Nerd Font](/docs/Nerd%20Font.md)** configurada en la terminal para mostrar correctamente los iconos. Elige
+  una variante que no termine en `Mono` para que los iconos no se vean todos del mismo tamaño.
 - **[Git](/docs/Git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
   crear el directorio `.git` en la raíz de tu proyecto ya que es la manera en la que la mayoría de
   los linters de distintos lenguajes reconocen el directorio raíz.
@@ -138,6 +149,48 @@ También puedes crear un alias (`.bashrc`, `.zshrc`, etc):
 ```zsh
 alias nombre_que_tu_quieras='NVIM_APPNAME=nombre_que_tu_quieras nvim'
 ```
+
+### Lazy sync
+
+El gestor de paquetes `Lazy` se invoca automáticamente la primera vez que arrancas mi configuración
+de Neovim.
+
+Si por lo que sea cerraste bruscamente Neovim, o quieres actualizar los paquetes `Lazy` puedes
+utilizar `:Lazy sync` en cualquier momento.
+
+Tras actualizar los paquetes recarga la configuración con `<leader>rs`.
+
+> [!note]
+>
+> Los paquetes con pocas estrellas o que podrían romper la configuración tienen el commit fijado
+> en [/lua/lzy/_plg.lua](/lua/lzy/_plg.lua) mediante `commit = "..."`.
+
+### Instalar linters, formateadores y treesitters
+
+El final de la instalación consiste en ejecutar `:MasonInstallAll` y `:TSInstallAll`.
+
+Una vez ejecutados recarga Neovim con `<leader>rs`.
+
+> [!note]
+>
+> - :MasonInstallAll hay que ejecutarlo cada vez que actives lenguajes en:
+>     - [/lua/lzy/conform.lua](/lua/lzy/conform.lua)
+>     - [/lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua)
+> - :TSInstallAll hay que ejecutarlo nuevamente cada vez que actives lenguajes en:
+>     - [/lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua)
+
+### Reconocimiento de tipos de la configuración
+
+El comando `:Luarc` crea un archivo para que el linter de lua reconozca los tipos de mi
+configuración de los plugins de `Lazy`. Esto hace que sea más fácil modificarla.
+
+Por defecto la crea en la ruta correcta, solo tienes que guardar el archivo y recargar Neovim con
+`<leader>rs`.
+
+> [!note]
+>
+> Este comando hay que ejecutarlo cada vez que agregues nuevos paquetes al gestor de paquetes
+> Lazy (los que indicas en [/lua/lzy/_plg.lua](/lua/lzy/_plg.lua).
 
 ### Ajustar la configuración
 

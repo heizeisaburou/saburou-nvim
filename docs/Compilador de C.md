@@ -18,7 +18,7 @@ Para que funcione la configuración en Windows solo necesitas ―y necesitas est
 
 > [!note]
 >
-> - insalado en el paso [Visual Studio Installer method](/docs/Cargo+Rust.md#visual-studio-installer-method) de Cargo+Rust.
+> - instalado en [Cargo+Rust#Installation#Windows](/docs/Cargo+Rust.md#windows) de Cargo+Rust.
 
 - Incluye:
 	- MSVC C++ build tools
@@ -133,3 +133,56 @@ clang --version
 >
 > Tampoco necesitas nada de MSVC: es exclusivo de Windows, y en Linux el _toolchain_ de Rust enlaza
 > con las herramientas de GNU/LLVM que ya trae el sistema.
+
+Es **parecida a Linux, pero no exactamente igual**.
+
+En macOS, lo habitual es usar **Clang**, que viene con las **Xcode Command Line Tools**. No necesitas
+instalar GCC ni MinGW para compilar programas nativos de macOS. Además, aunque instales `gcc`
+mediante Homebrew, en macOS normalmente termina siendo GCC real (`gcc-XX`), mientras que
+`/usr/bin/gcc` es un alias de Clang.
+
+Yo añadiría esta sección:
+
+### macOS
+
+> [!NOTE]
+>
+> En macOS no necesitas MinGW para compilar programas nativos para macOS. MinGW-w64 está
+> orientado principalmente a generar programas para Windows.
+>
+> Tampoco necesitas MSVC: es exclusivo de Windows. Para compilación nativa en macOS se utiliza
+> normalmente el toolchain de Apple basado en Clang.
+
+#### clang
+
+En macOS, el compilador recomendado es **Clang**, proporcionado por Apple mediante las **Xcode Command
+Line Tools**.
+
+Puedes instalarlas con:
+
+```sh
+xcode-select --install
+```
+
+Las Command Line Tools incluyen Clang, el linker y otras herramientas necesarias para compilar
+programas nativos para macOS.
+
+Comprueba la instalación con:
+
+```sh
+clang --version
+```
+
+También puedes instalar un GCC independiente mediante Homebrew:
+
+#### gcc
+
+```sh
+brew install gcc
+```
+
+En ese caso, Homebrew instala el compilador con un nombre versionado, por ejemplo:
+
+```sh
+gcc-15 --version
+```

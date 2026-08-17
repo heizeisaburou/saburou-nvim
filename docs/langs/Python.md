@@ -56,3 +56,23 @@ siguiente:
 - [conform.lua](/lua/lzy/conform.lua) ― descomenta `python = { "ruff_format" }`
 - [treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta `python`
 - [lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `python` y `ruff`.
+
+### macOS
+
+Puedes instalar Python mediante Homebrew:
+
+```sh
+brew install python
+```
+
+Comprueba la instalación con:
+
+```sh
+python3 --version
+pip3 --version
+```
+
+> [!NOTE]
+>
+> En macOS, Homebrew instala Python con los comandos `python3` y `pip3`. No es necesario instalar
+> Python mediante Xcode Command Line Tools.

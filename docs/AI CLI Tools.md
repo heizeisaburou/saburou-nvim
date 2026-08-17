@@ -17,7 +17,7 @@ Neovim.
 
 ## Installation
 
-### Linux
+### Linux / macOS
 
 En Linux, las tres herramientas se instalan mediante `npm`:
 
@@ -77,3 +77,42 @@ está tomada por el terminal ahí, así que llegan intactas a Neovim.
 Seguramente tu terminal tiene esa tecla ocupada para otra cosa. Cámbiala en la config de tu
 terminal, o directamente en el archivo indicado en la tabla (busca ahí la tecla y sustitúyela por
 otra libre).
+
+## Troubleshooting
+
+### Command not found after installing a package
+
+Si después de instalar una CLI con `npm` aparece:
+
+```text
+zsh: command not found: opencode
+```
+
+comprueba que el directorio de ejecutables globales de npm esté en el `PATH`:
+
+```sh
+npm config get prefix
+echo $PATH
+```
+
+Si usas Node.js instalado mediante Homebrew, puedes añadirlo a `zsh` con:
+
+```sh
+echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Después comprueba:
+
+```sh
+opencode --version
+claude --version
+codex --version
+```
+
+Si `npm install -g` muestra `added ... packages`, la instalación se ha realizado correctamente; un
+`command not found` posterior normalmente indica un problema con el `PATH`.
+
+Si una combinación de teclas no funciona dentro de Neovim, comprueba que tu terminal no esté
+capturándola y, si es necesario, cámbiala en la configuración del terminal o en el archivo
+indicado en **Keybindings**.

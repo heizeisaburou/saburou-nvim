@@ -90,3 +90,7 @@ Comprueba la instalación con:
 node --version
 npm --version
 ```
+
+> [!warning]
+>
+> Reinicia la terminal al terminar incluso si node y npm funcionan.

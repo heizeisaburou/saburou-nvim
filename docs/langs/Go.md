@@ -43,6 +43,22 @@ Comprueba la instalación con:
 go version
 ```
 
+### macOS
+
+Puedes instalar Go mediante Homebrew:
+
+```sh
+brew install go
+```
+
+Comprueba la instalación con:
+
+```sh
+go version
+```
+
+El resto de la configuración es igual que en Linux y Windows.
+
 ## Activation
 
 - [conform.lua](/lua/lzy/conform.lua) ― descomenta:

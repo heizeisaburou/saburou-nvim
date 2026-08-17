@@ -38,3 +38,9 @@ Una vez instalado, puedes comprobar que está disponible mediante:
 ```sh
 curl --version
 ```
+
+### macOS
+
+```sh
+brew install curl
+```

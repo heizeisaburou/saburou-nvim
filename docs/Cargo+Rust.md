@@ -53,7 +53,7 @@ Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres 
 
 ##### Manual dependencies method
 
-Antes de iniciar `rustup-init.exe` instala las [Visual Studio Build Tools](/docs/Cargo+Rust.md#visual-studio-build-tools).
+Antes de iniciar `rustup-init.exe` instala las [Visual Sudio Build Tools](/docs/Compilador%20de%20C.md#visual-sudio-build-tools).
 
 Inicia `rustup-init.exe` y selecciona la segunda opción:
 
@@ -70,6 +70,38 @@ Una vez instalado elige:
 
 Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres instalar
 [cargo-binstall](/docs/Cargo+Rust.md#cargo-binstall) es un buen momento para hacerlo.
+
+### Linux / macOS
+
+Utiliza simplemente:
+
+```sh
+curl https://sh.rustup.rs -sSf | sh
+```
+
+Pulsa enter:
+
+```text
+1) Proceed with standard installation (default - just press enter)
+```
+
+Asegurate de que agregar la linea correspondiente a tu shell:
+
+```sh
+This is usually done by running one of the following (note the leading DOT):
+. "$HOME/.cargo/env"            # For sh/bash/zsh/ash/dash/pdksh
+source "$HOME/.cargo/env.fish"  # For fish
+source "~/.cargo/env.nu"        # For nushell
+source "$HOME/.cargo/env.tcsh"  # For tcsh
+. "$HOME/.cargo/env.ps1"        # For pwsh
+source "$HOME/.cargo/env.xsh"   # For xonsh
+```
+
+Reinicia la terminal y comprueba que cargo esté disponible
+
+```sh
+cargo version
+```
 
 ## cargo-binstall
 
@@ -116,9 +148,9 @@ curl -L --proto '=https' --tlsv1.2 -sSf \
 
 #### Comprobar la instalación de cargo-binstall
 
-> [!NOTE]
+> [!Hint]
 >
-> Es necesario reiniciar la terminal para que binstall pase a estar disponible tras la
+> No necesario reiniciar la terminal para que binstall pase a estar disponible tras la
 > instalación.
 
 ```sh
