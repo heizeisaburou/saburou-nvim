@@ -2722,6 +2722,59 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal("echo hola\necho adios", copy_at(10, 4))
     end)
 
+    it("copies code inside a quote without the `>` of each line", function()
+      write("source.md", {
+        "> [!tip]",
+        ">",
+        "> Si quieres cargarlo en tu `pwsh` puedes utilizar:",
+        ">",
+        "> ```powershell",
+        "> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass",
+        "> & 'Launch-VsDevShell.ps1'",
+        "> ```",
+        "",
+        "> > ```sh",
+        "> > echo hola",
+        "> >   sangrado",
+        "> > ```",
+        "",
+        "> - item",
+        ">   ```lua",
+        ">   local x = 1",
+        ">   ```",
+        "",
+        "> Texto",
+        ">",
+        ">     codigo sangrado",
+        ">     otra linea",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      start_treesitter()
+      -- El `> ` de las líneas de continuación es de la cita, no del código.
+      assert.are.equal(
+        "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass\n& 'Launch-VsDevShell.ps1'",
+        copy_at(6, 4)
+      )
+      -- Citas anidadas: se van los dos marcadores, la sangría del código no.
+      assert.are.equal("echo hola\n  sangrado", copy_at(11, 6))
+      -- Lista dentro de cita: marcador de cita + sangría del fence.
+      assert.are.equal("local x = 1", copy_at(17, 8))
+      -- Bloque sangrado dentro de una cita: los cuatro espacios que lo hacen
+      -- bloque tampoco son del código.
+      assert.are.equal("codigo sangrado\notra linea", copy_at(22, 8))
+    end)
+
+    it("keeps a `>` that belongs to the code inside a quote", function()
+      write("source.md", {
+        "> ```sh",
+        "> echo hola > archivo",
+        "> ```",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      start_treesitter()
+      assert.are.equal("echo hola > archivo", copy_at(2, 4))
+    end)
+
     it("copies bold/italic/bold-italic content without the markers", function()
       write("source.md", {
         "Bold ***hola*** and **soloBold** and *soloItalic* and __underBold__ and _underItalic_.",

@@ -8,7 +8,13 @@ Solo necesitas un compilador, y como [Visual Studio Build Tools](/docs/Compilado
 poder instalar [Cargo+Rust](/docs/Cargo+Rust.md) no necesitas otro compilador. Aún así voy a explicar como instalar
 otros compiladores y _toolchains_ por si necesitaras más.
 
-#### Visual Studio Build Tools
+Para que funcione la configuración en Windows solo necesitas ―y necesitas este― `MSCV`.
+
+- El comando `TSInstallAll` utiliza `cl.exe` en Windows.
+- Normlamente instalarás el paquete completo [Visual Sudio Build Tools](/docs/Compilador%20de%20C.md#visual-sudio-build-tools), ya que el paquete
+  completo es una dependencia de [Cargo+Rust](/docs/Cargo+Rust.md).
+
+#### Visual Sudio Build Tools
 
 > [!note]
 >
@@ -33,6 +39,15 @@ winget install Microsoft.VisualStudio.2022.BuildTools --override "--wait --passi
 >
 > ```powershell
 > winget install Microsoft.VisualStudio.2022.BuildTools --force --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+> ```
+
+> [!tip]
+>
+> Si quieres cargarlo en tu `pwsh` ―no es necesario para `saburou-nvim`― puedes utilizar:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+> & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1"
 > ```
 
 #### clang
