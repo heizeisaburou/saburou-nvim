@@ -1,5 +1,7 @@
 # macOS support
 
+Volver a [README.md](/README.md)
+
 ## Brief
 
 Actualmente no dispongo de un equipo con macOS, por lo que no puedo probar ni mantener de forma

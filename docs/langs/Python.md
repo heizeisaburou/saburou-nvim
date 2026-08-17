@@ -1,14 +1,14 @@
 # Python
 
-Volver a [README](/README.md)  
+Volver a [README.md](/README.md)  
 <https://www.python.org/>
 
 ## Brief
 
-Python es el lenguaje de programación de propósito general. Aquí hace falta para ejecutar
-herramientas y servidores LSP que están escritos en Python y que se instalan mediante Mason.
+Python es un lenguaje de programación de scripting y de propósito general.
 
-Esta nota solo cubre cómo instalarlo, en Windows y Linux.
+Además de ser necesario instalarlo para programar en Python es una dependencia de muchos paquetes
+que se instalan a traves de Mason.
 
 ## Installation
 
@@ -19,7 +19,6 @@ Puedes instalar Python mediante `winget`:
 ```powershell
 winget install Python.Python.3.14
 ```
-
 
 Comprueba la instalación con:
 
@@ -48,3 +47,12 @@ Comprueba la instalación con:
 ```sh
 python --version
 ```
+
+## Activation
+
+Para programar en Python primero asegurate de que esté instalado a nivel de sistema. Lo
+siguiente:
+
+- [conform.lua](/lua/lzy/conform.lua) ― descomenta `python = { "ruff_format" }`
+- [treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta `python`
+- [lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `python` y `ruff`.

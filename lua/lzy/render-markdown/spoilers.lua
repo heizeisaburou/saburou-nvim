@@ -333,10 +333,22 @@ function M.parse_markdown(ctx)
     end, marks)
   end
 
+  -- Los fences vacíos o sin cerrar se rescatan aquí por lo mismo que los
+  -- spoilers: hay que quitar antes las marcas del plugin que dejan esas filas
+  -- invisibles (ver lzy.render-markdown.code).
+  local code = require "lzy.render-markdown.code"
+  local code_marks, hidden_rows = code.parse_markdown(ctx)
+  if next(hidden_rows) then
+    marks = vim.tbl_filter(function(mark)
+      return not code.hides_row(mark, hidden_rows)
+    end, marks)
+  end
+
   vim.list_extend(marks, require("lzy.render-markdown.links").parse_markdown(ctx))
   for _, block in ipairs(found) do
     vim.list_extend(marks, block_marks(block))
   end
+  vim.list_extend(marks, code_marks)
   return marks
 end
 

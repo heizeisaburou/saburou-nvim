@@ -1,6 +1,6 @@
 # Compilador de C
 
-Volver a [README](/README.md)
+Volver a [README.md](/README.md)
 
 ### Windows
 

@@ -1,6 +1,6 @@
 # Cargo + Rust
 
-Volver a [README](/README.md)  
+Volver a [README.md](/README.md)
 <https://doc.rust-lang.org/cargo/getting-started/installation.html>
 
 ## Brief
@@ -81,8 +81,8 @@ plataformas, por lo que podrás instalarlo sin necesidad de instalar [Node.js](/
 
 > [!NOTE]
 >
-> [Node.js](/docs/Node.js.md) sigue siendo una dependencia imprescindible de la configuración ya
-> que no solamente es necesaria para poder compilar [tree-sitter-cli](/docs/tree-sitter-cli.md).
+> [Node.js](/docs/Node.js.md) sigue siendo una dependencia imprescindible de la configuración ya que no solamente
+> es necesaria para poder compilar [tree-sitter-cli](/docs/tree-sitter-cli.md).
 
 ### Installation of cargo-binstall
 

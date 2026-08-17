@@ -197,6 +197,7 @@ function M.parse(ctx)
   render_heading_italics(ctx, marks)
   require("lzy.render-markdown.links").render_inline(ctx, marks)
   require("lzy.render-markdown.spoilers").render_inline(ctx, marks)
+  require("lzy.render-markdown.tags").render_inline(ctx, marks)
 
   for id, node in code_query:iter_captures(ctx.root, ctx.buf) do
     if code_query.captures[id] == "code" then

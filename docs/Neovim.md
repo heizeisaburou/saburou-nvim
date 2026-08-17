@@ -1,6 +1,6 @@
 # Neovim
 
-Volver a [README](/README.md)  
+Volver a [README.md](/README.md)  
 <https://neovim.io/>
 
 ## Brief
@@ -130,8 +130,8 @@ sudo snap refresh --unhold nvim
 > [!WARNING]
 >
 > La revisión es específica de Snap y no debe confundirse con la versión de Neovim. Consulta
-> siempre `snap info nvim` para identificar qué revisión corresponde a la versión que necesita
-> esta configuración.
+> siempre `snap info nvim` para identificar qué revisión corresponde a la versión que necesita esta
+> configuración.
 
 #### Using Flatpak
 

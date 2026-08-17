@@ -40,25 +40,10 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
-  "rust_analyzer",
-  --
-  --
-  --
+  "rust_analyzer", -- rust
   -- "air", -- R
-  -- "asm_lsp", -- Assembly (NASM/GAS/Go asm)
-  -- "elp", -- Erlang
-  -- "fish_lsp", -- Fish
-  -- "glsl_analyzer", -- GLSL, no glslls, ver next-languages.md
-  -- "groovyls", -- Groovy, Jenkinsfile y Gradle
-  -- "julials", -- Julia; cmd propio, ver M.config
-  -- "nil_ls", -- Nix; no nixd, ver next-languages.md
-  -- "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
-  -- "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
-  -- "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
-  -- "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
-  -- "wasm_language_tools", -- WebAssembly Text Format (.wat/.wast)
-  -- "shuck",
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
+  -- "asm_lsp", -- Assembly (NASM/GAS/Go asm)
   -- "basedpyright", -- python (no olvides activar ruff también)
   -- "bashls",
   -- "clangd", -- C, C++
@@ -68,23 +53,35 @@ M.servers = {
   -- "dartls",
   -- "djls", -- Django templates
   -- "elixirls",
+  -- "elp", -- Erlang
+  -- "fish_lsp", -- Fish
   -- "fsautocomplete", -- F#
+  -- "glsl_analyzer", -- GLSL, no glslls, ver next-languages.md
+  -- "gopls" -- Golang
+  -- "groovyls", -- Groovy, Jenkinsfile y Gradle
   -- "hls", -- Haskell
   -- "html", -- .html
   -- "jdtls", -- Java
   -- "jinja_lsp", -- Jinja (.jinja/.jinja2/.j2)
   -- "jsonls", -- .json
+  -- "julials", -- Julia; cmd propio, ver M.config
   -- "kotlin_language_server",
   -- "metals", -- scala
   -- "neocmake", -- cmake
+  -- "nil_ls", -- Nix; no nixd, ver next-languages.md
   -- "ocamllsp", -- camellito
   -- "phpactor", -- php
+  -- "postgres_lsp", -- SQL dentro de un proyecto PostgreSQL
+  -- "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
   -- "pug", -- Pug (.pug/.jade)
   -- "qmlls", -- qml
   -- "ruby_lsp",
   -- "ruff", -- Linter y formateador adicional para python
   -- "shopify_theme_ls", -- Liquid (Shopify)
+  -- "shuck",
+  -- "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
   -- "sourcekit", -- swift
+  -- "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
   -- "svelte",
   -- "taplo", -- .toml
   -- "texlab", -- latex
@@ -92,6 +89,7 @@ M.servers = {
   -- "twiggy_language_server", -- Twig (.twig)
   -- "vtsls", -- TypeScript, JavaScript
   -- "vue_ls", -- Vue (framework de javascript)
+  -- "wasm_language_tools", -- WebAssembly Text Format (.wat/.wast)
   -- "yamlls", -- .yaml
   -- "zls", -- zig
 }

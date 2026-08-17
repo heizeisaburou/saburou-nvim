@@ -17,10 +17,12 @@ Estado verificado el 13 de agosto de 2026 con render-markdown.nvim
 ```text
 lua/lzy/render-markdown/
 ├── init.lua    # opciones, setup, tema y keymaps
+├── code.lua    # avisos de fences vacíos y sin cerrar
 ├── cursor.lua  # cursor contextual de H1
 ├── inline.lua  # extensiones del handler markdown_inline
 ├── links.lua   # definiciones, referencias, iconos y ancho de icono
-└── spoilers.lua # spoilers inline, bloques e inyección Markdown
+├── spoilers.lua # spoilers inline, bloques e inyección Markdown
+└── tags.lua    # chip de color de los tags `#tag`
 ```
 
 `require("lzy.render-markdown")` conserva la misma API pública.
@@ -51,6 +53,45 @@ sino con headings, énfasis y enlaces renderizados.
 La detección inline es deliberadamente conservadora: no admite saltos de línea, contenido vacío,
 anidamiento ni delimitadores incompletos. Tampoco actúa dentro de código inline, enlaces, imágenes,
 autolinks, texto escapado o tablas. Los fences normales permanecen como código.
+
+## Tags
+
+Un `#tag` se pinta como un chip: fondo rojo `#6D3434` —el rojo del H2 bajado un 30 %, para que se
+lea como el mismo color sin confundirse con la banda de un heading— y texto `#FFF0F4` en negrita.
+El chip incluye la almohadilla y va con prioridad 4099, por encima de la banda de heading (4096),
+del código inline contextual (4097) y de las cursivas (4098), así que un tag dentro de un heading
+se sigue leyendo. En TTY pura el rojo oscuro no existe: ahí el chip usa el rojo del H2 con el texto
+invertido.
+
+Lo que se marca es exactamente lo que `sabunv.nvim.tags` reconoce, que es lo mismo que indexan y
+renombran Marksman y obsidian-ls: si algo sale con chip, es un tag de verdad para el índice.
+La única resta son los code spans —`` `#include <stdio.h>` `` es código citado, no una etiqueta—;
+dentro de un fence no hace falta restar nada, porque su cuerpo es otro árbol y el handler inline no
+lo ve. Los tags del frontmatter viven en el árbol YAML y hoy no reciben chip.
+
+## Bloques de código vacíos o sin cerrar
+
+Con los delimitadores ocultos, un fence sin cuerpo desaparecía entero: el plugin le pone
+`conceal_lines` a sus dos líneas de ``` y, sin contenido que pintar, no quedaba ni una fila en
+pantalla. Un fence sin cierre era igual de silencioso: su apertura se ocultaba y el texto de detrás
+se pintaba como código sin ninguna pista.
+
+Los dos casos son trampas de edición, y encima falsean lo que entiende cualquier cosa que lea el
+documento —el parser empareja los ``` de otra manera, así que hasta la copia inteligente de un
+bloque de más abajo se lleva texto de fuera—. Ahora se marcan en vez de ocultarse:
+
+| Caso                                       | Vista                                     |
+| ------------------------------------------ | ----------------------------------------- |
+| ` ``` ` + ` ``` ` sin cuerpo               | dos filas ámbar, `▲ bloque de código vacío` |
+| ` ```lua ` + ` ``` ` sin cuerpo            | igual, con el lenguaje: `▲ lua · …`       |
+| ` ```sh ` sin cierre                       | fila roja, `▲ sh · bloque de código sin cerrar` |
+
+La detección mira los hijos del nodo: sin `code_fence_content` está vacío, con un solo
+`fenced_code_block_delimiter` nunca se cerró. En esas filas se descartan las marcas del plugin que
+las dejaban invisibles (su `conceal_lines` y su etiqueta de lenguaje) y se ponen banda y etiqueta
+propias. La banda se queda en todos los modos y también con el cursor encima; la etiqueta, que sí
+tapa el texto real, se aparta con el cursor en la línea para poder editar los ``` . Un bloque
+normal no se toca.
 
 ## Contrato visual
 
@@ -149,3 +190,8 @@ contar solo la label produciría un resultado distinto.
 multilínea de Prettier se colapsa de forma idempotente. `spec/spoilers_spec.lua` cubre extmarks,
 revelado contextual, falsos positivos, inyección Markdown, ancho exacto y wrapping; el spec de
 Conform comprueba además la transformación reversible de los fences.
+
+`spec/markdown_tags_and_fences_spec.lua` cubre las dos marcas propias sobre extmarks reales: qué
+tags reciben chip y cuáles no (code spans, destinos de enlace, `#123`, `#ff00ff`), y que un fence
+vacío o sin cerrar recupera sus filas con banda y etiqueta —con lenguaje cuando lo hay—, que el
+bloque normal sigue intacto y que la etiqueta se aparta con el cursor encima sin llevarse la banda.

@@ -1,13 +1,13 @@
 # ripgrep
 
-Volver a [README](/README.md)  
+Volver a [README.md](/README.md)  
 <https://github.com/BurntSushi/ripgrep>
 
 ## Brief
 
-`ripgrep` (`rg`) es una herramienta de búsqueda de texto por línea de comandos, más rápida que
-`grep` y consciente de `.gitignore` por defecto. Aquí la usan varias herramientas de la
-configuración, entre ellas las búsquedas de texto de Telescope.
+`ripgrep` (`rg`) es una herramienta de búsqueda de texto por línea de comandos, más rápida que `grep` y
+consciente de `.gitignore` por defecto. Aquí la usan varias herramientas de la configuración, entre
+ellas las búsquedas de texto de Telescope.
 
 Esta nota solo cubre cómo instalarlo, en Windows, Linux y macOS.
 

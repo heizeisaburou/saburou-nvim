@@ -130,6 +130,35 @@ local function tty_heading_palette()
   }
 end
 
+--- Colores de lo que no es un heading: el chip de los tags y los avisos de los
+--- bloques de código que si no no se verían.
+---
+--- No dependen del estilo (`solid`/`transparent`) a propósito: son marcas
+--- puntuales sobre una palabra o una línea suelta, no franjas de página, así
+--- que llevan fondo también en transparente -- que es justo lo que las hace
+--- distinguibles del texto de alrededor.
+local function annotation_palette()
+  if tty.is_pure() then
+    return {
+      -- En 16 colores no hay un rojo más oscuro: el chip usa el mismo rojo del
+      -- H2 con el texto invertido, que ahí es lo que los separa.
+      tag = { fg = "black", bg = "red", ctermfg = 0, ctermbg = 1 },
+      empty = { fg = "black", bg = "yellow", ctermfg = 0, ctermbg = 3 },
+      unclosed = { fg = "white", bg = "red", ctermfg = 15, ctermbg = 1 },
+    }
+  end
+
+  return {
+    -- El rojo del H2 (#9C4A4A) bajado ~30%: se lee como el mismo color, pero
+    -- no se confunde con la banda de un heading (8.9:1 con el texto).
+    tag = { fg = "#FFF0F4", bg = "#6D3434" },
+    -- Ámbar de aviso: el bloque está vacío, no roto.
+    empty = { fg = "#FFF2D6", bg = "#6A5220" },
+    -- Rojo de error, más saturado que el chip: esto sí está roto.
+    unclosed = { fg = "#FFE8E8", bg = "#8B1A1A" },
+  }
+end
+
 ---@param state sabunv.moonfly.state
 local function heading_palette(state)
   if tty.is_pure() then
@@ -205,6 +234,31 @@ local function heading_highlights(state)
   set_heading(4, palette.h4)
   set_heading(5, palette.h5)
   set_heading(6, palette.h6)
+
+  local annotations = annotation_palette()
+
+  set("RenderMarkdownTag", {
+    fg = annotations.tag.fg,
+    bg = annotations.tag.bg,
+    ctermfg = annotations.tag.ctermfg,
+    ctermbg = annotations.tag.ctermbg,
+    bold = true,
+  })
+
+  set("RenderMarkdownCodeEmpty", {
+    fg = annotations.empty.fg,
+    bg = annotations.empty.bg,
+    ctermfg = annotations.empty.ctermfg,
+    ctermbg = annotations.empty.ctermbg,
+  })
+
+  set("RenderMarkdownCodeUnclosed", {
+    fg = annotations.unclosed.fg,
+    bg = annotations.unclosed.bg,
+    ctermfg = annotations.unclosed.ctermfg,
+    ctermbg = annotations.unclosed.ctermbg,
+    bold = true,
+  })
 
   set("RenderMarkdownSpoiler", {
     fg = palette.h3.fg,

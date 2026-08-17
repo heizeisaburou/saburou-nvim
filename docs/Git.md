@@ -1,6 +1,6 @@
 # Git
 
-Volver a [README](/README.md)  
+Volver a [README.md](/README.md)  
 <https://git-scm.com/>
 
 ## Brief
@@ -8,8 +8,7 @@ Volver a [README](/README.md)
 Git es el sistema de control de versiones distribuido: guarda el historial de un proyecto en
 _commits_ y permite trabajar con ramas y remotos.
 
-Esta nota solo cubre cómo instalarlo, en Windows y Linux; para macOS remite a
-[macOS support](/docs/macOS%20support.md).
+Esta nota solo cubre cómo instalarlo, en Windows y Linux; para macOS remite a [macOS support](/docs/macOS%20support.md).
 
 ## Installation
 

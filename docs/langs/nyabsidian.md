@@ -1,5 +1,6 @@
 # nyabsidian
 
+Volver a [README.md](/README.md)  
 El soporte de notas **dentro de un vault**. Fuera de uno manda [marksman](/docs/langs/marksman.md).
 
 ## Qué convierte una carpeta en vault

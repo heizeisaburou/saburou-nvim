@@ -1,5 +1,10 @@
 # marksman
 
+Volver a [README.md](/README.md)  
+<https://github.com/artempyanykh/marksman>
+
+## Brief
+
 El soporte de Markdown **fuera** de un vault: cualquier carpeta con notas, o un repo con `docs/`.
 Dentro de un vault manda [nyabsidian](/docs/langs/nyabsidian.md).
 
@@ -45,38 +50,36 @@ suelto **corta el destino** y el enlace se rompe en GitHub.
 Los ángulos son la otra forma válida de escribir el mismo destino, y ahí el espacio va literal:
 
 ```markdown
-[texto](/docs/Mi%20nota.md)     ← lo que inserta el completado
-[texto](</docs/Mi nota.md>)     ← lo mismo, legible
+[texto](/docs/Mi%20nota.md) ← lo que inserta el completado [texto](</docs/Mi nota.md>) ← lo
+mismo, legible
 ```
 
 Las dos funcionan igual en todas partes: seguir el enlace, previsualizar, renombrar y los
 diagnósticos. Si escribes `[texto](<` el completado te ofrece las notas sin escapar nada, y si
 renombras la nota el enlace se queda con la ruta legible en vez de recuperar el `%20`.
 
-Lo que **no** cambia es qué inserta el completado por defecto: `%20`. Los ángulos son cosa tuya, y
-sólo hace falta escribir el `<` a mano una vez por enlace.
+Lo que **no** cambia es qué inserta el completado por defecto: `%20`. Los ángulos son cosa tuya, y sólo
+hace falta escribir el `<` a mano una vez por enlace.
 
 ## Un enlace lleva dos formas de escribir un espacio, y no es un fallo
 
 Esto sorprende, así que vale la pena decirlo:
 
 ```markdown
-[texto](/docs/Mi%20nota.md#mi-heading)
-             ^^^                          %20 aquí
-                          ^   ^           guiones aquí
+[texto](/docs/Mi%20nota.md#mi-heading) ^^^ %20 aquí ^ ^ guiones aquí
 ```
 
 No es una incoherencia: son dos cosas distintas.
 
 Lo de la izquierda es **el nombre de un archivo que existe**. El archivo se llama `Mi nota.md`, con
 espacio, y en una ruta el espacio se escribe `%20` (o entre ángulos, ver arriba). Escribir
-`/docs/Mi-nota.md` no sería el mismo nombre de otra forma: sería el nombre de **otro** archivo, uno
-que no existe.
+`/docs/Mi-nota.md` no sería el mismo nombre de otra forma: sería el nombre de **otro** archivo, uno que
+no existe.
 
-Lo de la derecha es **un identificador que se fabrica** a partir del texto del heading. No hay
-ningún sitio donde ponga `mi-heading`: lo calculan GitHub y marksman a partir de `## Mi heading`,
-pasando a minúsculas y cambiando los espacios por guiones. Es la única forma que resuelve, así que
-ahí un `%20` no llevaría a ninguna parte.
+Lo de la derecha es **un identificador que se fabrica** a partir del texto del heading. No hay ningún
+sitio donde ponga `mi-heading`: lo calculan GitHub y marksman a partir de `## Mi heading`, pasando a
+minúsculas y cambiando los espacios por guiones. Es la única forma que resuelve, así que ahí un
+`%20` no llevaría a ninguna parte.
 
 Resumiendo: a la izquierda mandan tus nombres de archivo, a la derecha manda GitHub. Al **leer**, de
 todos modos, se acepta cualquiera de las dos (`#Mi heading` y `#mi-heading` van al mismo sitio).
@@ -89,8 +92,8 @@ No hace falta que aciertes con la forma exacta. Para un archivo `Mi nota.md` fun
 [[Mi nota]]   [[mi nota]]   [[mi-nota]]   [[Mi%20nota]]   [[carpeta/Mi nota]]
 ```
 
-Con un destino Markdown la tolerancia es menor, y por lo dicho arriba: ahí no se busca una nota, se
-abre una ruta. `[texto](/docs/Mi%20nota.md)` y `[texto](</docs/Mi nota.md>)` valen las dos, pero
+Con un destino Markdown la tolerancia es menor, y por lo dicho arriba: ahí no se busca una nota,
+se abre una ruta. `[texto](/docs/Mi%20nota.md)` y `[texto](</docs/Mi nota.md>)` valen las dos, pero
 `/docs/mi-nota.md` no, porque no hay ningún archivo que se llame así.
 
 Lo que **no** resuelve es un nombre que no corresponda a ningún archivo. Si tu nota se llama

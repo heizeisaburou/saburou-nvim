@@ -28,53 +28,6 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
-  rust = { "rustfmt" },
-  css = { "prettier" },
-  html = { "prettier" },
-  javascript = { "prettier" },
-  javascriptreact = { "prettier" },
-  scss = { "prettier" },
-  typescript = { "prettier" },
-  typescriptreact = { "prettier" },
-  vue = { "prettier" }, -- Vue (framework de javascript)
-  -- -- erlfmt no está en el registro de Mason ni tiene binario prebuilt; ver el
-  -- -- override de `erlfmt` más abajo para cómo se resuelve sin bloquear el
-  -- -- formato si falta.
-  -- erlang = { "erlfmt" },
-  -- -- fish_indent viene con la propia shell Fish, no con Mason; ver el
-  -- -- override de `fish_indent` más abajo para cómo se resuelve sin bloquear
-  -- -- el formato si falta.
-  -- fish = { "fish_indent" },
-  -- -- npm-groovy-lint entra solo como formateador: los diagnósticos los pone
-  -- -- groovyls y no interesa duplicarlos (ver docs/language-dependencies.md).
-  -- --
-  -- -- 20 s de timeout no es exageración: arranca una JVM con CodeNarc y la
-  -- -- primera pasada de la sesión se va a más de 10 s según el archivo. Las
-  -- -- siguientes bajan bastante, pero el límite tiene que aguantar la primera.
-  -- groovy = { "npm-groovy-lint", timeout_ms = 20000 },
-  -- -- runic no está en el registro de Mason; ver el override de `runic` más
-  -- -- abajo para cómo se resuelve sin bloquear el formato si falta.
-  -- julia = { "runic" },
-  -- -- Ensamblador, por dialecto. NO existe entrada para el filetype `asm`:
-  -- -- ese es el default de Neovim y corresponde a GAS/AT&T, para el que no hay
-  -- -- ningún formateador (el `asmfmt` de Mason es del ensamblador de Go, con la
-  -- -- misma extensión `.s`, y destrozaría un archivo GAS).
-  -- --
-  -- -- `nasm` es un filetype propio de Neovim: lo activa una directiva
-  -- -- `asmsyntax=nasm` en las 5 primeras líneas, o `g:asmsyntax`. Solo ahí se
-  -- -- sabe con certeza que el dialecto es NASM y se puede formatear.
-  -- nasm = { "nasmfmt" },
-  -- nix = { "nixfmt" },
-  -- -- air es un único binario de Mason (release prebuilt en Rust): LSP y
-  -- -- formatter a la vez, sin dependencia de R ni de nada externo.
-  -- r = { "air" },
-  -- -- forge_fmt no está en el registro de Mason (viene con Foundry); ver el
-  -- -- override de `forge_fmt` más abajo para cómo se resuelve sin bloquear el
-  -- -- formato si falta.
-  -- solidity = { "forge_fmt" },
-  -- -- sqlfluff solo se considera disponible si el proyecto declara su dialecto;
-  -- -- si no, formatea pg_format. Ver el override de `sqlfluff` más abajo.
-  -- sql = { "sqlfluff", "pg_format", stop_after_first = true },
   -- bash = { "shfmt" },
   -- c = { "clang_format" },
   -- clojure = { "zprint" }, -- activa edn también
@@ -84,10 +37,13 @@ local formatters_by_ft = {
   -- edn = { "zprint" }, -- .edn de Clojure
   -- eelixir = { "mix" },
   -- elixir = { "mix" },
+  -- erlang = { "erlfmt" },
+  -- fish = { "fish_indent" },
   -- fsharp = { "fantomas" }, -- F#
   -- gleam = { "gleam" },
   -- go = { "gofmt" },
   -- gotmpl = { "prettier_gotmpl" }, -- plantillas Go (.tmpl/.gotmpl/.gohtml)
+  -- groovy = { "npm-groovy-lint", timeout_ms = 20000 },
   -- handlebars = { "prettier_handlebars" },
   -- haskell = { "fourmolu" },
   -- heex = { "mix" }, -- plantillas HEEx de Elixir/Phoenix.
@@ -95,9 +51,12 @@ local formatters_by_ft = {
   -- java = { "google-java-format" },
   -- jinja = { "prettier_jinja" },
   -- json = { "biome" },
+  -- julia = { "runic" },
   -- kotlin = { "ktlint" },
   -- lhaskell = { "fourmolu" }, -- .lhs
   -- liquid = { "prettier_liquid" },
+  -- nasm = { "nasmfmt" },
+  -- nix = { "nixfmt" },
   -- ocaml = { "ocamlformat" }, -- camellito
   -- ocamlinterface = { "ocamlformat" }, -- camellitox2
   -- php = { "php_cs_fixer" },
@@ -105,8 +64,11 @@ local formatters_by_ft = {
   -- pug = { "prettier_pug" }, -- Pug (Jade)
   -- python = { "ruff_format" },
   -- qml = { "qmlformat" }, -- externo
+  -- r = { "air" },
   -- ruby = { "rubocop", timeout_ms = 10000 },
   -- scala = { "scalafmt", timeout_ms = 10000 },
+  -- solidity = { "forge_fmt" },
+  -- sql = { "sqlfluff", "pg_format", stop_after_first = true },
   -- surface = { "mix" }, -- Elixir/Phoenix
   -- svelte = { "prettier_svelte" },
   -- swift = { "swiftformat" },
@@ -116,6 +78,15 @@ local formatters_by_ft = {
   -- typst = { "typstyle" }, -- Typst
   -- yaml = { "yamlfmt" },
   -- zig = { "zigfmt" },
+  css = { "prettier" },
+  html = { "prettier" },
+  javascript = { "prettier" },
+  javascriptreact = { "prettier" },
+  rust = { "rustfmt" },
+  scss = { "prettier" },
+  typescript = { "prettier" },
+  typescriptreact = { "prettier" },
+  vue = { "prettier" }, -- Vue (framework de javascript)
 }
 
 ---@param line string

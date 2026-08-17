@@ -26,6 +26,8 @@ diversos.
   los linters de distintos lenguajes reconocen el directorio raíz.
 - **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `mason.nvim` y `nvim-treesitter` puedan descargar
   dependencias opcionales de la configuración.
+- **[ripgrep](/docs/ripgrep.md)** — necesario para las búsquedas de texto utilizadas por distintas funcionalidades de
+  la configuración.
 - **[Cargo+Rust](/docs/Cargo+Rust.md)** — necesario para compilar e instalar `tree-sitter-cli`.
 - **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que `nvim-treesitter` compile los parsers.
 - **[Node.js](/docs/Node.js.md)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de
@@ -41,9 +43,8 @@ diversos.
 
 - **[AI CLI Tools](/docs/AI%20CLI%20Tools.md)** — OpenCode, Claude y Codex; necesarios para utilizar las funcionalidades de IA
   proporcionadas por la configuración.
-- **[ripgrep](/docs/ripgrep.md)** — necesario para las búsquedas de texto utilizadas por distintas funcionalidades de
-  la configuración.
-- **[Python](/docs/Python.md)** Utilizado por muchos paquetes en que se instalan por medio de `Mason`.
+
+- **[Python](/docs/langs/Python.md)** Utilizado por muchos paquetes en que se instalan por medio de `Mason`.
 
 > [!WARNING] Dependencias circunstanciales molestas
 >
@@ -51,6 +52,11 @@ diversos.
 >   instalalos o comenta los plugins. Una vez terminada la alpha, tras la limpieza, esto dejara
 >   de ser así. Y hay más casos así:
 >     - No instalar Python provoca que la instalación de muchos paquetes de Mason fallen.
+
+## Lenguajes
+
+- [Python](/docs/langs/Python.md)
+- [Go](/docs/langs/Go.md)
 
 ### Clonar configuración
 
