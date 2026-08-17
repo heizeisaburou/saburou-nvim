@@ -137,6 +137,8 @@ motivos:
 También tomamos algunas decisiones como sincronizar el clipboard del usuario si es que se puede,
 algo que un usuario experimentado de Neovim probablemente no quiera.
 
+
+
 ## Lenguajes soportados
 
 | Lenguaje / formato | Filetype                         | LSP                           | Formatter                    | Tree-sitter                                   |

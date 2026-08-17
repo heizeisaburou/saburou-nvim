@@ -15,7 +15,11 @@
 local M = {}
 
 M.linters_by_ft = {
-  sql = { "sqlfluff" },
+  -- Descomenta si trabajas con SQL: da diagnósticos donde `sqls` no llega.
+  --   - Fuera por defecto porque `sqlfluff` necesita Python (Python es una 
+  --     dependencia circunstancial de la configuración)
+  --   - Conform lo tiene fuera por lo mismo (ver lzy.conform).
+  -- sql = { "sqlfluff" },
 }
 
 -- Linters que solo tienen sentido en ciertos proyectos. Si la condición falla,
