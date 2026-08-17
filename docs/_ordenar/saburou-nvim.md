@@ -1,6 +1,6 @@
 # saburou-nvim
 
-Notas del proyecto — [Neovim](neovim.md)
+Notas del proyecto — [Neovim](/docs/_ordenar/neovim.md)
 
 ## Estado
 

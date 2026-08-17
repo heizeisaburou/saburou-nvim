@@ -357,18 +357,119 @@ local function parse_autolink(s, i, opts)
 end
 
 -- -----------------------------------------------------------------------------
+-- Énfasis
+-- -----------------------------------------------------------------------------
+
+-- Los marcadores de énfasis emparejados de `s`: las posiciones que el conceal
+-- esconde y que por tanto no ocupan columna.
+--
+-- Se calcula sobre el texto **completo** y no palabra a palabra a propósito.
+-- Un `**dos palabras**` reparte los marcadores entre la primera y la última, y
+-- mirando sólo una palabra no hay forma de saber que el `**` que abre tiene
+-- pareja más adelante: así se contaban cuatro columnas de más y una línea que
+-- cabía justa se partía en dos.
+--
+-- El emparejado es el de CommonMark en pequeño: runs de la misma longitud, y
+-- sólo si flanquean (un `*` con espacio detrás no abre nada, y `10 * 5` no es
+-- énfasis). Un `_` además nunca abre ni cierra dentro de una palabra, que es
+-- lo que salva a `foo_bar`. Lo que no se empareja se cuenta, como cualquier
+-- otro carácter.
+--
+---@param s string
+---@return table<integer, boolean> posiciones 1-based, en bytes
+local function emphasis_markers(s)
+  local hidden, open = {}, {}
+  local n, i = #s, 1
+
+  local function punctuation(char)
+    return char == "" or char:match "^%p$" ~= nil
+  end
+
+  while i <= n do
+    local c = s:sub(i, i)
+
+    -- El markup que ya tiene su propia medida se salta entero: un `*` dentro
+    -- de un destino o de un code span no es un delimitador.
+    if c == "\\" then
+      i = i + 1 + char_len(s, i + 1)
+    elseif c == "[" or (c == "!" and s:sub(i + 1, i + 1) == "[") then
+      local opening = c == "!" and i + 1 or i
+      local _, stop
+      if s:sub(opening, opening + 1) == "[[" then
+        _, stop = parse_wiki_link(s, opening, { icons = false })
+      end
+      if not stop then
+        _, stop = parse_link(s, opening, { icons = false })
+      end
+      i = stop and stop + 1 or i + 1
+    elseif c == "`" then
+      local _, stop = parse_code_span(s, i)
+      i = stop and stop + 1 or i + 1
+    elseif c == "<" then
+      local _, stop = parse_autolink(s, i, { icons = false })
+      i = stop and stop + 1 or i + 1
+    elseif c == "|" then
+      local _, stop = parse_spoiler(s, i)
+      i = stop and stop + 1 or i + 1
+    elseif c == "*" or c == "_" then
+      local start = i
+      while i <= n and s:sub(i, i) == c do
+        i = i + 1
+      end
+      local length = i - start
+      local before = start > 1 and s:sub(start - 1, start - 1) or ""
+      local after = s:sub(i, i)
+      local intraword = c == "_" and before:match "^[%w]$" and after:match "^[%w]$"
+      local can_open = after ~= "" and after:match "^%s$" == nil and not intraword
+      local can_close = before ~= "" and before:match "^%s$" == nil and not intraword
+      if c == "_" then
+        -- `_` sólo delimita en los bordes de una palabra.
+        can_open = can_open and (before == "" or before:match "^%s$" ~= nil or punctuation(before))
+        can_close = can_close and (after == "" or after:match "^%s$" ~= nil or punctuation(after))
+      end
+
+      local matched = false
+      if can_close then
+        for index = #open, 1, -1 do
+          local candidate = open[index]
+          if candidate.char == c and candidate.length == length then
+            for offset = 0, length - 1 do
+              hidden[candidate.start + offset] = true
+              hidden[start + offset] = true
+            end
+            for _ = index, #open do
+              table.remove(open)
+            end
+            matched = true
+            break
+          end
+        end
+      end
+      if can_open and not matched then
+        open[#open + 1] = { char = c, start = start, length = length }
+      end
+    else
+      i = i + char_len(s, i)
+    end
+  end
+
+  return hidden
+end
+
+-- -----------------------------------------------------------------------------
 -- Medición
 -- -----------------------------------------------------------------------------
 
--- Ancho "visible" de una palabra: descuenta el markup inline (enlaces, code
--- spans, autolinks, énfasis/negrita, escapes) manteniendo el resto.
+-- Ancho visible de `s`, con los marcadores de énfasis ya resueltos por el
+-- llamante: `hidden` está indexado sobre un texto mayor y `offset` dice dónde
+-- empieza `s` dentro de él. Ver `emphasis_markers`.
 --
 ---@param s string
 ---@param opts hzsr.md.WidthOpts|nil
+---@param hidden table<integer, boolean>
+---@param offset integer
 ---@return integer
-function M.visible_width(s, opts)
-  vim.validate("s", s, "string")
-
+local function measure(s, opts, hidden, offset)
   local rendered_definition = definition_width(s, opts)
   if rendered_definition then
     return rendered_definition
@@ -451,27 +552,27 @@ function M.visible_width(s, opts)
         width = width + 1
         i = i + 1
       end
+    elseif hidden[i + offset] then
+      -- Marcador de énfasis emparejado: el conceal lo esconde.
+      i = i + 1
     else
       width = width + char_width(s, i)
       i = i + char_len(s, i)
     end
   end
 
-  -- Marcadores de énfasis/negrita emparejados en los extremos de la palabra.
-  -- La comprobación es conservadora: sólo cuando la palabra empieza Y termina
-  -- con el mismo marcador, para no restar `_`/`*` con otro significado
-  -- (p. ej. `foo_bar`, `10 * 5`).
-  if #s >= 4 and s:sub(1, 2) == "**" and s:sub(-2) == "**" then
-    width = width - 4
-  elseif #s >= 4 and s:sub(1, 2) == "__" and s:sub(-2) == "__" then
-    width = width - 4
-  elseif #s >= 2 and s:sub(1, 1) == "*" and s:sub(-1) == "*" then
-    width = width - 2
-  elseif #s >= 2 and s:sub(1, 1) == "_" and s:sub(-1) == "_" then
-    width = width - 2
-  end
-
   return math.max(0, width)
+end
+
+-- Ancho "visible" de un texto: descuenta el markup inline (enlaces, code
+-- spans, autolinks, énfasis/negrita, escapes) manteniendo el resto.
+--
+---@param s string
+---@param opts hzsr.md.WidthOpts|nil
+---@return integer
+function M.visible_width(s, opts)
+  vim.validate("s", s, "string")
+  return measure(s, opts, emphasis_markers(s), 0)
 end
 
 -- -----------------------------------------------------------------------------
@@ -557,6 +658,9 @@ local function wrap_segment(text, width, opts)
   local cur = ""
   local cur_width = 0
   local pos = 1
+  -- Una sola vez para todo el segmento: un énfasis que abarca varias palabras
+  -- sólo se reconoce mirando el texto entero.
+  local hidden = emphasis_markers(text)
 
   while true do
     local word, next_pos = next_word(text, pos)
@@ -565,7 +669,7 @@ local function wrap_segment(text, width, opts)
       break
     end
 
-    local word_width = M.visible_width(word, opts)
+    local word_width = measure(word, opts, hidden, (next_pos or pos) - #word - 1)
 
     if cur ~= "" and cur_width + 1 + word_width <= width then
       cur = cur .. " " .. word

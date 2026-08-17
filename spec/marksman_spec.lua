@@ -156,6 +156,37 @@ describe("Marksman adapter", function()
 		assert.are.same({ old = target, new = vim.fs.joinpath(root, "renamed.md") }, renamed)
 	end)
 
+	it("rewrites the links of a rename made outside the editor, case included", function()
+		-- marksman no implementa `workspace/willRenameFiles`, así que renombrar
+		-- desde nvim-tree no actualizaba nada. Los `[[wiki]]` sobrevivían porque
+		-- se resuelven por nombre y sin caja; los Markdown, que son ruta
+		-- literal, quedaban rotos en cuanto cambiaba una mayúscula.
+		local target = write("docs/neovim.md", { "# Neovim", "", "## Release requerida" })
+		local source = write("index.md", {
+			"[Absoluto](/docs/neovim.md)",
+			"[Con fragmento](/docs/neovim.md#release-requerida)",
+			"[[neovim]]",
+		})
+
+		local rename = require("lzy.marksman.rename")
+		local renamed = vim.fs.joinpath(root, "docs/Neovim.md")
+		local apply = assert(rename.plan_file_rename(target, renamed), "hay enlaces que reescribir")
+
+		-- El plan se hace antes; el rename lo hace nvim-tree.
+		assert(vim.uv.fs_rename(target, renamed))
+		apply()
+
+		assert.are.same({
+			"[Absoluto](/docs/Neovim.md)",
+			"[Con fragmento](/docs/Neovim.md#release-requerida)",
+			"[[neovim]]",
+		}, vim.fn.readfile(source))
+
+		-- Y lo que no es un rename de nota se deja en paz.
+		assert.is_nil(rename.plan_file_rename(renamed, renamed))
+		assert.is_nil(rename.plan_file_rename(source, vim.fs.joinpath(root, "otro.txt")))
+	end)
+
 	it("qualifies bare links when a renamed basename would become ambiguous", function()
 		local target = write("notes/target.md", { "# Target" })
 		write("other/renamed.md", { "# Existing homonym" })
@@ -451,31 +482,33 @@ describe("Marksman adapter", function()
 		end)
 	end)
 
-	it("drops the server's 'non-existent' warning for links that do resolve here", function()
-		-- Su resolutor es más estricto que el nuestro: indexa por título (el H1) y
-		-- por nombre exacto, así que marca en rojo enlaces perfectamente
-		-- seguibles. Se filtran ESOS y sólo esos -- un enlace roto de verdad falla
-		-- en los dos y el aviso sobrevive.
+	it("silences the server's verdict on targets, right or wrong, and keeps its own", function()
+		-- Su resolutor no es el nuestro, así que su «no existe» sobra en los dos
+		-- sentidos: cuando discrepa (marca enlaces que aquí se siguen) y cuando
+		-- coincide (un enlace roto de verdad salía dos veces, con dos
+		-- redacciones). El veredicto sobre el destino lo damos nosotros.
 		write("Una nota nueva.md", { "# Una nota", "" })
 		local source = write("source.md", { "[[una-nota-nueva]]", "[[esto-no-existe]]" })
 		vim.cmd("edit! " .. vim.fn.fnameescape(source))
-		local bufnr = vim.api.nvim_get_current_buf()
 		local marksman = require("lzy.marksman")
+		require("lzy.marksman.workspace").invalidate_files()
 
 		local function diag(message)
 			return { message = message, range = { start = { line = 0, character = 0 } } }
 		end
 
-		assert.is_true(
-			marksman.resolvable_elsewhere(diag("Link to non-existent document 'una-nota-nueva'"), bufnr)
-		)
-		assert.is_false(
-			marksman.resolvable_elsewhere(diag("Link to non-existent document 'esto-no-existe'"), bufnr)
-		)
-		-- Y no se toca ningún otro diagnóstico del servidor.
-		assert.is_false(
-			marksman.resolvable_elsewhere(diag("Link to non-existent heading 'una-nota-nueva'"), bufnr)
-		)
+		assert.is_true(marksman.superseded(diag("Link to non-existent document 'una-nota-nueva'")))
+		assert.is_true(marksman.superseded(diag("Link to non-existent document 'esto-no-existe'")))
+		-- Y no se toca ningún otro diagnóstico del servidor: de los anchors no
+		-- decimos nada, así que el suyo es el único aviso que hay.
+		assert.is_false(marksman.superseded(diag("Link to non-existent heading 'una-nota-nueva'")))
+
+		-- Callar el suyo no deja hueco: el enlace roto lo avisamos nosotros, una
+		-- sola vez.
+		local found = require("lzy.marksman.diagnostics").collect(0)
+		assert.are.equal(1, #found, "sólo el segundo enlace")
+		assert.are.equal(1, found[1].lnum)
+		assert.matches("No existe", found[1].message)
 	end)
 
 	it("owns the ambiguity verdict instead of letting both criteria argue", function()
@@ -495,7 +528,7 @@ describe("Marksman adapter", function()
 			return { message = message, range = { start = { line = 0, character = 0 } } }
 		end
 		assert.is_true(
-			marksman.resolvable_elsewhere(diag("Ambiguous link to document 'una-nota'"), bufnr),
+			marksman.superseded(diag("Ambiguous link to document 'una-nota'")),
 			"su ambigüedad se filtra: para nosotros no lo es"
 		)
 		-- Y nosotros no decimos nada, porque resuelve a un solo fichero.
@@ -939,6 +972,117 @@ describe("Marksman adapter", function()
 		assert.is_nil(parser.at(lines, 5, 8))
 		assert.is_nil(parser.definitions(lines).fake)
 		assert.are.equal("inline", parser.at(lines, 8, 8).kind)
+	end)
+
+	it("sees both destinations of a linked image, and lets the outer one win", function()
+		-- `[![alt](img)](url)`, el patrón de los badges. El enlace de fuera contiene
+		-- al de dentro, así que quedarse con él y no bajar dejaba la imagen
+		-- invisible: no se podía ir a ella ni renombrarla. El lado Obsidian ya veía
+		-- los dos (ver lzy.obsidian.attachments); éste no.
+		local parser = require("lzy.marksman.parser")
+		local line = "[![Logo](./img/logo.png)](/docs/nota.md)"
+		local refs = parser.links(line, 0)
+		assert.are.equal(2, #refs)
+
+		local image = vim.iter(refs):find(function(ref)
+			return ref.embed
+		end)
+		assert.are.equal("./img/logo.png", image.path)
+		assert.are.equal(
+			"./img/logo.png",
+			line:sub(image.path_range.start_col + 1, image.path_range.end_col)
+		)
+
+		-- Manda el de fuera: la imagen es la etiqueta en la que se hace clic, no el
+		-- destino. Salvo sobre el destino de la imagen, que es donde se la pide a
+		-- propósito.
+		local lines = { line }
+		assert.are.equal("/docs/nota.md", parser.at(lines, 0, 0).path)
+		assert.are.equal("/docs/nota.md", parser.at(lines, 0, 4).path, "sobre el texto alternativo")
+		assert.are.equal("/docs/nota.md", parser.at(lines, 0, 30).path)
+		assert.are.equal("./img/logo.png", parser.at(lines, 0, 12).path, "sobre el destino de la imagen")
+
+		-- Y lo que no es un enlace-imagen no se duplica.
+		assert.are.equal(1, #parser.links("![Logo](./img/logo.png)", 0))
+		assert.are.equal(1, #parser.links("[Texto](/docs/nota.md)", 0))
+	end)
+
+	it("reads a destination wrapped in angles, where a space needs no escaping", function()
+		-- CommonMark deja envolver el destino entre `<` y `>` justo para no tener
+		-- que escribir `%20`. Los ángulos delimitan, no forman parte del destino,
+		-- pero Tree-sitter los deja dentro del nodo: sin pelarlos el destino era
+		-- `</docs/Mi nota.md>`, que no nombra ningún fichero -- el enlace no se
+		-- seguía y el diagnóstico lo marcaba «no existe» siendo correcto.
+		local parser = require("lzy.marksman.parser")
+		local line = "[Texto](</docs/Mi nota.md#un-header>)"
+		local ref = parser.links(line, 0)[1]
+		assert.are.equal("/docs/Mi nota.md", ref.path)
+		assert.are.equal("un-header", ref.fragment)
+		assert.is_true(ref.angled)
+		-- Y el rango deja los ángulos fuera, para que reescribir el destino no se
+		-- los coma.
+		assert.are.equal(
+			"/docs/Mi nota.md",
+			line:sub(ref.path_range.start_col + 1, ref.path_range.end_col)
+		)
+		assert.are.equal("note", parser.component(ref, ref.path_range.start_col).kind)
+
+		-- Resuelve al mismo fichero que la forma escapada, así que ninguna sobra.
+		write("docs/Mi nota.md", { "# Mi nota", "", "## Un header" })
+		local source = write("source.md", {
+			"[Angulos](</docs/Mi nota.md>)",
+			"[Escapado](/docs/Mi%20nota.md)",
+		})
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+		require("lzy.marksman.workspace").invalidate_files()
+		assert.are.same({}, require("lzy.marksman.diagnostics").collect(0))
+	end)
+
+	it("keeps an angled destination readable when the note is renamed", function()
+		-- Entre ángulos el espacio no corta, igual que dentro de `[[...]]`, así que
+		-- devolverle un `%20` a quien escribió `<...>` sería desandar lo que pidió.
+		local target = write("docs/Mi nota.md", { "# Mi nota" })
+		local source = write("index.md", {
+			"[Angulos](</docs/Mi nota.md>)",
+			"[Escapado](/docs/Mi%20nota.md)",
+			"[[Mi nota]]",
+		})
+
+		local rename = require("lzy.marksman.rename")
+		local renamed = vim.fs.joinpath(root, "docs/Otra nota.md")
+		local apply = assert(rename.plan_file_rename(target, renamed), "hay enlaces que reescribir")
+		assert(vim.uv.fs_rename(target, renamed))
+		apply()
+
+		assert.are.same({
+			"[Angulos](</docs/Otra nota.md>)",
+			"[Escapado](/docs/Otra%20nota.md)",
+			"[[otra-nota]]", -- el estilo del proyecto, que aquí es el default
+		}, vim.fn.readfile(source))
+	end)
+
+	it("completes inside angles without escaping the space", function()
+		write("docs/Mi nota.md", { "# Mi nota" })
+		local source_path = write("source.md", { "x" })
+		local typed = "[Texto](</docs/Mi n"
+		local bufnr = vim.api.nvim_create_buf(true, false)
+		vim.api.nvim_buf_set_name(bufnr, source_path)
+		vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { typed })
+		vim.api.nvim_set_current_buf(bufnr)
+		vim.bo[bufnr].filetype = "markdown"
+		vim.api.nvim_win_set_cursor(0, { 1, #typed })
+		require("lzy.marksman.workspace").invalidate_files()
+
+		local result
+		require("lzy.marksman.completion").source():complete({}, function(value)
+			result = value
+		end)
+
+		local item = assert(result.items[1], "la nota se ofrece aunque el hueco tenga un espacio")
+		assert.are.equal("/docs/Mi nota.md", item.textEdit.newText)
+		-- Se reescribe lo tecleado, no el `<`.
+		assert.are.same({ line = 0, character = 9 }, item.textEdit.range.start)
+		vim.api.nvim_buf_delete(bufnr, { force = true })
 	end)
 
 	it("completes a reference target with an unambiguous root path", function()

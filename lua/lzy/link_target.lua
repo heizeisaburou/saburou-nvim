@@ -105,6 +105,79 @@ function M.excluded_rows(lines)
   return excluded
 end
 
+---Los tramos de código en línea de una fila, delimitadores incluidos.
+---
+---Hermano en pequeño de `excluded_rows`: lo que un fence hace con la fila
+---entera, unos backticks lo hacen con un tramo de ella. `` `[x](y.md)` `` es un
+---ejemplo de sintaxis, no un enlace — esta documentación está llena de tablas
+---que explican `[texto](destino)` entre backticks.
+---
+---Se emparejan **runs** de backticks de la misma longitud, como CommonMark, y
+---no la simple paridad que había copiada por ahí. La paridad se equivoca en los
+---dos casos que de verdad aparecen:
+---
+---  `` ``[x](y.md)`` ``            → dos backticks, un solo tramo
+---  ``| `[x](` | `[x](y.md)` |``   → dos tramos; para la paridad el `[` del
+---                                   primero abre un enlace que se cierra con
+---                                   el `)` del segundo, cruzándolos
+---@param line string
+---@return { start_col: integer, end_col: integer }[] 1-based, inclusivo
+function M.code_spans(line)
+  local runs, idx = {}, 1
+  while idx <= #line do
+    local start_col, end_col = line:find("`+", idx)
+    if not start_col then
+      break
+    end
+    -- Un backtick escapado es un backtick literal, no un delimitador.
+    local slashes = 0
+    while line:sub(start_col - 1 - slashes, start_col - 1 - slashes) == "\\" do
+      slashes = slashes + 1
+    end
+    if slashes % 2 == 0 then
+      runs[#runs + 1] = { start_col = start_col, end_col = end_col }
+    elseif start_col < end_col then
+      runs[#runs + 1] = { start_col = start_col + 1, end_col = end_col }
+    end
+    idx = end_col + 1
+  end
+
+  local spans, index = {}, 1
+  while index <= #runs do
+    local opening = runs[index]
+    local width = opening.end_col - opening.start_col
+    local closing
+    for candidate = index + 1, #runs do
+      if runs[candidate].end_col - runs[candidate].start_col == width then
+        closing = candidate
+        break
+      end
+    end
+    if not closing then
+      -- Sin pareja no abre nada: son backticks literales y lo que venga
+      -- detrás sigue siendo texto normal.
+      index = index + 1
+    else
+      spans[#spans + 1] = { start_col = opening.start_col, end_col = runs[closing].end_col }
+      index = closing + 1
+    end
+  end
+  return spans
+end
+
+---¿La construcción que empieza en `col` está dentro de código en línea?
+---@param line string
+---@param col integer 1-based, la columna donde abre la construcción
+---@return boolean
+function M.inside_inline_code(line, col)
+  for _, span in ipairs(M.code_spans(line)) do
+    if span.start_col <= col and col <= span.end_col then
+      return true
+    end
+  end
+  return false
+end
+
 ---@type table<integer, { tick: integer, rows: table<integer, boolean> }>
 local excluded_cache = {}
 
@@ -152,6 +225,34 @@ function M.encode(path)
   return (path:gsub(UNSAFE, function(char)
     return ("%%%02X"):format(char:byte())
   end))
+end
+
+---El ancla de un heading: su texto en la forma que entiende GitHub.
+---
+---Único slugificador del proyecto. Vive aquí, con el codificador de destinos,
+---porque es la otra mitad de la misma pregunta: cómo se escribe un enlace.
+---Y son mitades distintas a propósito, aunque en el mismo enlace convivan dos
+---formas de escribir un espacio:
+---
+---  `/docs/Mi%20nota.md#mi-heading`
+---           ^^^ ruta: es el nombre real del fichero, y sólo `%20` lo nombra
+---                    ^^^ ancla: es un identificador derivado, y el slug con
+---                        guiones es lo único que resuelve GitHub
+---
+---@param fragment string
+---@return string
+function M.slug(fragment)
+  fragment = vim.fn.tolower(vim.trim(fragment))
+  local result = {}
+  for _, char in ipairs(vim.fn.split(fragment, "\\zs")) do
+    if char == " " or char == "_" or vim.fn.matchstr(char, [[\s]]) == char then
+      result[#result + 1] = "-"
+    elseif char == "-" or vim.fn.matchstr(char, [[\k]]) == char then
+      result[#result + 1] = char
+    end
+  end
+  local slug = table.concat(result):gsub("%-+", "-"):gsub("^%-", "")
+  return (slug:gsub("%-$", ""))
 end
 
 ---Path relativo entre dos rutas absolutas.

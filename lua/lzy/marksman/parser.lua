@@ -10,9 +10,11 @@ local function contains(value, col)
 	return value and value.start_col <= col and col < value.end_col
 end
 
+-- Compartida con el motor de obsidian: la misma estructura de Markdown, la
+-- misma respuesta. Los enlaces markdown de este lado ya los recorta
+-- Tree-sitter; esto es para los `[[wiki]]`, que se parsean a mano.
 local function inside_inline_code(line, start_col)
-	local prefix = line:sub(1, start_col)
-	return #prefix:gsub("[^`]", "") % 2 == 1
+	return require("lzy.link_target").inside_inline_code(line, start_col)
 end
 
 function M.normalize_reference_id(value)
@@ -192,6 +194,31 @@ local function wiki_links(line, row)
 	return refs
 end
 
+---Pela los ángulos de un destino: `(</docs/Mi nota.md>)`.
+---
+---CommonMark deja envolver el destino entre `<` y `>` para que admita espacios
+---sin escapar, y es la forma legible de escribir lo que si no llevaría `%20`.
+---Los ángulos son delimitadores, no parte del destino, pero Tree-sitter los deja
+---dentro del nodo: sin pelarlos aquí el destino era `</docs/Mi nota.md>`, que no
+---nombra ningún fichero -- ni se seguía, ni se previsualizaba, y el diagnóstico
+---marcaba «no existe» sobre un enlace perfectamente correcto.
+---
+---La forma de las definiciones (`[id]: <destino>`) ya se pelaba en `M.definition`;
+---esto es lo mismo para los enlaces en línea.
+---@param raw_target string
+---@param target_range table
+---@return string raw_target
+---@return table target_range
+---@return boolean angled
+local function unangle(raw_target, target_range)
+	if #raw_target >= 2 and raw_target:sub(1, 1) == "<" and raw_target:sub(-1) == ">" then
+		return raw_target:sub(2, -2),
+			range(target_range.start_col + 1, target_range.end_col - 1),
+			true
+	end
+	return raw_target, target_range, false
+end
+
 local function overlaps(refs, start_col, end_col)
 	for _, ref in ipairs(refs) do
 		if ref.range.start_col < end_col and start_col < ref.range.end_col then
@@ -248,6 +275,20 @@ function M.links(line, row)
 				local label_node = named_child(node, kind == "image" and "image_description" or "link_text")
 				local target_node = named_child(node, "link_destination")
 				if target_node then
+					-- El enlace que envuelve una imagen (`[![alt](img)](url)`, el patrón
+					-- de los badges) son DOS destinos: la imagen y el enlace. Como el de
+					-- fuera contiene al de dentro, quedarse con el de fuera y no bajar
+					-- dejaba la imagen invisible: no se podía ir a ella ni renombrarla.
+					-- Se añade primero, antes de que el de fuera ocupe el hueco (ver
+					-- `overlaps`); quién manda donde se solapan lo decide `M.at`. Mismo
+					-- criterio que el lado Obsidian, ver lzy.obsidian.attachments.
+					if kind == "inline_link" and label_node then
+						for child in label_node:iter_children() do
+							if child:named() and child:type() == "image" then
+								walk(child)
+							end
+						end
+					end
 					local title_node = named_child(node, "link_title")
 					local title_text = title_node and vim.treesitter.get_node_text(title_node, line) or nil
 					local title_range = title_node and node_range(title_node) or nil
@@ -255,14 +296,17 @@ function M.links(line, row)
 						title_range.start_col = title_range.start_col + 1
 						title_range.end_col = title_range.end_col - 1
 					end
+					local raw_target, target_range, angled =
+						unangle(vim.treesitter.get_node_text(target_node, line), node_range(target_node))
 					refs[#refs + 1] = split_target({
 						kind = "inline",
 						raw = vim.treesitter.get_node_text(node, line),
 						range = { start_row = row, start_col = start_col, end_row = row, end_col = end_col },
 						label = label_node and vim.treesitter.get_node_text(label_node, line) or nil,
 						label_range = label_node and node_range(label_node) or nil,
-						raw_target = vim.treesitter.get_node_text(target_node, line),
-						target_range = node_range(target_node),
+						raw_target = raw_target,
+						target_range = target_range,
+						angled = angled,
 						title = title_text and title_text:sub(2, -2) or nil,
 						title_range = title_range,
 						embed = kind == "image",
@@ -339,19 +383,28 @@ function M.at(lines, row, col)
 	if definition and contains(definition.range, col) then
 		return definition
 	end
+	-- En un enlace-imagen (`[![alt](img)](url)`) los dos contienen al cursor, y
+	-- manda el de fuera: la imagen es la etiqueta en la que se hace clic, no el
+	-- destino. La excepción es el destino de la propia imagen, que es el único
+	-- sitio donde se la pide a propósito. Es lo que significa la sintaxis, lo que
+	-- hace cualquier renderizador y lo que ya hacía el lado Obsidian.
+	local found
 	for _, ref in ipairs(M.links(line, row)) do
 		if contains(ref.range, col) then
-			if ref.kind == "reference_use" then
-				ref.definition = M.definitions(lines, excluded)[M.normalize_reference_id(ref.reference_id)]
-				if ref.definition then
-					ref.raw_target = ref.definition.raw_target
-					ref.path = ref.definition.path
-					ref.fragment = ref.definition.fragment
-				end
+			if not found or (ref.embed and contains(ref.target_range, col)) then
+				found = ref
 			end
-			return ref
 		end
 	end
+	if found and found.kind == "reference_use" then
+		found.definition = M.definitions(lines, excluded)[M.normalize_reference_id(found.reference_id)]
+		if found.definition then
+			found.raw_target = found.definition.raw_target
+			found.path = found.definition.path
+			found.fragment = found.definition.fragment
+		end
+	end
+	return found
 end
 
 ---@param ref table

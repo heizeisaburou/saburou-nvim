@@ -19,15 +19,12 @@ end
 ---@param col integer
 ---@return table|?
 local function angle_ref_at(line, row, col)
-  local function inside_inline_code(start_col)
-    local prefix = line:sub(1, start_col - 1)
-    return #prefix:gsub("[^`]", "") % 2 == 1
-  end
+  local inside_inline_code = require("lzy.link_target").inside_inline_code
 
   for start_col, target, end_col in line:gmatch "()<([^<>%s]+)>()" do
     if
       target:match "^[%a][%w%+%.%-]*://"
-      and not inside_inline_code(start_col)
+      and not inside_inline_code(line, start_col --[[@as integer]])
       and start_col - 1 <= col
       and col < end_col - 1
     then
@@ -56,17 +53,14 @@ end
 ---@return table[]
 local function reference_usages(line, row)
   local refs, search = {}, 1
-  local function inside_inline_code(start_col)
-    local prefix = line:sub(1, start_col - 1)
-    return #prefix:gsub("[^`]", "") % 2 == 1
-  end
+  local inside_inline_code = require("lzy.link_target").inside_inline_code
 
   while search <= #line do
     local start_col, end_col, label, id = line:find("!?%[([^%[%]]+)%]%[([^%[%]]*)%]", search)
     if not start_col then
       break
     end
-    if not inside_inline_code(start_col) then
+    if not inside_inline_code(line, start_col) then
       local opening = line:sub(start_col, start_col) == "!" and start_col + 1 or start_col
       local label_range = { start_col = opening, end_col = opening + #label }
       local id_range
@@ -120,7 +114,7 @@ local function reference_usages(line, row)
       and after ~= "("
       and after ~= "["
       and after ~= ":"
-      and not inside_inline_code(start_col)
+      and not inside_inline_code(line, start_col)
     then
       local opening = line:sub(start_col, start_col) == "!" and start_col + 1 or start_col
       local range = { start_col = opening, end_col = opening + #label }
@@ -807,6 +801,26 @@ local function patch_smart_action()
       require("lzy.obsidian.attachments").cursor_linked_image(vim.api.nvim_get_current_buf())
     then
       return "<cmd>lua require('obsidian.actions').follow_link()<CR>"
+    end
+
+    -- Lo mismo que el bloque de código, pero en un tramo de la fila: un
+    -- `[texto](destino)` entre backticks es sintaxis explicada, y el
+    -- `cursor_link()` de upstream también lo ve. Se le tapa sólo esa rama y
+    -- durante esta llamada, en vez de duplicar aquí el resto de la cadena:
+    -- sobre código en línea Enter no sigue enlaces, pero una casilla de tarea
+    -- en la misma fila se sigue marcando igual.
+    local column = vim.api.nvim_win_get_cursor(0)[2]
+    if
+      require("lzy.link_target").inside_inline_code(vim.api.nvim_get_current_line(), column + 1)
+    then
+      local cursor_link = api.cursor_link
+      api.cursor_link = function() end
+      local ok, result = pcall(original)
+      api.cursor_link = cursor_link
+      if not ok then
+        error(result, 0)
+      end
+      return result
     end
 
     return original()

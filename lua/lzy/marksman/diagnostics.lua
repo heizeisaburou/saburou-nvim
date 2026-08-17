@@ -4,13 +4,17 @@
 -- coinciden, y el desajuste va en las dos direcciones:
 --
 --   * Él marca cosas que sí resolvemos (indexa por título y por nombre exacto,
---     nosotros perdonamos caja, escapes y guiones). Eso lo filtra
---     `lzy.marksman.publish_diagnostics`.
+--     nosotros perdonamos caja, escapes y guiones).
 --   * Y **no** marca cosas que no resolvemos: para él `[[una-nota]]` es válido
 --     si el H1 de alguna nota dice `# Una nota`, aunque no exista ningún
 --     fichero que se llame así. Para nosotros la identidad es el nombre del
 --     fichero, así que ese enlace no lleva a ninguna parte -- y sin este
 --     módulo no lo avisaba nadie: dejaba de seguirse, en silencio.
+--
+-- Por eso este módulo es la única voz sobre si un destino existe: el suyo lo
+-- calla entero `lzy.marksman.publish_diagnostics`, coincida o no con el
+-- nuestro. Lo que decimos aquí sale para todos los enlaces que él diagnostica
+-- (y para algunos más), así que callar el suyo no deja ningún hueco.
 --
 -- Namespace propio, para no pelearse con los suyos.
 
@@ -60,8 +64,8 @@ local function collect(bufnr)
             root = root,
           })
           -- La ambigüedad también es nuestra: la del servidor se filtra entera
-          -- (ver lzy.marksman.resolvable_elsewhere) porque él la mide contra los
-          -- títulos y nosotros contra los nombres. Una sola voz.
+          -- (ver lzy.marksman.superseded) porque él la mide contra los títulos y
+          -- nosotros contra los nombres. Una sola voz.
           local message
           if ok and #matches == 0 then
             message = ("No existe ninguna nota '%s'"):format(target)

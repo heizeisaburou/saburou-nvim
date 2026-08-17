@@ -122,13 +122,7 @@ local function portability_warnings(bufnr, root)
   --- Dentro de un span de código no hay enlaces, hay texto sobre enlaces: la
   --- documentación de esta config está llena de `[x](algo.md)` explicando la
   --- sintaxis, y avisar ahí es puro ruido.
-  ---@param line string
-  ---@param col integer 1-based
-  ---@return boolean
-  local function inside_code(line, col)
-    local prefix = line:sub(1, col - 1)
-    return #prefix:gsub("[^`]", "") % 2 == 1
-  end
+  local inside_code = require("lzy.link_target").inside_inline_code
 
   ---@param row integer 0-based
   ---@param start_col integer
@@ -171,7 +165,7 @@ local function portability_warnings(bufnr, root)
     local search = 1
     while true do
       local open_start, open_end = line:find("%]%(", search)
-      if not open_start then
+      if not open_start or not open_end then
         break
       end
       local close = line:find(")", open_end + 1, true)

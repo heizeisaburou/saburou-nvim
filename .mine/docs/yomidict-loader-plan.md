@@ -9,7 +9,7 @@ un diccionario completo en memoria.
 Este documento no autoriza a ejecutar ni copiar `.reference/go_loader`. Ese
 proyecto es únicamente una muestra externa no confiable. Las afirmaciones sobre
 el formato que usemos deben estar respaldadas por fixtures propios, los schemas
-oficiales o [yomidict-assertions.md](./yomidict-assertions.md), y después quedar
+oficiales o [yomidict-assertions.md](/.mine/docs/yomidict-assertions.md), y después quedar
 cubiertas por tests de este repositorio.
 
 La extracción segura sigue perteneciendo a `container`. Yomidict no debe volver

@@ -64,10 +64,14 @@ function M.setup()
   -- ejecutar el instalador, y el build hereda el entorno vivo del proceso, así
   -- que llega a tiempo. `prepare_build_env` es idempotente: la sonda de JDK se
   -- paga una vez por sesión y solo si se instala algo.
+  --
+  -- Aquí es el único sitio donde se sabe QUÉ se está instalando, y por eso es el
+  -- único que puede avisar de que falta el JDK: sin el paquete delante, avisar
+  -- sería adivinar.
   local ok_registry, registry = pcall(require, "mason-registry")
   if ok_registry then
-    registry:on("package:install:handle", function()
-      require("hzsr.mason").prepare_build_env()
+    registry:on("package:install:handle", function(handle)
+      require("hzsr.mason").prepare_build_env { package = handle and handle.package }
     end)
   end
 end

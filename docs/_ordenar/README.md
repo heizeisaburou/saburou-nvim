@@ -1,12 +1,12 @@
 # saburou-nvim
 
-![Vista previa](docs/preview.png)
+![Vista previa](/docs/attachments/preview.png)
 
 > [!NOTE]
 >
 > **Versión actual: `v0.1.0-alpha.9` — requiere Neovim 0.12+.**
 
-> 📖 Consulta la **[guía rápida](basic-guide.md)** para la instalación detallada, alias
+> 📖 Consulta la **[guía rápida](/docs/caos/basic-guide.md)** para la instalación detallada, alias
 > recomendados y particularidades por sistema (Linux, macOS, Windows).
 
 Configuración de Neovim lista para usar, escrita íntegramente en Lua y pensada para que
@@ -133,7 +133,7 @@ que ha demostrado ser útil.
   incompatibilidades en vez de restaurar datos antiguos a ciegas.
 
 Plugins, keymaps y detalles visuales deberán consumir estos sistemas; no definir su arquitectura.
-La hoja de ruta más detallada está en las [notas de saburou-nvim](saburou-nvim.md).
+La hoja de ruta más detallada está en las [notas de saburou-nvim](/docs/caos/saburou-nvim.md).
 
 ## Requisitos
 
@@ -233,7 +233,7 @@ estado con otra instalación de Neovim.
 #### Shell de la terminal integrada
 
 Las terminales horizontal, vertical y flotante eligen su shell de Windows mediante
-[`lua/user/terminal.lua`](lua/user/terminal.lua):
+[`lua/user/terminal.lua`](/lua/user/terminal.lua):
 
 ```lua
 return {
@@ -366,7 +366,7 @@ rm -rf ~/.config/nvim12
 
 ## Indentación por lenguaje
 
-La política de indentación se define en [`lua/user/indent.lua`](lua/user/indent.lua). La configuración base usa dos
+La política de indentación se define en [`lua/user/indent.lua`](/lua/user/indent.lua). La configuración base usa dos
 espacios y permite sobrescribir el estilo y el ancho de cualquier `filetype`:
 
 ```lua
@@ -433,12 +433,12 @@ declararlo en `.prettierignore`.
 
 ## Documentación
 
-- **[Guía rápida](basic-guide.md)** — instalación aislada, uso de `NVIM_APPNAME`, alias por
+- **[Guía rápida](/docs/caos/basic-guide.md)** — instalación aislada, uso de `NVIM_APPNAME`, alias por
   sistema, temas, integración con IA, renderizado de Markdown y manejo del clipboard y los
   registros de Vim.
-- **[Neovim](neovim.md)** — pre-requisitos, instalación por sistema y lanzadores seguros
+- **[Neovim](/docs/_ordenar/neovim.md)** — pre-requisitos, instalación por sistema y lanzadores seguros
   (`safe-nvim`, `strict-nvim`).
-- **[saburou-nvim](saburou-nvim.md)** — notas del proyecto, TODOs de configuración y hoja de
+- **[saburou-nvim](/docs/caos/saburou-nvim.md)** — notas del proyecto, TODOs de configuración y hoja de
   ruta.
 
 ## Agradecimientos
@@ -460,7 +460,7 @@ Cualquier aportación es completamente voluntaria y se agradece muchísimo.
 Este repositorio contiene código bajo varias licencias:
 
 - La mayor parte del código original se publica bajo los términos de la
-  [Apache License 2.0](LICENSE) ([texto oficial](https://www.apache.org/licenses/LICENSE-2.0)).
+  [Apache License 2.0](/LICENSE) ([texto oficial](https://www.apache.org/licenses/LICENSE-2.0)).
 - El directorio [`lua/hzsr/mason/nvchad/`](./lua/hzsr/mason/nvchad/) contiene código derivado de
   NvChad/ui y está licenciado bajo [GPL-3.0-only](./lua/hzsr/mason/nvchad/LICENSE). Consulta
   también [`lua/hzsr/mason/nvchad/NOTICE.md`](./lua/hzsr/mason/nvchad/NOTICE.md) para más

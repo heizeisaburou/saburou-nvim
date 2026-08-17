@@ -93,10 +93,17 @@ function M.resolve(note, anchor)
   end
 
   local util = require("obsidian.util")
+  local slug = require("lzy.link_target").slug
   local segments = M.split_anchor(anchor)
   local standardized = vim.tbl_map(function(segment)
     return util.standardize_anchor("#" .. segment)
   end, segments)
+  -- Un anchor se escribe con el slug compartido (ver `anchor_text`), y el
+  -- `standardize_anchor` de obsidian.nvim no lo reconoce siempre: no colapsa
+  -- guiones repetidos ni traduce el `_`, así que `Uno  dos` acaba en
+  -- `uno--dos` por un lado y en `uno-dos` por el otro. Se acepta cualquiera de
+  -- las dos formas: leer es donde hay que ser generoso.
+  local slugged = vim.tbl_map(slug, segments)
   local matches = {}
 
   for _, section in ipairs(note.sections or {}) do
@@ -107,7 +114,8 @@ function M.resolve(note, anchor)
       if #standardized > 0 and chain_start > 0 then
         matches_section = true
         for idx, expected in ipairs(standardized) do
-          if chain[chain_start + idx - 1].anchor ~= expected then
+          local candidate = chain[chain_start + idx - 1]
+          if candidate.anchor ~= expected and slug(candidate.header or "") ~= slugged[idx] then
             matches_section = false
             break
           end
@@ -379,20 +387,21 @@ end
 ---
 --- Lo único que sigue dependiendo de la sintaxis es qué puede representar cada
 --- una:
----   - wiki `[[Nota#Mi Heading]]`: admite espacios y mayúsculas tal cual.
----   - markdown `[x](nota.md#Mi%20Heading)`: NO. Un espacio corta el destino
----     y el parser se queda con medio enlace, así que se percent-encodea
----     siempre (antes solo se hacía si el anchor ya venía encodeado).
+---   - wiki `[[Nota#Mi Heading]]`: admite espacios y mayúsculas tal cual, que
+---     es lo que escribe la app de Obsidian.
+---   - markdown `[x](nota.md#mi-heading)`: NO. Un espacio corta el destino y
+---     el parser se queda con medio enlace. Se escribe el slug, igual que en
+---     marksman y que en GitHub: es la misma sintaxis, la de CommonMark, y no
+---     tiene por qué significar dos cosas según el motor que la lea.
 ---@param name string Texto del heading.
 ---@param kind string|? Sintaxis que aloja el anchor (`ref.kind`).
 ---@return string
 function M.anchor_text(name, kind)
   if kind == "markdown" or kind == "reference" then
-    -- Mismo codificador que los destinos (lzy.link_target.encode): escapa el
-    -- espacio y deja legible lo que no molesta. El `#` sí hay que escaparlo
-    -- aquí, y sólo aquí: dentro de un segmento de anchor sería una división de
-    -- nivel falsa, mientras que en un destino es el separador legítimo.
-    return (require("lzy.link_target").encode(name):gsub("#", "%%23"))
+    -- Slug compartido con marksman (lzy.link_target.slug). Pasa igualmente por
+    -- el codificador de destinos: el slug no deja nada que escapar, pero quien
+    -- escribe un destino no tiene que saberlo.
+    return require("lzy.link_target").encode(require("lzy.link_target").slug(name))
   end
   if name:find "[%[%]|#]" then
     -- `]]` cierra el enlace, `|` abre el alias y `#` baja un nivel: un heading

@@ -21,7 +21,8 @@ end
 
 ---@param kind string|nil `ref.kind`
 ---@param root string
-local function replacement_path(raw_path, new_path, kind, root)
+---@param angled boolean|nil `ref.angled`: el destino va entre `<` y `>`
+local function replacement_path(raw_path, new_path, kind, root, angled)
 	local decoded = vim.uri_decode(raw_path) or raw_path
 	local slash = math.max(decoded:match(".*()/") or 0, decoded:match(".*()\\") or 0)
 	local prefix = decoded:sub(1, slash)
@@ -40,6 +41,13 @@ local function replacement_path(raw_path, new_path, kind, root)
 	-- `[[mi-nota]]`, así que escribir `[[Mi nota]]` dejaba el buffer con las dos.
 	if kind == "wiki" then
 		return prefix .. require("lzy.marksman.workspace").wiki_name(new_path, root)
+	end
+
+	-- Y entre ángulos pasa lo mismo que dentro de `[[...]]`: el espacio no corta,
+	-- así que escaparlo sólo afea. Quien escribe `[t](</docs/Mi nota.md>)` lo hace
+	-- justo para no ver `%20`; devolvérselo al renombrar sería desandarlo.
+	if angled then
+		return prefix .. new_base
 	end
 
 	local result = encode_component(prefix .. new_base):gsub("%%2F", "/")
@@ -93,9 +101,10 @@ local function homonyms_of(new_path, old_path, root)
 end
 
 ---@param kind string|nil `ref.kind`
-local function safe_replacement_path(raw_path, old_path, new_path, root, kind)
+---@param angled boolean|nil `ref.angled`
+local function safe_replacement_path(raw_path, old_path, new_path, root, kind, angled)
 	if not bare_path_collides(raw_path, old_path, new_path, root) then
-		return replacement_path(raw_path, new_path, kind, root)
+		return replacement_path(raw_path, new_path, kind, root, angled)
 	end
 
 	local relative
@@ -124,6 +133,9 @@ local function safe_replacement_path(raw_path, old_path, new_path, root, kind)
 		relative = relative .. (vim.fs.basename(new_path):match("%.[^%.]+$") or "")
 	end
 
+	if angled then
+		return relative
+	end
 	local encoded = encode_component(relative):gsub("%%2F", "/")
 	return encoded:gsub("%%2f", "/")
 end
@@ -222,33 +234,17 @@ local function valid_note_name(new_name, old_path)
 	return new_name
 end
 
----@param old_path string
----@param new_name string
----@param root string
----@return lsp.WorkspaceEdit|nil
----@return string|nil
----@return integer|nil
-function M.note_edit(old_path, new_name, root)
-	old_path, root = vim.fs.normalize(old_path), vim.fs.normalize(root)
-	local relative = vim.fs.relpath(root, old_path)
-	if not relative or vim.startswith(relative, "..") then
-		return nil, "Marksman solo renombra notas dentro del workspace"
-	elseif not vim.uv.fs_stat(old_path) then
-		return nil, "La nota de origen ya no existe"
-	end
-	local validated, err = valid_note_name(new_name, old_path)
-	if not validated then
-		return nil, err
-	end
-	new_name = validated
-	local ext = old_path:match("(%.[^./\\]+)$") or ".md"
-	local new_path = vim.fs.normalize(vim.fs.joinpath(vim.fs.dirname(old_path), new_name .. ext))
-	if new_path == vim.fs.normalize(old_path) then
-		return nil, "La nota ya tiene ese nombre"
-	elseif vim.uv.fs_stat(new_path) then
-		return nil, "Ya existe " .. new_path
-	end
-
+---Lo que hay que reescribir en los enlaces cuando una nota cambia de sitio.
+---
+---No mira el disco más que para leer los ficheros que enlazan: el rename en sí
+---lo hace el llamante, antes (nvim-tree) o después (el WorkspaceEdit).
+---@param old_path string ya normalizado
+---@param new_path string ya normalizado
+---@param root string ya normalizado
+---@return table[] document_changes los `lsp.TextDocumentEdit`, sin el rename
+---@return integer count enlaces reescritos
+---@return integer ambiguous enlaces que apuntan a varias notas y no se tocan
+local function link_changes(old_path, new_path, root)
 	local workspace = require("lzy.marksman.workspace")
 	local changes, count, ambiguous = {}, 0, 0
 	for _, source_path in ipairs(workspace.files(root, { markdown = true })) do
@@ -264,7 +260,7 @@ function M.note_edit(old_path, new_name, root)
 						source_path,
 						ref.range.start_row,
 						ref.path_range,
-						safe_replacement_path(ref.path, old_path, new_path, root, ref.kind)
+						safe_replacement_path(ref.path, old_path, new_path, root, ref.kind, ref.angled)
 					)
 					count = count + 1
 				elseif #matches > 1 and contains_path(matches, old_path) then
@@ -287,6 +283,38 @@ function M.note_edit(old_path, new_name, root)
 			edits = edits,
 		}
 	end
+	return document_changes, count, ambiguous
+end
+
+---@param old_path string
+---@param new_name string
+---@param root string
+---@return lsp.WorkspaceEdit|nil
+---@return string|nil err
+---@return integer|nil count
+---@return integer|nil ambiguous
+function M.note_edit(old_path, new_name, root)
+	old_path, root = vim.fs.normalize(old_path), vim.fs.normalize(root)
+	local relative = vim.fs.relpath(root, old_path)
+	if not relative or vim.startswith(relative, "..") then
+		return nil, "Marksman solo renombra notas dentro del workspace"
+	elseif not vim.uv.fs_stat(old_path) then
+		return nil, "La nota de origen ya no existe"
+	end
+	local validated, err = valid_note_name(new_name, old_path)
+	if not validated then
+		return nil, err
+	end
+	new_name = validated
+	local ext = old_path:match("(%.[^./\\]+)$") or ".md"
+	local new_path = vim.fs.normalize(vim.fs.joinpath(vim.fs.dirname(old_path), new_name .. ext))
+	if new_path == vim.fs.normalize(old_path) then
+		return nil, "La nota ya tiene ese nombre"
+	elseif vim.uv.fs_stat(new_path) then
+		return nil, "Ya existe " .. new_path
+	end
+
+	local document_changes, count, ambiguous = link_changes(old_path, new_path, root)
 	document_changes[#document_changes + 1] = {
 		kind = "rename",
 		oldUri = vim.uri_from_fname(old_path),
@@ -419,6 +447,74 @@ local function apply(edit, encoding)
 	end
 	vim.lsp.util.apply_workspace_edit(edit, encoding or "utf-8")
 	vim.cmd("silent! wall")
+end
+
+---Un rename hecho fuera del editor —nvim-tree, sobre todo— también mueve la
+---nota, y los enlaces que la apuntan hay que reescribirlos igual que si se
+---hubiera renombrado con `<C-A-r>`.
+---
+---Nadie lo hacía: el servidor marksman **no implementa**
+---`workspace/willRenameFiles` (responde `Method not found`; sólo anuncia
+---didCreate/didDelete), así que el aviso que manda `Snacks.rename` se pierde.
+---Los `[[wiki]]` sobrevivían igual porque se resuelven por nombre y sin
+---distinguir caja, y por eso el agujero se veía solo en los enlaces Markdown:
+---su destino es una ruta literal, y renombrar `neovim.md` a `Neovim.md` los
+---dejaba apuntando a un fichero que en Linux ya no existe.
+---
+---Se planifica **antes** del rename, que es cuando el resolutor todavía puede
+---decir qué enlaces apuntaban a la nota, y se aplica después con el callback
+---devuelto.
+---@param old_path string
+---@param new_path string
+---@return fun()|nil apply nil si no hay nada que reescribir
+function M.plan_file_rename(old_path, new_path)
+	local workspace = require("lzy.marksman.workspace")
+	if type(old_path) ~= "string" or type(new_path) ~= "string" then
+		return nil
+	end
+	old_path, new_path = vim.fs.normalize(old_path), vim.fs.normalize(new_path)
+	if old_path == new_path or not workspace.is_markdown(old_path) then
+		return nil
+	end
+	-- Dentro de un vault manda obsidian-ls, con su propio motor de enlaces.
+	if vim.fs.root(old_path, { ".obsidian", ".nyabsidian" }) then
+		return nil
+	end
+	local root = vim.fs.root(old_path, { ".marksman.toml", ".git" })
+	if not root then
+		return nil
+	end
+	root = vim.fs.normalize(root)
+	local relative = vim.fs.relpath(root, new_path)
+	if not relative or vim.startswith(relative, "..") then
+		return nil -- se va del proyecto: ya no hay destino que reescribir
+	end
+
+	local document_changes, count, ambiguous = link_changes(old_path, new_path, root)
+	if count == 0 then
+		return nil
+	end
+
+	local old_uri, new_uri = vim.uri_from_fname(old_path), vim.uri_from_fname(new_path)
+	return function()
+		-- La nota ya no está donde estaba: la lista de ficheros del proyecto
+		-- está caducada, y los edits de la propia nota viajan con ella.
+		workspace.invalidate_files(root)
+		for _, change in ipairs(document_changes) do
+			if change.textDocument and change.textDocument.uri == old_uri then
+				change.textDocument.uri = new_uri
+			end
+		end
+		apply({ documentChanges = document_changes })
+		local message = ("%d enlace(s) actualizado(s) tras renombrar %s"):format(
+			count,
+			vim.fs.basename(new_path)
+		)
+		if ambiguous > 0 then
+			message = message .. ("; %d ambiguo(s) sin tocar"):format(ambiguous)
+		end
+		notify(message)
+	end
 end
 
 local function input(prompt, default, callback)

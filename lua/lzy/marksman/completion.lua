@@ -75,14 +75,21 @@ local function context(bufnr)
 
 	local inline_open = prefix:match(".*()%]%(")
 	if inline_open then
-		local query = prefix:sub(inline_open + 2)
-		if not query:find("[%)#%s]") then
+		-- El destino puede ir entre ángulos: `[texto](</docs/Mi nota.md>)`. El `<`
+		-- es delimitador, no parte de lo tecleado, así que ni se busca por él ni
+		-- entra en lo que se reescribe. Y ahí dentro el espacio no corta, que es
+		-- para lo que están los ángulos: por eso deja de ser un final de consulta.
+		local angled = prefix:sub(inline_open + 2, inline_open + 2) == "<"
+		local start_col = inline_open + 1 + (angled and 1 or 0)
+		local query = prefix:sub(start_col + 1)
+		if not query:find(angled and "[<>#]" or "[%)#%s]") then
 			return {
 				row = row,
 				col = col,
 				line = line,
 				kind = "inline",
-				range = { start_col = inline_open + 1, end_col = col },
+				angled = angled,
+				range = { start_col = start_col, end_col = col },
 				query = query,
 			}
 		end
@@ -139,7 +146,9 @@ function M.source()
 		--- equivocada. Mismo criterio que lzy.obsidian.completion.
 		local function write_target(target, path)
 			if ctx.kind ~= "wiki" then
-				return coord.encode(target)
+				-- Entre ángulos, la ruta legible: escaparla ahí sería devolver el
+				-- `%20` que el autor está evitando al escribir `<`.
+				return ctx.angled and target or coord.encode(target)
 			end
 			local bare = target:gsub("^/", ""):gsub("%.md$", "")
 			if not path then

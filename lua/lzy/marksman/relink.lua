@@ -81,6 +81,12 @@ function M.plan(opts)
         if #matches == 1 then
           local canonical =
             workspace.canonical_target(matches[1], root, ref.kind, source_path)
+          -- Entre ángulos el espacio va literal (ver lzy.marksman.rename): si no,
+          -- canonizar metía `%20` dentro de unos `<...>` que existen justo para
+          -- no tenerlo.
+          if canonical and ref.angled then
+            canonical = vim.uri_decode(canonical) or canonical
+          end
           if canonical and canonical ~= written then
             edits[#edits + 1] = {
               range = {

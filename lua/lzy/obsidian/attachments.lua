@@ -797,6 +797,21 @@ function M.parse_refs(line, row)
     end
   end
 
+  -- Los tramos de código en línea no contienen enlaces: contienen texto sobre
+  -- enlaces. obsidian.nvim se salta el `[[wiki]]` entre backticks pero no el
+  -- `[texto](destino)`, y de ahí salían dos síntomas en las tablas de esta
+  -- misma documentación: la acción inteligente seguía el ejemplo y el
+  -- diagnóstico marcaba «no existe» sobre él.
+  local code_spans = require("lzy.link_target").code_spans(line)
+  local function inside_inline_code(start_col)
+    for _, span in ipairs(code_spans) do
+      if span.start_col <= start_col and start_col <= span.end_col then
+        return true
+      end
+    end
+    return false
+  end
+
   for _, parsed in ipairs(require("obsidian.parse.refs").extract(line, { row = row })) do
     local raw = parsed.raw
     local target, target_start
@@ -831,7 +846,7 @@ function M.parse_refs(line, row)
       end
     end
 
-    if target and target_start then
+    if target and target_start and not inside_inline_code(parsed.range.start_col + 1) then
       refs[#refs + 1] = vim.tbl_extend("force", parsed, {
         target = target,
         target_range = {

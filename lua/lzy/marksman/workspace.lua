@@ -241,18 +241,9 @@ end
 ---@param fragment string
 ---@return string
 function M.slug(fragment)
-	fragment = vim.fn.tolower(vim.trim(fragment))
-	local result = {}
-	for _, char in ipairs(vim.fn.split(fragment, "\\zs")) do
-		if char == " " or char == "_" or vim.fn.matchstr(char, [[\s]]) == char then
-			result[#result + 1] = "-"
-		elseif char == "-" or vim.fn.matchstr(char, [[\k]]) == char then
-			result[#result + 1] = char
-		end
-	end
-	local slug = table.concat(result):gsub("%-+", "-"):gsub("^%-", "")
-	slug = slug:gsub("%-$", "")
-	return slug
+	-- Implementación compartida: los dos motores escriben el mismo ancla para
+	-- el mismo heading. Ver lzy.link_target.slug.
+	return require("lzy.link_target").slug(fragment)
 end
 
 local style_cache = {}

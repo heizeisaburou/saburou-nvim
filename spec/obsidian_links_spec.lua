@@ -1043,14 +1043,19 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal("my-father-a", headings.anchor_segment "My Father A")
   end)
 
-  it("writes anchors with the heading's own text, encoding only where Markdown needs it", function()
+  it("writes anchors verbatim in a wikilink and as the shared slug in Markdown", function()
     local headings = require "lzy.obsidian.headings"
     -- Un `[[wiki]]` admite espacios y mayúsculas: es lo que escribe la app de
     -- Obsidian y lo que ya usa el vault.
     assert.are.equal("My Father A", headings.anchor_text("My Father A", "wiki"))
-    -- El destino de un enlace Markdown no: un espacio corta el destino y
-    -- dejaría medio enlace parseado.
-    assert.are.equal("My%20Father%20A", headings.anchor_text("My Father A", "markdown"))
+    -- El destino de un enlace Markdown no: un espacio corta el destino. Y la
+    -- forma que se escribe es la misma que en marksman y que en GitHub, que es
+    -- de quien es la sintaxis.
+    assert.are.equal("my-father-a", headings.anchor_text("My Father A", "markdown"))
+    assert.are.equal(
+      require("lzy.marksman.workspace").slug "Permisos de ejecución",
+      headings.anchor_text("Permisos de ejecución", "markdown")
+    )
     -- `]]`, `|` y `#` no son representables dentro de `[[...]]`; solo ahí se
     -- cae al anchor canónico, que sí lo es.
     assert.are.equal("array-int", headings.anchor_text("Array [int]", "wiki"))
@@ -1072,6 +1077,26 @@ describe("Nyabsidian structured links and attachments", function()
     for _, written in ipairs { "Installation on Linux", "installation-on-linux" } do
       assert.are.equal(1, #headings.resolve(note, written), written .. " dejó de resolver")
     end
+  end)
+
+  it("resolves the shared slug even where obsidian.nvim standardizes differently", function()
+    -- `standardize_anchor` no colapsa guiones repetidos ni traduce el `_`, así
+    -- que para `Guía_rápida  y más` dice `guía_rápida--y-más` mientras que el
+    -- slug compartido —el que se escribe— dice `guía-rápida-y-más`. Leer
+    -- acepta las dos: si no, escribir con el slug habría roto la resolución.
+    write("Sluggy.md", { "# Guía_rápida  y más", "", "cuerpo" })
+    vim.cmd.edit(root .. "/Sluggy.md")
+    local headings = require "lzy.obsidian.headings"
+    local note = require("obsidian.api").current_note(0, {
+      collect_sections = true,
+      collect_anchor_links = true,
+      max_lines = math.huge,
+    })
+    local written = headings.anchor_text("Guía_rápida  y más", "markdown")
+    assert.are.equal("guía-rápida-y-más", written)
+    assert.are.equal(1, #headings.resolve(note, written), written .. " no resuelve")
+    -- Y la forma antigua, la que ya está escrita en el vault, sigue valiendo.
+    assert.are.equal(1, #headings.resolve(note, "Guía_rápida  y más"))
   end)
 
   it("names a new note after its title instead of a slug of it", function()
@@ -1168,7 +1193,7 @@ describe("Nyabsidian structured links and attachments", function()
       "[[nota#subheader]]",
       "[[nota#Renamed#subheader#child]]",
       "[[nota#child]]",
-      "[label](nota.md#Renamed#subheader)",
+      "[label](nota.md#renamed#subheader)",
       "[[nota#missing]]",
     }, vim.fn.readfile(root .. "/source.md"))
   end)
@@ -1182,12 +1207,13 @@ describe("Nyabsidian structured links and attachments", function()
     )
     assert.are.same({
       -- Wiki admite el texto tal cual; el destino de un enlace Markdown no
-      -- (un espacio lo cortaría), así que ahí y solo ahí se percent-encodea.
+      -- (un espacio lo cortaría), así que ahí va el slug, el mismo que escribe
+      -- marksman y el único que resuelve GitHub.
       "[[nota#header#My Father A]]",
       "[[nota#My Father A]]",
       "[[nota#header#My Father A#child]]",
       "[[nota#child]]",
-      "[label](nota.md#header#My%20Father%20A)",
+      "[label](nota.md#header#my-father-a)",
       "[[nota#missing]]",
     }, vim.fn.readfile(root .. "/source.md"))
   end)
@@ -1656,6 +1682,59 @@ describe("Nyabsidian structured links and attachments", function()
     for path in pairs(plan.changes) do
       assert.are_not.equal(source, path, "no se reescribe dentro de un bloque de código")
     end
+  end)
+
+  it("ignores a markdown link written between backticks, like the wiki one", function()
+    -- Lo que un fence hace con la fila entera, unos backticks lo hacen con un
+    -- tramo: `[texto](destino)` es sintaxis explicada, no un enlace. El
+    -- `[[wiki]]` entre backticks ya se saltaba y el markdown no, y la
+    -- asimetría se veía en las tablas de esta documentación.
+    local parse_refs = require("lzy.obsidian.attachments").parse_refs
+
+    assert.are.equal(0, #parse_refs("| `[texto](/docs/Mi%20nota.md)` |", 0))
+    assert.are.equal(0, #parse_refs("``[texto](/docs/nota.md)`` con dobles", 0))
+    -- Dos tramos distintos: el `[texto](` de uno no abre un enlace que cierre
+    -- con el `)` del otro. Es la fila de tabla que explica las dos sintaxis.
+    assert.are.equal(0, #parse_refs("| `[texto](`  | `[texto](/docs/Mi%20nota.md)` |", 0))
+
+    -- Y un enlace de verdad en la misma fila sigue siendo un enlace.
+    local refs = parse_refs("[real](/docs/nota.md) junto a `[ejemplo](/docs/x.md)`", 0)
+    assert.are.equal(1, #refs)
+    assert.are.equal("/docs/nota.md", refs[1].target)
+  end)
+
+  it("keeps the smart action and the diagnostic off an inline-code example", function()
+    write("docs/Mi nota.md", { "# Mi nota" })
+    write("tabla.md", {
+      "| sintaxis | ejemplo |",
+      "| --- | --- |",
+      "| `[texto](`  | `[texto](/docs/Fantasma.md)` |",
+      "",
+      "De verdad: [texto](/docs/Mi%20nota.md)",
+      "- [ ] repasar `[texto](/docs/Fantasma.md)`",
+    })
+    vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/tabla.md"))
+    require("lzy.obsidian.notes").invalidate_index()
+
+    -- El ejemplo apunta a una nota que no existe, y aun así no se diagnostica.
+    local refs = require("lzy.obsidian.diagnostics").note_refs(0)
+    assert.are.equal(1, #refs, "sólo el enlace de fuera de los backticks")
+    assert.are.equal(4, refs[1].range.start_row)
+
+    -- Y `<CR>` sobre él no sigue nada.
+    local actions = require "obsidian.actions"
+    vim.api.nvim_win_set_cursor(0, { 3, 20 })
+    assert.are_not.equal("<cmd>Obsidian follow_link<cr>", actions.smart_action())
+    assert.is_nil(require("lzy.obsidian.attachments").cursor_ref(0))
+
+    -- Se le tapa la rama del enlace, no la fila entera: la casilla de una
+    -- tarea que además lleva código en línea se sigue marcando.
+    vim.api.nvim_win_set_cursor(0, { 6, 20 })
+    assert.are.equal("<cmd>Obsidian toggle_checkbox<cr>", actions.smart_action())
+
+    -- Fuera de los backticks, el enlace se sigue como siempre.
+    vim.api.nvim_win_set_cursor(0, { 5, 15 })
+    assert.are.equal("<cmd>Obsidian follow_link<cr>", actions.smart_action())
   end)
 
   it("reads escaped, slugged and differently-cased targets, accents included", function()
@@ -2218,6 +2297,41 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal(1, #require("lzy.obsidian.attachments").parse_refs("![Logo](./img/logo.png)", 0))
     -- Y un enlace normal con texto tampoco se duplica.
     assert.are.equal(1, #require("lzy.obsidian.attachments").parse_refs("[Texto](/docs/nota.md)", 0))
+  end)
+
+  it("reads a destination wrapped in angles, alone and inside a linked image", function()
+    -- CommonMark deja envolver el destino entre `<` y `>` para que admita
+    -- espacios sin escapar: la forma legible de lo que si no lleva `%20`. Este
+    -- lado ya la entendía; el test la fija porque es fácil de romper al tocar el
+    -- parseo, y porque una nota puede acabar aquí viniendo de Markdown suelto.
+    local parse_refs = require("lzy.obsidian.attachments").parse_refs
+
+    local plain = "[Texto](</docs/Mi nota.md>)"
+    local refs = parse_refs(plain, 0)
+    assert.are.equal(1, #refs)
+    assert.are.equal("/docs/Mi nota.md", refs[1].target)
+    -- El rango deja los ángulos fuera: son delimitadores, no destino.
+    assert.are.equal(
+      "/docs/Mi nota.md",
+      plain:sub(refs[1].target_range.start_col + 1, refs[1].target_range.end_col)
+    )
+
+    -- Y se combina con el patrón de los badges, que son dos destinos.
+    local badge = "[![Mi logo](<./img/mi logo.png>)](</docs/Mi nota.md>)"
+    local both = parse_refs(badge, 0)
+    assert.are.equal(2, #both)
+    assert.are.equal("./img/mi logo.png", both[1].target)
+    assert.is_true(both[1].embed)
+    assert.are.equal("/docs/Mi nota.md", both[2].target)
+    assert.is_false(both[2].embed)
+    assert.are.equal(
+      "./img/mi logo.png",
+      badge:sub(both[1].target_range.start_col + 1, both[1].target_range.end_col)
+    )
+    assert.are.equal(
+      "/docs/Mi nota.md",
+      badge:sub(both[2].target_range.start_col + 1, both[2].target_range.end_col)
+    )
   end)
 
   it("never turns a half-typed path into a wiki-link alias", function()

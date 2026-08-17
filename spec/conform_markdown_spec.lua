@@ -215,6 +215,27 @@ describe("Conform Markdown pipeline", function()
     assert.is_true(6 + hzsr.md.visible_width(wrapped[1]:sub(7)) <= 97)
   end)
 
+  it("discounts an emphasis that spans several words, not only one", function()
+    -- Los marcadores se repartían entre la primera palabra y la última, y
+    -- midiendo palabra a palabra ninguna de las dos veía a su pareja: cuatro
+    -- columnas de más bastaban para partir una línea que cabía.
+    local input = {
+      "- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que",
+      "  `nvim-treesitter` compile los parsers.",
+    }
+    local expected = {
+      "- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que "
+        .. "`nvim-treesitter` compile los parsers.",
+    }
+    assert.are.same(expected, run("markdown_wrap", input))
+    assert.are.equal(95, hzsr.md.visible_width(expected[1]))
+
+    -- Y sólo el énfasis de verdad: un `_` dentro de una palabra, un `*` de
+    -- multiplicación o un marcador sin pareja siguen ocupando su columna.
+    local literal = "un foo_bar con 10 * 5 y un _suelto"
+    assert.are.equal(#literal, hzsr.md.visible_width(literal))
+  end)
+
   it("leaves lists with non-prose content and thematic breaks untouched", function()
     local input = {
       "- ítem con tabla",

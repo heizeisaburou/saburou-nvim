@@ -331,10 +331,9 @@ M.config = {
 
   marksman = {
     cmd = { "marksman", "server" },
-    -- Su resolutor es más estricto que el nuestro (indexa por título y por
-    -- nombre exacto), así que marca en rojo enlaces que aquí se siguen sin
-    -- problema. El handler filtra ESOS y sólo esos: ver
-    -- lzy.marksman.publish_diagnostics.
+    -- Su resolutor no es el nuestro (indexa por título y por nombre exacto), así
+    -- que sus veredictos sobre si un destino existe se callan enteros y los damos
+    -- nosotros: ver lzy.marksman.publish_diagnostics.
     handlers = {
       ["textDocument/publishDiagnostics"] = function(...)
         return require("lzy.marksman").publish_diagnostics(...)

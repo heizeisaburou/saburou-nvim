@@ -200,6 +200,11 @@ function M.repoint(bufnr, ref, path, root)
 		ref.kind,
 		vim.api.nvim_buf_get_name(bufnr)
 	)
+	-- Entre ángulos el espacio no corta, así que va literal (misma regla que en
+	-- lzy.marksman.rename): quien escribe `<...>` lo hace para no ver `%20`.
+	if target and ref.angled then
+		target = vim.uri_decode(target) or target
+	end
 	if not target or target == ref.path then
 		return
 	end
@@ -213,70 +218,45 @@ function M.repoint(bufnr, ref, path, root)
 	)
 end
 
----¿Este «Link to non-existent document» del servidor apunta a algo que nosotros
----sí encontramos?
+---¿Este diagnóstico del servidor habla de algo que ya juzgamos nosotros?
 ---
----Marksman indexa por TÍTULO (su H1) y por nombre de fichero exacto; nosotros
----por nombre, sin distinguir caja, deshaciendo escapes y aceptando el slug. La
----nuestra es un superconjunto, así que hay enlaces perfectamente seguibles que
----él marca en rojo: `[[una-nota-nueva]]` cuando `Una nota nueva.md` lleva un H1
----distinto, o `[[una nota nueva]]`, que sólo falla por la caja.
+---Existir y ser ambiguo son las dos preguntas que los dos motores contestan, y
+---las contestan distinto: marksman indexa por TÍTULO (su H1) y por nombre de
+---fichero exacto; nosotros por nombre, sin distinguir caja, deshaciendo escapes
+---y aceptando el slug. Ni su «no existe» es el nuestro (él marca en rojo
+---`[[una-nota-nueva]]` cuando `Una nota nueva.md` lleva otro H1) ni su
+---ambigüedad es la nuestra (dos notas encabezadas `# Una nota` le parecen el
+---mismo destino aunque se llamen distinto).
 ---
----Filtrar sólo cuando NOSOTROS resolvemos es lo que hace esto seguro: un enlace
----roto de verdad falla en los dos y el aviso sigue saliendo.
+---Así que su veredicto se filtra **entero**, no sólo cuando discrepamos. Antes
+---se filtraba sólo el «no existe» que nosotros sí resolvíamos, y en los enlaces
+---rotos de verdad coincidían los dos: dos avisos seguidos, con dos redacciones,
+---sobre el mismo `[Git](/docs/Gi.md)`. Nuestro criterio es el que manda aquí
+---(ver lzy.marksman.diagnostics, que emite los suyos para exactamente los
+---mismos enlaces), así que sobra la segunda voz.
+---
+---Lo demás pasa tal cual, empezando por «non-existent heading»: de los anchors
+---no decimos nada, y ahí el suyo es el único aviso que hay.
 ---@param diagnostic lsp.Diagnostic
----@param bufnr integer
 ---@return boolean
-local function resolvable_elsewhere(diagnostic, bufnr)
-	local message = diagnostic.message or ""
-	local lowered = message:lower()
-	local missing = lowered:find("non%-existent document") ~= nil
-	local ambiguous = lowered:find("ambiguous link to document") ~= nil
-	if not missing and not ambiguous then
-		return false
-	end
-	local target = message:match("'([^']+)'")
-	if not target or target == "" then
-		return false
-	end
-
-	-- La ambigüedad la juzgamos nosotros, siempre. Él la mide contra los
-	-- títulos: dos notas encabezadas `# Una nota` le parecen el mismo destino
-	-- aunque se llamen distinto, y entonces marca `[[una-nota]]` como ambiguo
-	-- cuando para nosotros señala un único fichero. Silenciar el suyo y emitir
-	-- el nuestro (ver lzy.marksman.diagnostics) deja una sola voz en vez de dos
-	-- criterios peleándose sobre la misma línea.
-	if ambiguous then
-		return true
-	end
-
-	local ok, resolved = pcall(function()
-		local workspace = require("lzy.marksman.workspace")
-		local root = workspace.root(bufnr)
-		local source_path = vim.api.nvim_buf_get_name(bufnr)
-		if not root or source_path == "" then
-			return nil
-		end
-		return workspace.resolve(target, { source_path = source_path, root = root })
-	end)
-	return ok and resolved ~= nil and #resolved > 0
+local function superseded(diagnostic)
+	local lowered = (diagnostic.message or ""):lower()
+	return lowered:find("non%-existent document") ~= nil
+		or lowered:find("ambiguous link to document") ~= nil
 end
 
----Handler de diagnósticos de marksman: deja pasar todo menos los «no existe»
----de enlaces que sí resuelven por aquí.
+---Handler de diagnósticos de marksman: deja pasar todo menos los veredictos
+---sobre destinos, que damos nosotros.
 function M.publish_diagnostics(err, result, ctx, config)
-	if result and type(result.diagnostics) == "table" and result.uri then
-		local ok, bufnr = pcall(vim.uri_to_bufnr, result.uri)
-		if ok and vim.api.nvim_buf_is_loaded(bufnr) then
-			result.diagnostics = vim.tbl_filter(function(diagnostic)
-				return not resolvable_elsewhere(diagnostic, bufnr)
-			end, result.diagnostics)
-		end
+	if result and type(result.diagnostics) == "table" then
+		result.diagnostics = vim.tbl_filter(function(diagnostic)
+			return not superseded(diagnostic)
+		end, result.diagnostics)
 	end
 	return vim.lsp.handlers["textDocument/publishDiagnostics"](err, result, ctx, config)
 end
 
-M.resolvable_elsewhere = resolvable_elsewhere
+M.superseded = superseded
 
 local CHECKBOX_STATES = { " ", "x", "~", "!", ">" }
 

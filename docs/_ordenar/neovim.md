@@ -11,7 +11,7 @@
 
 ## Navegación
 
-- [saburou-nvim](saburou-nvim.md)
+- [saburou-nvim](/docs/caos/saburou-nvim.md)
 
 ## Pre-requisitos
 

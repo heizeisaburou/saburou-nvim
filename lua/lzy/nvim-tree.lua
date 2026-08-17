@@ -404,27 +404,45 @@ M.opts = {
 }
 
 M.setup = function()
-  if Snacks then
-    local prev = { new_name = "", old_name = "" } -- Prevents duplicate events
+  local prev = { new_name = "", old_name = "" } -- Prevents duplicate events
+  -- Los enlaces Markdown que apuntan a la nota que se está renombrando. Se
+  -- calculan antes del rename (que es cuando todavía se puede saber cuáles
+  -- son) y se reescriben después. Lo hacemos nosotros porque marksman no
+  -- implementa `workspace/willRenameFiles`; ver lzy.marksman.rename.
+  local pending_links = nil
 
-    vim.api.nvim_create_autocmd("User", {
-      pattern = "NvimTreeSetup",
-      callback = function()
-        local events = require("nvim-tree.api").events
+  vim.api.nvim_create_autocmd("User", {
+    pattern = "NvimTreeSetup",
+    callback = function()
+      local events = require("nvim-tree.api").events
 
-        events.subscribe(events.Event.NodeRenamed, function(data)
-          if prev.new_name ~= data.new_name or prev.old_name ~= data.old_name then
-            prev = {
-              new_name = data.new_name,
-              old_name = data.old_name,
-            }
+      events.subscribe(events.Event.WillRenameNode, function(data)
+        local ok, plan = pcall(function()
+          return require("lzy.marksman.rename").plan_file_rename(data.old_name, data.new_name)
+        end)
+        pending_links = ok and plan or nil
+      end)
 
+      events.subscribe(events.Event.NodeRenamed, function(data)
+        if prev.new_name ~= data.new_name or prev.old_name ~= data.old_name then
+          prev = {
+            new_name = data.new_name,
+            old_name = data.old_name,
+          }
+
+          if Snacks then
             Snacks.rename.on_rename_file(data.old_name, data.new_name)
           end
-        end)
-      end,
-    })
-  end
+        end
+
+        local apply_links = pending_links
+        pending_links = nil
+        if apply_links then
+          pcall(apply_links)
+        end
+      end)
+    end,
+  })
 
   ---@diagnostic disable-next-line
   require("nvim-tree").setup(M.opts)
