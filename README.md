@@ -36,22 +36,28 @@ configuración.
 
 #### Circunstanciales
 
-> [!NOTE] Dependencias opcionales molestas
->
-> - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración entonces
->   instalalos o comenta los plugins. Una vez terminada la alpha, tras la limpieza, esto dejara
->   de ser así. Y hay más casos así:
->     - No instalar Python provoca que la instalación de muchos paquetes de Mason fallen.
-
 - **[AI CLI Tools](/docs/AI%20CLI%20Tools.md)** — OpenCode, Claude y Codex; necesarios para utilizar las funcionalidades de IA
   proporcionadas por la configuración.
 - **[ripgrep](/docs/ripgrep.md)** — necesario para las búsquedas de texto utilizadas por distintas funcionalidades de
   la configuración.
 - **[Python](/docs/Python.md)** Utilizado por muchos paquetes en que se instalan por medio de `Mason`.
 
+> [!WARNING] Dependencias opcionales molestas
+>
+> - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración entonces
+>   instalalos o comenta los plugins. Una vez terminada la alpha, tras la limpieza, esto dejara
+>   de ser así. Y hay más casos así:
+>     - No instalar Python provoca que la instalación de muchos paquetes de Mason fallen.
+
 ### Clonar configuración
 
 #### Windows
+
+> [!WARNING]
+>
+> La configuración tarda bastante más tiempo en cargar en Windows que en Linux. Esto en principio
+> no es cosa mia, y aunque quiero optimizarlo no llegará hasta el refactor (si es que puedo
+> hacerlo). Por ejemplo en mi máquina VMWare tarda _6 segundos_ en abrir T_T.
 
 **Clonar como configuración principal**
 
@@ -137,7 +143,58 @@ motivos:
 También tomamos algunas decisiones como sincronizar el clipboard del usuario si es que se puede,
 algo que un usuario experimentado de Neovim probablemente no quiera.
 
+Todo eso se ajusta a mano, y siempre igual: cada archivo tiene **una lista, con lo activo arriba y
+el resto comentado justo debajo**. Descomentar una línea es activarla. No hay ningún archivo de
+opciones aparte ni nada que generar.
 
+#### Añadir soporte para un lenguaje
+
+Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lenguaje no es una sola
+cosa**. Son hasta cuatro herramientas independientes, cada una en su archivo, y ninguna necesita a
+las otras. Descomenta el lenguaje en las que te interesen:
+
+| Archivo                  | Lista              | Qué te da                                                 |
+| ------------------------ | ------------------ | --------------------------------------------------------- |
+| `lua/lzy/lspconfig.lua`  | `M.servers`        | Diagnósticos, ir a definición, autocompletado y renombrar |
+| `lua/lzy/treesitter.lua` | `M.languages`      | Resaltado, plegado y movimientos por sintaxis             |
+| `lua/lzy/conform.lua`    | `formatters_by_ft` | Formateo al guardar                                       |
+| `lua/lzy/lint.lua`       | `M.linters_by_ft`  | Diagnósticos donde no llega el LSP                        |
+
+Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_ soportado. El
+formateador y el linter son opcionales, y en muchos lenguajes el propio LSP ya formatea.
+
+Después de descomentar, dos comandos:
+
+- `:MasonInstallAll` — instala los servidores, formateadores y linters que hayas dejado activos.
+- `:TSInstallAll` — compila los parsers de Tree-sitter.
+
+La tabla de [Lenguajes soportados](#lenguajes-soportados) te dice qué nombre lleva cada lenguaje en cada columna, que no
+siempre es el que esperarías.
+
+> [!WARNING]
+>
+> Cada herramienta arrastra lo suyo, y ahí es donde la cosa se complica de verdad. Descomentar
+> `sql` te pide [Python](/docs/Python.md); un servidor de Groovy o de Kotlin, un JDK; varios
+> formateadores, [Node.js](/docs/Node.js.md). Por eso vienen desactivados: no para esconderlos,
+> sino para que la instalación por defecto no te obligue a instalar medio ecosistema. Los
+> comentarios de cada lista avisan de los casos raros.
+
+#### Tus mapeos y tus manías
+
+`lua/user/cfg.lua` es tu archivo. Mapeos, comandos y las decisiones que no son técnicas sino de
+gusto. Es el único sitio que puedes tocar sin chocar con el resto de la configuración.
+
+Lo primero que hay ahí es lo primero que probablemente quieras cambiar:
+
+```lua
+local sync_clipboard = true
+```
+
+Sincroniza el clipboard del sistema con los registros de Neovim, para que copiar y pegar funcione
+como en cualquier otro programa. Está en `true` porque en tus primeros meses con Neovim es una
+pelea que no hace falta pelear. Cuando deje de serlo, ponlo en `false`: recuperas el control de los
+registros, y te quedan `<leader>cs` y `<leader>cn` para mover el contenido en una dirección o en la
+otra cuando lo necesites.
 
 ## Lenguajes soportados
 
