@@ -30,9 +30,11 @@ diversos.
   JavaScript/TypeScript usadas por la configuración, incluidos servidores LSP, herramientas
   instaladas mediante Mason y `copilot.lua`.
 
-**[curl](/docs/Curl.md) y un [compilador de C](/docs/Compilador%20de%20C.md) (`gcc` o `clang`)** disponibles en el `PATH` — necesarios para que
-`lazy.nvim`, `mason.nvim` y `nvim-treesitter` puedan descargar compilar dependencias opcionales de la
-configuración.
+- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `lazy.nvim`, `mason.nvim` y
+  `nvim-treesitter` puedan descargar dependencias opcionales de la configuración.
+- **[Compilador de C](/docs/Compilador%20de%20C.md)** (`gcc` o `clang`) disponible en el `PATH` — necesario para que
+  `mason.nvim` y `nvim-treesitter` puedan compilar dependencias opcionales de la configuración (incluidos
+  los parsers de Tree-sitter).
 
 #### Circunstanciales
 
@@ -42,7 +44,7 @@ configuración.
   la configuración.
 - **[Python](/docs/Python.md)** Utilizado por muchos paquetes en que se instalan por medio de `Mason`.
 
-> [!WARNING] Dependencias opcionales molestas
+> [!WARNING] Dependencias circunstanciales molestas
 >
 > - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración entonces
 >   instalalos o comenta los plugins. Una vez terminada la alpha, tras la limpieza, esto dejara

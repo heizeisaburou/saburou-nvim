@@ -3,6 +3,13 @@
 Volver a [README](/README.md)  
 <https://curl.se/docs/manpage.html>
 
+## Brief
+
+`curl` es una herramienta de línea de comandos para transferir datos con URLs; aquí se usa sobre
+todo para descargas por HTTP(S).
+
+Esta nota solo cubre cómo instalarlo, en Windows y Linux.
+
 ## Installation
 
 ### Windows

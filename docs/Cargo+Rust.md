@@ -4,8 +4,13 @@ Volver a [README](/README.md) https://doc.rust-lang.org/cargo/getting-started/in
 
 ## Brief
 
-Necesario para compilar y/o ―binstall― instalar `tree-sitter-cli`. También necesario para programar
-en _Rust_.
+Cargo es el gestor de paquetes y de compilación de Rust; instalarlo instala también el propio
+toolchain de Rust. Aquí hace falta para compilar (o, con `cargo-binstall`, instalar ya compilado)
+`tree-sitter-cli`; también es lo que necesitas si además quieres programar en Rust.
+
+Esta nota cubre la instalación en Windows —la parte laboriosa, por las herramientas de
+[Compilador de C](/docs/Compilador%20de%20C.md) que pide el toolchain— y, aparte, cómo instalar `cargo-binstall`, la herramienta
+que permite saltarse la compilación cuando hay binario precompilado disponible.
 
 ## Installation
 
@@ -23,8 +28,7 @@ Cargo es una dependencia complicada por dos motivos:
 	- **Windows SDK** (Windows 11 SDK)
 
 2. El instalador ofrece como opción sencilla **Quick install via the Visual Studio Community
-   installer**, lo que puede dar la impresión de que es necesario instalar Visual Studio
-   completo.
+   installer**, lo que puede dar la impresión de que es necesario instalar Visual Studio completo.
 
 En realidad, podemos elegir entre dos opciones:
 
@@ -71,8 +75,8 @@ También podemos hacerlo desde PowerShell:
 ```
 
 Ambas opciones son válidas para Rust y para esta configuración de **Neovim**. La diferencia es
-principalmente de comodidad: **Visual Studio Community ofrece un entorno más completo**, mientras
-que **Build Tools** permite instalar únicamente las herramientas necesarias.
+principalmente de comodidad: **Visual Studio Community ofrece un entorno más completo**, mientras que
+**Build Tools** permite instalar únicamente las herramientas necesarias.
 
 Una vez instaladas las herramientas, podemos continuar con la instalación estándar de Rust.
 

@@ -5,9 +5,12 @@ Volver a [README](/README.md)
 
 ## Brief
 
-Necesario para compilar `tree-sitter-cli` y para varias herramientas de `JavaScript/TypeScript`
-usadas por la configuración, incluidos servidores LSP, herramientas instaladas mediante Mason y
-`copilot.lua`.
+Node.js es el entorno de ejecución de JavaScript fuera del navegador, con `npm` como gestor de
+paquetes. Aquí hace falta para compilar `tree-sitter-cli` y para varias herramientas de
+JavaScript/TypeScript que usa la configuración: servidores LSP, herramientas instaladas mediante
+Mason y `copilot.lua`.
+
+Esta nota solo cubre cómo instalarlo, en Windows, Linux y macOS.
 
 ## Installation
 

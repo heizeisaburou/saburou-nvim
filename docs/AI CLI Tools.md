@@ -11,6 +11,10 @@ artificial:
 - `claude`
 - `codex`
 
+Esta nota cubre cómo instalar las tres (en Windows y Linux, todas vía `npm`) y las teclas para
+togglear cada una —además de Copilot, que no es una CLI pero se integra junto a ellas— dentro de
+Neovim.
+
 ## Installation
 
 ### Linux

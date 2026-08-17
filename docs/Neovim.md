@@ -5,8 +5,13 @@ Volver a [README](/README.md)
 
 ## Brief
 
-La configuración usa APIs y comportamientos disponibles a partir de **Neovim 0.12+**. No se
-garantiza compatibilidad con versiones anteriores ni futuras.
+Neovim es un editor de texto modal, continuación de Vim con foco en extensibilidad: configuración y
+plugins en Lua, LSP y Tree-sitter integrados.
+
+Esta nota cubre cómo instalar la versión exacta que necesita `saburou-nvim` (**0.12+**, sin
+garantía de compatibilidad con versiones anteriores ni futuras) sin que una actualización del
+sistema te la cambie sin avisar: descargas oficiales, gestor de paquetes, Snap, Flatpak y binario
+autocontenido, en Windows, Linux y macOS.
 
 ## Installation
 

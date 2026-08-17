@@ -5,7 +5,10 @@ Volver a [README](/README.md)
 
 ## Brief
 
-Necesario para ejecutar herramientas y servidores LSP desarrollados en Python.
+Python es el lenguaje de programación de propósito general. Aquí hace falta para ejecutar
+herramientas y servidores LSP que están escritos en Python y que se instalan mediante Mason.
+
+Esta nota solo cubre cómo instalarlo, en Windows y Linux.
 
 ## Installation
 

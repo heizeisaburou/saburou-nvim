@@ -2,6 +2,14 @@
 
 Volver a [README](/README.md)
 
+## Brief
+
+Un compilador de C traduce código C a código máquina. Aquí hace falta uno para compilar binarios
+nativos: parsers de Tree-sitter, herramientas de Mason que no traen binario precompilado, etc.
+
+Esta nota cubre las opciones disponibles en Windows (MSVC, clang, gcc vía MinGW) y en Linux (gcc,
+clang).
+
 ## Windows
 
 Puedes utilizar cualquiera de los siguientes compiladores o _toolchains_, dependiendo de lo que
