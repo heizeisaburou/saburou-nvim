@@ -57,7 +57,7 @@ M.servers = {
   -- "fish_lsp", -- Fish
   -- "fsautocomplete", -- F#
   -- "glsl_analyzer", -- GLSL, no glslls, ver next-languages.md
-  -- "gopls" -- Golang
+  -- "gopls", -- Golang
   -- "groovyls", -- Groovy, Jenkinsfile y Gradle
   -- "hls", -- Haskell
   -- "html", -- .html
