@@ -21,8 +21,8 @@ diversos.
 
 > [!note] Si usas macOS
 >
-> La documentación de macOS está completa, pero no dispongo de un equipo macOS con el que probarla
-> ni con el que reproducir bugs. Antes de instalar, lee [macOS support](/docs/macOS%20support.md).
+> La documentación de macOS está completa, pero no dispongo de un equipo macOS con el que
+> probarla ni con el que reproducir bugs. Antes de instalar, lee [macOS support](/docs/macOS%20support.md).
 
 ### Pre-requisitos
 
@@ -30,8 +30,8 @@ diversos.
 
 - **[Neovim](/docs/Neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12.
   No se garantiza compatibilidad con versiones anteriores ni futuras.
-- Una **[Nerd Font](/docs/Nerd%20Font.md)** configurada en la terminal para mostrar correctamente los iconos. Elige
-  una variante que no termine en `Mono` para que los iconos no se vean todos del mismo tamaño.
+- Una **[Nerd Font](/docs/Nerd%20Font.md)** configurada en la terminal para mostrar correctamente los iconos. Elige una
+  variante que no termine en `Mono` para que los iconos no se vean todos del mismo tamaño.
 - **[Git](/docs/Git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para
   crear el directorio `.git` en la raíz de tu proyecto ya que es la manera en la que la mayoría de
   los linters de distintos lenguajes reconocen el directorio raíz.

@@ -17,6 +17,10 @@ Neovim.
 
 ## Installation
 
+> [!note] Dependencias
+>
+> [Node.js](/docs/Node.js.md)
+
 ### Linux / macOS
 
 En Linux, las tres herramientas se instalan mediante `npm`:

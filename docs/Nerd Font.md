@@ -6,16 +6,16 @@ Volver a [README.md](/README.md)
 ## Brief
 
 Las _Nerd Fonts_ son fuentes de programación corrientes a las que se les han añadido miles de
-iconos (Font Awesome, Devicons, Octicons, Material Design, etc.). Mi configuración usa esos iconos
-por todas partes: explorador de archivos, statusline, diagnósticos, autocompletado, etc. Sin una
-Nerd Font verás cuadrados, interrogantes o huecos en blanco en su lugar.
+iconos (Font Awesome, Devicons, Octicons, Material Design, etc.). Mi configuración usa esos
+iconos por todas partes: explorador de archivos, statusline, diagnósticos, autocompletado, etc.
+Sin una Nerd Font verás cuadrados, interrogantes o huecos en blanco en su lugar.
 
-Quien dibuja el texto es **la terminal**, no Neovim, así que no basta con instalar la fuente:
-después hay que seleccionarla en la terminal (o en tu GUI de Neovim si usas una).
+Quien dibuja el texto es **la terminal**, no Neovim, así que no basta con instalar la fuente: después
+hay que seleccionarla en la terminal (o en tu GUI de Neovim si usas una).
 
-Esta nota cubre cómo instalarlas, en Windows, Linux y macOS. Los ejemplos usan `JetBrainsMono Nerd
-Font` porque es la que uso yo, pero vale cualquiera del [catálogo](https://www.nerdfonts.com/font-downloads); solo tienes que cambiar el
-nombre de la fuente o del paquete.
+Esta nota cubre cómo instalarlas, en Windows, Linux y macOS. Los ejemplos usan
+`JetBrainsMono Nerd Font` porque es la que uso yo, pero vale cualquiera del [catálogo](https://www.nerdfonts.com/font-downloads); solo tienes
+que cambiar el nombre de la fuente o del paquete.
 
 ## Elegir la variante
 
@@ -70,8 +70,8 @@ pacman -Sg nerd-fonts
 
 > [!WARNING]
 >
-> Existe el paquete `fonts-jetbrains-mono`, pero es la fuente **original sin parchear**: no trae
-> los iconos y no sirve para esta configuración. Debian no empaqueta las Nerd Fonts.
+> Existe el paquete `fonts-jetbrains-mono`, pero es la fuente **original sin parchear**: no trae los
+> iconos y no sirve para esta configuración. Debian no empaqueta las Nerd Fonts.
 
 Instálala a mano siguiendo [Instalación manual en Linux](#instalación-manual-en-linux).
 
@@ -84,9 +84,9 @@ Fedora tampoco empaqueta las Nerd Fonts en sus repositorios oficiales; la excepc
 sudo dnf install cascadia-mono-nf-fonts
 ```
 
-Para cualquier otra fuente, incluida JetBrains Mono, instálala a mano siguiendo [Instalación manual
-en Linux](#instalación-manual-en-linux). Hay repositorios COPR de terceros que las empaquetan, pero
-no son oficiales, suelen ir por detrás en versión y no los mantengo probados.
+Para cualquier otra fuente, incluida JetBrains Mono, instálala a mano siguiendo
+[Instalación manual en Linux](#instalación-manual-en-linux). Hay repositorios COPR de terceros que las empaquetan, pero no son
+oficiales, suelen ir por detrás en versión y no los mantengo probados.
 
 #### Instalación manual en Linux
 
