@@ -111,6 +111,15 @@ M.keys = {
     mode = { "n", "i", "t" },
     desc = "Claude Code: toggle",
   },
+  -- EXPERIMENTAL: alias en <A-[>, a probar en Linux y Windows junto a <C-,>
+  -- (que se queda tal cual). Si <A-[> se traga o se retrasa en alguna terminal,
+  -- se quita sin más.
+  {
+    "<A-[>",
+    toggle,
+    mode = { "n", "i", "t" },
+    desc = "Claude Code: toggle (experimental)",
+  },
   {
     "<leader>,c",
     function()

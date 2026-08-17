@@ -28,6 +28,15 @@ M.keys = {
     desc = "Toggle Codex popup or side-panel",
     mode = { "n", "i", "t" },
   },
+  -- EXPERIMENTAL: alias en <A-]>, a probar en Linux y Windows junto a <C-.>
+  -- (que se queda tal cual). Si <A-]> se traga o se retrasa en alguna terminal,
+  -- se quita sin más.
+  {
+    "<A-]>",
+    toggle,
+    desc = "Toggle Codex popup or side-panel (experimental)",
+    mode = { "n", "i", "t" },
+  },
 }
 
 M.opts = {
