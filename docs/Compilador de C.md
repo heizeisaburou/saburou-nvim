@@ -118,4 +118,3 @@ clang --version
 >
 > Tampoco necesitas nada de MSVC: es exclusivo de Windows, y en Linux el _toolchain_ de Rust enlaza
 > con las herramientas de GNU/LLVM que ya trae el sistema.
-
