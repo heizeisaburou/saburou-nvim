@@ -40,6 +40,7 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
+  "rust_analyzer",
   --
   --
   --
@@ -58,7 +59,7 @@ M.servers = {
   -- "wasm_language_tools", -- WebAssembly Text Format (.wat/.wast)
   -- "shuck",
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
-  -- "basedpyright", -- python
+  -- "basedpyright", -- python (no olvides activar ruff también)
   -- "bashls",
   -- "clangd", -- C, C++
   -- "clojure_lsp",
@@ -82,7 +83,6 @@ M.servers = {
   -- "qmlls", -- qml
   -- "ruby_lsp",
   -- "ruff", -- Linter y formateador adicional para python
-  -- "rust_analyzer",
   -- "shopify_theme_ls", -- Liquid (Shopify)
   -- "sourcekit", -- swift
   -- "svelte",

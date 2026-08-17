@@ -28,6 +28,7 @@ local formatters_by_ft = {
     "markdown_wrap",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
+  rust = { "rustfmt" },
   -- -- erlfmt no está en el registro de Mason ni tiene binario prebuilt; ver el
   -- -- override de `erlfmt` más abajo para cómo se resuelve sin bloquear el
   -- -- formato si falta.
@@ -101,7 +102,6 @@ local formatters_by_ft = {
   -- python = { "ruff_format" },
   -- qml = { "qmlformat" }, -- externo
   -- ruby = { "rubocop", timeout_ms = 10000 },
-  -- rust = { "rustfmt" },
   -- scala = { "scalafmt", timeout_ms = 10000 },
   -- scss = { "prettier" },
   -- surface = { "mix" }, -- Elixir/Phoenix

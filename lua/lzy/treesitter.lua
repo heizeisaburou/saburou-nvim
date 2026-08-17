@@ -11,9 +11,7 @@ M.languages = {
   "luadoc",
   "markdown_inline",
   "markdown",
-  --
-  --
-  --
+  "rust",
   -- "asm",
   -- "erlang",
   -- "fish",
@@ -62,7 +60,6 @@ M.languages = {
   -- "python",
   -- "qmljs",
   -- "ruby",
-  -- "rust",
   -- "scala",
   -- "svelte",
   -- "swift",
