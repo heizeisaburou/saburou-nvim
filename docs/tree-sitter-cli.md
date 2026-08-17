@@ -7,7 +7,8 @@ Volver a [README](/README.md)
 
 `tree-sitter-cli` es la herramienta de línea de comandos del proyecto Tree-sitter: genera, a partir
 de la gramática de un lenguaje, el código C de su parser. `nvim-treesitter` la necesita para
-compilar los parsers que usa la configuración.
+compilar los parsers que usa la configuración: no compila él mismo, ejecuta `tree-sitter build`, y es
+esa orden la que llama al [Compilador de C](/docs/Compilador%20de%20C.md).
 
 Esta nota cubre las dos formas de instalarlo: como binario precompilado con `cargo-binstall`, o
 compilándolo con Cargo (lo que además exige tener Node.js instalado).

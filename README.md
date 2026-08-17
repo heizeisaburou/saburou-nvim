@@ -30,11 +30,13 @@ diversos.
   JavaScript/TypeScript usadas por la configuración, incluidos servidores LSP, herramientas
   instaladas mediante Mason y `copilot.lua`.
 
-- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `lazy.nvim`, `mason.nvim` y
-  `nvim-treesitter` puedan descargar dependencias opcionales de la configuración.
-- **[Compilador de C](/docs/Compilador%20de%20C.md)** (`gcc` o `clang`) disponible en el `PATH` — necesario para que
-  `mason.nvim` y `nvim-treesitter` puedan compilar dependencias opcionales de la configuración (incluidos
-  los parsers de Tree-sitter).
+- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `lazy.nvim`, `mason.nvim` y `nvim-treesitter`
+  puedan descargar dependencias opcionales de la configuración.
+- **[Compilador de C](/docs/Compilador%20de%20C.md)** — necesario para que `mason.nvim` y `nvim-treesitter` puedan compilar
+  dependencias opcionales de la configuración (incluidos los parsers de Tree-sitter). En Linux,
+  `gcc` o `clang` disponible en el `PATH`; en Windows es MSVC, que ya instalas como requisito de
+  [Cargo+Rust](/docs/Cargo+Rust.md) y que `tree-sitter build` localiza por su cuenta, sin necesidad de `PATH` ni de una
+  terminal de desarrollo.
 
 #### Circunstanciales
 
@@ -183,7 +185,7 @@ siempre es el que esperarías.
 
 #### Tus mapeos y tus manías
 
-`lua/user/cfg.lua` es tu archivo. Mapeos, comandos y las decisiones que no son técnicas sino de
+[lua/user/cfg.lua](/lua/user/cfg.lua) es tu archivo. Mapeos, comandos y las decisiones que no son técnicas sino de
 gusto. Es el único sitio que puedes tocar sin chocar con el resto de la configuración.
 
 Lo primero que hay ahí es lo primero que probablemente quieras cambiar:
@@ -197,6 +199,17 @@ como en cualquier otro programa. Está en `true` porque en tus primeros meses co
 pelea que no hace falta pelear. Cuando deje de serlo, ponlo en `false`: recuperas el control de los
 registros, y te quedan `<leader>cs` y `<leader>cn` para mover el contenido en una dirección o en la
 otra cuando lo necesites.
+
+#### Indentación
+
+- En [lua/user/indent.lua](/lua/user/indent.lua) puedes configurar la indentación por lenguaje. Primero el estilo
+  `spaces|tabs` y si has escogido `spaces` entonces puedes decidir cuántos con `width`.
+
+- En [lua/lzy/conform.lua](/lua/lzy/conform.lua) puedes especificar un `line-lenght` por defecto. A menos que sea
+  reemplazado por la configuración de formateo del proyecto este será el valor que se usará para
+  determinar cuándo una línea es demasiado larga. `line-lenght = 97` queda bien con una fuente
+  `JetBrainsMono Nerd Font` de `11px`; probado en una _Kitty con zsh_ y _Terminal de Windows con
+  Powershell_.
 
 ## Lenguajes soportados
 

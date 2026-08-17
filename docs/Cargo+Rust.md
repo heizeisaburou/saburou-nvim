@@ -1,84 +1,73 @@
 # Cargo + Rust
 
-Volver a [README](/README.md) https://doc.rust-lang.org/cargo/getting-started/installation.html
+Volver a [README](/README.md)  
+<https://doc.rust-lang.org/cargo/getting-started/installation.html>
 
 ## Brief
 
 Cargo es el gestor de paquetes y de compilación de Rust; instalarlo instala también el propio
-toolchain de Rust. Aquí hace falta para compilar (o, con `cargo-binstall`, instalar ya compilado)
-`tree-sitter-cli`; también es lo que necesitas si además quieres programar en Rust.
+toolchain de Rust. Aquí hace falta para compilar —o, con [cargo-binstall](#cargo-binstall), instalar ya compilado—
+[tree-sitter-cli](/docs/tree-sitter-cli.md); también es lo que necesitas si además quieres programar en Rust.
 
-Esta nota cubre la instalación en Windows —la parte laboriosa, por las herramientas de [MSVC](/docs/Compilador%20de%20C.md#msvc) que
-pide el toolchain— y, aparte, cómo instalar `cargo-binstall`, la herramienta que permite saltarse
-la compilación cuando hay binario precompilado disponible.
+Esta nota cubre la instalación en Windows —la parte laboriosa, porque el toolchain que rustup
+instala por defecto compila y enlaza con las herramientas de [MSVC](/docs/Compilador%20de%20C.md#msvc)— y, aparte, cómo instalar
+`cargo-binstall`, la herramienta que permite saltarse la compilación cuando hay binario
+precompilado disponible.
 
 ## Installation
 
 ### Windows
 
 En Windows puedes encontrar el instalador en
-https://doc.rust-lang.org/cargo/getting-started/installation.html, o descargarlo directamente
+<https://doc.rust-lang.org/cargo/getting-started/installation.html>, o descargarlo directamente
 desde [rustup-init.exe](https://win.rustup.rs/).
 
-Cargo es una dependencia complicada por dos motivos:
+Antes de ejecutarlo conviene saber por qué esta dependencia es más laboriosa que las demás:
 
-1. El _toolchain_ MSVC de Rust necesita algunas herramientas de compilación de Windows:
+1. El _toolchain_ que rustup instala por defecto en Windows (`x86_64-pc-windows-msvc`) compila y
+   enlaza con [MSVC](/docs/Compilador%20de%20C.md#msvc), así que necesita antes algunas herramientas de compilación de Windows:
 
 	- **MSVC C++ build tools** (`MSVC v143 - VS 2022 C++ x64/x86 build tools`)
-	- **Windows SDK** (Windows 11 SDK)
+	- **Windows 11 SDK**
 
 2. El instalador ofrece como opción sencilla **Quick install via the Visual Studio Community
    installer**, lo que puede dar la impresión de que es necesario instalar Visual Studio completo.
+   No lo es: basta con las Visual Studio Build Tools.
 
-En realidad, podemos elegir entre dos opciones:
+Por eso la instalación son dos pasos: primero las herramientas de MSVC, después rustup.
 
-### Visual Studio Community
+#### Requisito previo: herramientas de MSVC
 
-Es la opción más sencilla si queremos disponer además de un entorno completo de desarrollo C/C++.
+Los pasos están en [Compilador de C#MSVC](/docs/Compilador%20de%20C.md#msvc). Resumidos, puedes elegir entre dos opciones, y ambas
+son válidas para Rust:
 
-Durante la instalación selecciona la carga de trabajo:
+- **[Visual Studio Community](/docs/Compilador%20de%20C.md#visual-studio-community)** — la más sencilla si quieres además un entorno completo de desarrollo
+  C/C++.
+- **[Visual Studio Build Tools](/docs/Compilador%20de%20C.md#visual-studio-build-tools)** — la más ligera si no quieres el IDE.
 
-- **Desktop development with C++**
-- **MSVC v143 - VS 2022 C++ x64/x86 build tools**
-- **Windows SDK**
+En cualquiera de los dos casos, lo que instala las herramientas es la carga de trabajo **Desktop
+development with C++**.
 
-### Visual Studio Build Tools
+Una vez instaladas, vuelve aquí y continúa con la instalación estándar de Rust.
 
-Es la opción más ligera si no queremos instalar el IDE de Visual Studio.
+Estas herramientas no son un peaje que pagues solo por Rust: en Windows son también el compilador
+de C con el que `tree-sitter build` compila los parsers de Tree-sitter, así que instalarlas cubre a
+la vez el requisito de [Compilador de C](/docs/Compilador%20de%20C.md#qué-compilador-necesita-esta-configuración).
 
-Podemos instalarla mediante:
+> [!NOTE]
+>
+> Si ya tienes instalado Rust pero posteriormente descubres que necesitas las herramientas de
+> MSVC, puedes instalarlas desde [Compilador de C#MSVC](/docs/Compilador%20de%20C.md#msvc) sin
+> necesidad de reinstalar Rust.
 
-```powershell
-winget install Microsoft.VisualStudio.2022.BuildTools
-```
+> [!NOTE]
+>
+> Existe un _toolchain_ alternativo, `x86_64-pc-windows-gnu`, que enlaza con
+> [MinGW-w64](/docs/Compilador%20de%20C.md#mingw) en lugar de con MSVC; es a lo que se refiere el
+> mensaje sobre _the GNU ABI_ que muestra el instalador. Esta guía asume el _toolchain_ MSVC, que
+> es el que rustup instala por defecto.
 
-Después hay que añadir la carga de trabajo **Desktop development with C++**, que incluye las
-herramientas de MSVC y el Windows SDK.
-
-Podemos hacerlo desde **Visual Studio Installer**:
-
-1. Abre **Visual Studio Installer**.
-2. En **Build Tools 2022**, pulsa **Modify**.
-3. Selecciona **Desktop development with C++**.
-4. Pulsa **Modify**.
-
-También podemos hacerlo desde PowerShell:
-
-```powershell
-& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" `
-	modify `
-	--installPath "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools" `
-	--add Microsoft.VisualStudio.Workload.VCTools `
-	--includeRecommended `
-	--passive `
-	--norestart
-```
-
-Ambas opciones son válidas para Rust y para esta configuración de **Neovim**. La diferencia es
-principalmente de comodidad: **Visual Studio Community ofrece un entorno más completo**, mientras que
-**Build Tools** permite instalar únicamente las herramientas necesarias.
-
-Una vez instaladas las herramientas, podemos continuar con la instalación estándar de Rust.
+#### Instalar Rust con rustup-init
 
 Al ejecutar `rustup-init.exe`, el instalador mostrará:
 
@@ -104,26 +93,12 @@ A continuación mostrará:
 
 Finalmente **reinicia la terminal**.
 
-> [!NOTE]
->
-> Si ya tienes instalado Rust pero posteriormente descubres que necesitas las herramientas de
-> MSVC, puedes volver a [Compilador de C#MSVC](#compilador-de-cmsvc) para instalarlas sin
-> necesidad de reinstalar Rust.
-
-### Cargar el entorno de MSVC manualmente
-
-> [!NOTE] Sección adicional
->
-> Esto es información gratuita que no tiene que ver con la guía. _saburou-nvim_ no necesita
-> cargar el entorno MSVC pero si tu quisieras utilizar `cl.exe` directamente desde una terminal
-> puedes cargar el entorno de desarrollo de MSVC:
+#### Comprobar la instalación
 
 ```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-& "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1"
+rustc --version
+cargo --version
 ```
-
-Después `cl.exe` estará disponible en esa sesión de PowerShell.
 
 ## cargo-binstall
 
@@ -132,15 +107,22 @@ precompilados de paquetes de Rust cuando están disponibles.
 
 No forma parte de la instalación de Rust y Cargo, por lo que debe instalarse por separado.
 
-Si instalas `cargo-binstall` y existe un binario precompilado de `tree-sitter-cli` para tu
-plataforma, puedes instalarlo sin necesidad de disponer de _Node.js_ para compilarlo.
+Si instalas `cargo-binstall` y existe un binario precompilado de [tree-sitter-cli](/docs/tree-sitter-cli.md) para tu
+plataforma, puedes instalarlo sin necesidad de disponer de [Node.js](/docs/Node.js.md) para compilarlo.
 
 ### Installation of cargo-binstall
 
-https://github.com/cargo-bins/cargo-binstall
+<https://github.com/cargo-bins/cargo-binstall>
 
 Al igual que `cargo`, `cargo-binstall` puede instalarse mediante un binario precompilado. Esto evita
 tener que compilarlo desde el código fuente.
+
+#### Windows
+
+```powershell
+Set-ExecutionPolicy Unrestricted -Scope Process
+iex (iwr "https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.ps1").Content
+```
 
 #### Linux / macOS
 
@@ -150,20 +132,13 @@ curl -L --proto '=https' --tlsv1.2 -sSf \
   | bash
 ```
 
-#### Windows
-
-```powershell
-Set-ExecutionPolicy Unrestricted -Scope Process
-iex (iwr "https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.ps1").Content
-```
-
-Una vez instalado, podemos comprobar que `cargo-binstall` está disponible mediante:
-
-```sh
-cargo binstall -V
-```
+#### Comprobar la instalación de cargo-binstall
 
 > [!NOTE]
 >
 > Es necesario reiniciar la terminal para que binstall pase a estar disponible tras la
 > instalación.
+
+```sh
+cargo binstall -V
+```
