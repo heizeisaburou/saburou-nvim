@@ -55,7 +55,7 @@ siguiente:
 
 - [lua/lzy/conform.lua](/lua/lzy/conform.lua) ― descomenta `python = { "ruff_format" }`
 - [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta `python`
-- [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `python` y `ruff`.
+- [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `basedpyright` y `ruff`.
 
 ### macOS
 
