@@ -88,7 +88,7 @@ return {
     "mfussenegger/nvim-lint",
     event = { "BufReadPre", "BufNewFile" },
     config = function()
-      require("lzy.lint").setup()
+      require("lzy.nvim-lint").setup()
     end,
   },
   -- --- [ lsp_lines ] ---------------------------------------------------------

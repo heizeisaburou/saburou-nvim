@@ -174,8 +174,9 @@ Una vez ejecutados recarga Neovim con `<leader>rs`.
 > [!note]
 >
 > - :MasonInstallAll hay que ejecutarlo cada vez que actives lenguajes en:
->     - [/lua/lzy/conform.lua](/lua/lzy/conform.lua)
 >     - [/lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua)
+>     - [/lua/lzy/conform.lua](/lua/lzy/conform.lua)
+>     - [/lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua)
 > - :TSInstallAll hay que ejecutarlo nuevamente cada vez que actives lenguajes en:
 >     - [/lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua)
 
@@ -215,12 +216,12 @@ Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lengua
 cosa**. Son hasta cuatro herramientas independientes, cada una en su archivo, y ninguna necesita a
 las otras. Descomenta el lenguaje en las que te interesen:
 
-| Archivo                  | Lista              | Qué te da                                                 |
-| ------------------------ | ------------------ | --------------------------------------------------------- |
-| `lua/lzy/lspconfig.lua`  | `M.servers`        | Diagnósticos, ir a definición, autocompletado y renombrar |
-| `lua/lzy/treesitter.lua` | `M.languages`      | Resaltado, plegado y movimientos por sintaxis             |
-| `lua/lzy/conform.lua`    | `formatters_by_ft` | Formateo al guardar                                       |
-| `lua/lzy/lint.lua`       | `M.linters_by_ft`  | Diagnósticos donde no llega el LSP                        |
+| Archivo                                            | Lista              | Qué te da                                                 |
+| -------------------------------------------------- | ------------------ | --------------------------------------------------------- |
+| [/lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua)                            | `M.servers`        | Diagnósticos, ir a definición, autocompletado y renombrar |
+| [/lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) | `M.languages`      | Resaltado, plegado y movimientos por sintaxis             |
+| [/lua/lzy/conform.lua](/lua/lzy/conform.lua)                              | `formatters_by_ft` | Formateo al guardar                                       |
+| [/lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua)                            | `M.linters_by_ft`  | Diagnósticos donde no llega el LSP                        |
 
 Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_ soportado. El
 formateador y el linter son opcionales, y en muchos lenguajes el propio LSP ya formatea.
