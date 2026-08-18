@@ -61,12 +61,12 @@ El resto de la configuración es igual que en Linux y Windows.
 
 ## Activation
 
-- [conform.lua](/lua/lzy/conform.lua) ― descomenta:
+- [lua/lzy/conform.lua](/lua/lzy/conform.lua) ― descomenta:
 
 	- `go = { "gofmt" }`
 	- `gotmpl = { "prettier_gotmpl" }`
 
-- [treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta:
+- [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta:
 
 	- `"go"`
 	- `"gomod"`
@@ -74,4 +74,4 @@ El resto de la configuración es igual que en Linux y Windows.
 	- `"gotmpl"`
 	- `"gowork"`
 
-- [lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `gopls`.
+- [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `gopls`.

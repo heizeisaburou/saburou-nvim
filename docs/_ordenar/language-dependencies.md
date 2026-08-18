@@ -16,13 +16,13 @@ ser portable cuando es razonable, y las excepciones se indican en cada sección.
 
 Las rutas de esta sección son relativas al repositorio, no rutas locales de una máquina concreta:
 
-- [/lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua): servidores LSP y ajustes específicos.
-- [/lua/lzy/conform.lua](/lua/lzy/conform.lua): formatters y resolvers de ejecutables/plugins externos.
-- [/lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua): linters para lo que ningún LSP cubre, y en qué proyectos se ejecutan.
-- [/lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua): parsers, aliases y activación de Tree-sitter.
-- [/lua/hzsr/mason/nvchad/names.lua](/lua/hzsr/mason/nvchad/names.lua): mapeos entre nombres de configuración y paquetes de Mason.
-- [/lua/user/opts.lua](/lua/user/opts.lua): detección adicional de filetypes/extensiones.
-- [lua/hzsr/sys/java.lua](lua/hzsr/sys/java.lua): resolución portable de JDK para herramientas que no toleran cualquier
+- [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua): servidores LSP y ajustes específicos.
+- [lua/lzy/conform.lua](/lua/lzy/conform.lua): formatters y resolvers de ejecutables/plugins externos.
+- [lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua): linters para lo que ningún LSP cubre, y en qué proyectos se ejecutan.
+- [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua): parsers, aliases y activación de Tree-sitter.
+- [lua/hzsr/mason/nvchad/names.lua](/lua/hzsr/mason/nvchad/names.lua): mapeos entre nombres de configuración y paquetes de Mason.
+- [lua/user/opts.lua](/lua/user/opts.lua): detección adicional de filetypes/extensiones.
+- [lua/hzsr/sys/java.lua](/lua/hzsr/sys/java.lua): resolución portable de JDK para herramientas que no toleran cualquier
   versión de Java.
 
 ## Matriz de soporte

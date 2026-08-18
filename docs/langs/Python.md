@@ -53,9 +53,9 @@ python --version
 Para programar en Python primero asegurate de que esté instalado a nivel de sistema. Lo
 siguiente:
 
-- [conform.lua](/lua/lzy/conform.lua) ― descomenta `python = { "ruff_format" }`
-- [treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta `python`
-- [lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `python` y `ruff`.
+- [lua/lzy/conform.lua](/lua/lzy/conform.lua) ― descomenta `python = { "ruff_format" }`
+- [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta `python`
+- [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `python` y `ruff`.
 
 ### macOS
 
