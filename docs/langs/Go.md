@@ -31,16 +31,20 @@ go version
 
 Instala el paquete `go` mediante el gestor de paquetes de tu distribución.
 
-Por ejemplo, en Arch Linux:
+Comprueba la instalación con:
+
+```sh
+go version
+```
+
+#### Arch Linux
 
 ```sh
 sudo pacman -S --needed go
 ```
 
-Comprueba la instalación con:
-
 ```sh
-go version
+sudo apt install -y golang-go
 ```
 
 ### macOS

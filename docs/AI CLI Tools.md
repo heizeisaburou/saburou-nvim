@@ -26,9 +26,9 @@ Neovim.
 En Linux, las tres herramientas se instalan mediante `npm`:
 
 ```sh
-npm install -g opencode-ai
-npm install -g @anthropic-ai/claude-code
-npm install -g @openai/codex
+sudo npm install -g opencode-ai
+sudo npm install -g @anthropic-ai/claude-code
+sudo npm install -g @openai/codex
 ```
 
 Comprueba la instalación con:
