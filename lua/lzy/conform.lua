@@ -2,7 +2,7 @@
 
 local M = {}
 
-local line_length = 97
+local line_length = 85
 local scalafmt_fallback_dialect = "scala3"
 local scalafmt_fallback_version = "3.10.6"
 local indent = require "sabunv.indent"
