@@ -487,6 +487,22 @@ local function make_opts()
             out[k] = v
           end
         end
+
+        -- Campos de mantenimiento: se rellenan al crear y **no se pisan**.
+        -- Quien los mueve después es scripts/frontmatter.py del propio vault,
+        -- en el pre-commit: sube `version` y `updated` de lo que cambió.
+        -- `reviewed` no lo toca nadie automáticamente: es criterio propio.
+        local hoy = os.date "%Y-%m-%d"
+        if out.updated == nil or out.updated == "" then
+          out.updated = hoy
+        end
+        if out.version == nil or out.version == "" then
+          out.version = 1
+        end
+        if out.reviewed == nil or out.reviewed == "" then
+          out.reviewed = hoy
+        end
+
         return out
       end,
     },
@@ -1167,6 +1183,11 @@ return {
   --         out[k] = v
   --       end
   --     end
+  --
+  --     local hoy = os.date "%Y-%m-%d"
+  --     out.updated = out.updated or hoy
+  --     out.version = out.version or 1
+  --     out.reviewed = out.reviewed or hoy
   --     return out
   --   end,
   -- },
