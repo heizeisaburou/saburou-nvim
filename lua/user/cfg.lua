@@ -244,7 +244,7 @@ end, { desc = "Menu: Open context menu" })
 -- Git
 -- =============================================================================
 
-map("n", "<leader>gC", "<cmd>Telescope git_commits<CR>", { desc = "Git: Commits" })
+map("n", "<leader>gc", "<cmd>Telescope git_commits<CR>", { desc = "Git: Commits" })
 
 -- =============================================================================
 -- Discarded / notes

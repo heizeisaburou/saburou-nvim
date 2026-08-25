@@ -161,6 +161,9 @@ return {
     "sindrets/diffview.nvim",
     event = "BufReadPre",
     dependencies = { "nvim-lua/plenary.nvim" },
+    keys = function()
+      return require("lzy.diffview").keys
+    end,
     config = function()
       require("lzy.diffview").setup()
     end,

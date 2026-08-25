@@ -103,7 +103,7 @@ M.opts = {
 M.keys = {
   { "<leader>gt", copilot_toggle, desc = "Copilot: Toggle" },
   { "<leader>ge", copilot_enable, desc = "Copilot: Enable" },
-  { "<leader>gd", copilot_disable, desc = "Copilot: Disable" },
+  { "<leader>gx", copilot_disable, desc = "Copilot: Disable" },
   { "<leader>gs", copilot_status, desc = "Copilot: Status" },
 
   { "<A-p>", copilot_toggle, mode = "n", desc = "Copilot: Toggle" },

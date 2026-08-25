@@ -32,11 +32,19 @@ end
 
 function M.setup()
   require("diffview").setup(M.opts)
-  vim.keymap.set("n", "<leader>gc", M.toggle, {
-    noremap = true,
-    silent = true,
-    desc = "Git conflicts: Toggle Diffview",
-  })
 end
+
+-- El keymap se declara en el spec de lazy (ver _plg.lua) para que esté
+-- disponible aunque el plugin todavía no se haya cargado.
+M.keys = {
+  {
+    "<leader>gd",
+    function()
+      require("lzy.diffview").toggle()
+    end,
+    mode = "n",
+    desc = "Git conflicts: Toggle Diffview",
+  },
+}
 
 return M
