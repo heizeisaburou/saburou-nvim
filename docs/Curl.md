@@ -5,8 +5,8 @@ Volver a [README.md](/README.md)
 
 ## Brief
 
-`curl` es una herramienta de línea de comandos para transferir datos con URLs; aquí se usa sobre
-todo para descargas por HTTP(S).
+`curl` es una herramienta de línea de comandos para transferir datos con URLs; aquí se
+usa sobre todo para descargas por HTTP(S).
 
 Esta nota solo cubre cómo instalarlo, en Windows y Linux.
 
@@ -24,8 +24,8 @@ winget install cURL.cURL
 
 Instala el paquete `curl` mediante el gestor de paquetes de tu distribución.
 
-El paquete se llama `curl`, por lo que, independientemente de la distribución, puedes buscarlo
-directamente con el gestor de paquetes correspondiente.
+El paquete se llama `curl`, por lo que, independientemente de la distribución, puedes
+buscarlo directamente con el gestor de paquetes correspondiente.
 
 Por ejemplo:
 

@@ -48,7 +48,6 @@ M.servers = {
   -- "bashls",
   -- "clangd", -- C, C++
   -- "clojure_lsp",
-  -- "csharp_ls",
   -- "cssls", -- .css
   -- "dartls",
   -- "djls", -- Django templates
@@ -75,6 +74,7 @@ M.servers = {
   -- "powershell_es", -- PowerShell (.ps1/.psm1/.psd1)
   -- "pug", -- Pug (.pug/.jade)
   -- "qmlls", -- qml
+  -- "roslyn_ls", -- C#
   -- "ruby_lsp",
   -- "ruff", -- Linter y formateador adicional para python
   -- "shopify_theme_ls", -- Liquid (Shopify)
@@ -184,8 +184,6 @@ M.config = {
   },
 
   clojure_lsp = {},
-
-  csharp_ls = {},
 
   cssls = {},
 
@@ -411,6 +409,24 @@ M.config = {
     -- enlaza `ocamlformat` en mason/bin. Ocamllsp busca el RPC mediante PATH.
     return { cmd_env = { PATH = path } }
   end,
+
+  roslyn_ls = {
+    -- Sustituye a `csharp_ls`: es el servidor oficial de Microsoft (el mismo
+    -- motor que usa Visual Studio y la extensión C# Dev Kit), mantenido por el
+    -- equipo de Roslyn, y no un envoltorio de terceros.
+    --
+    -- La config de nvim-lspconfig ya trae todo lo relevante (inlay hints,
+    -- análisis a nivel de solución, code lens de referencias y los comandos
+    -- `roslyn.client.*`), así que aquí no hace falta añadir nada.
+    --
+    -- Dos cosas que conviene saber y que no se arreglan desde aquí:
+    --
+    --   - `root_dir` solo resuelve si encuentra un `.sln`/`.slnx` o un
+    --     `.csproj`. Un `.cs` suelto fuera de un proyecto no engancha servidor;
+    --     no es un fallo de esta capa, es cómo carga Roslyn el workspace.
+    --   - Razor (`.cshtml`/`.razor`) no está soportado por esta integración;
+    --     el servidor avisa y apunta a seblyng/roslyn.nvim.
+  },
 
   ruff = {},
 
@@ -747,6 +763,31 @@ end
 -- Server helpers
 -- =============================================================================
 
+--- `on_init` admite tanto una función como una lista de funciones
+--- (`vim.lsp.Config.on_init` es `elem_or_list<...>`). Normaliza a lista sin
+--- reutilizar la tabla original, que pertenece a nvim-lspconfig.
+---@param value? function|function[]
+---@return function[]
+local function to_callback_list(value)
+  if value == nil then
+    return {}
+  end
+
+  if type(value) == "table" then
+    return vim.list_slice(value)
+  end
+
+  return { value }
+end
+
+--- `on_init` original de nvim-lspconfig por servidor, capturado la primera vez
+--- que se configura el servidor. A partir de ahí `vim.lsp.config[name]` ya
+--- devuelve la cadena montada aquí, y volver a encadenarla en cada
+--- `:LspRestart` duplicaría las llamadas (en `roslyn_ls` eso significa reenviar
+--- `solution/open` una vez por reinicio).
+---@type table<string, function|function[]|false>
+local rtp_on_init = {}
+
 ---@param cfg? vim.lsp.Config
 ---@return vim.lsp.Config
 local function extend_server_config(cfg)
@@ -797,19 +838,18 @@ local function configure_server(name)
 
   -- Algunos servidores traen un `on_init` propio en nvim-lspconfig que no debe
   -- perderse (p. ej. `vue_ls`/`volar` registra el forwarding `tsserver/request`
-  -- imprescindible en hybrid mode). Se encadena en lugar de sobrescribirlo.
-  local existing = vim.lsp.config[name]
-  local existing_on_init = existing and existing.on_init
+  -- imprescindible en hybrid mode; `roslyn_ls` abre ahí la solución o los
+  -- proyectos). Se encadena en lugar de sobrescribirlo.
+  if rtp_on_init[name] == nil then
+    local existing = vim.lsp.config[name]
+    rtp_on_init[name] = (existing and existing.on_init) or false
+  end
+
+  local existing_on_init = rtp_on_init[name] or nil
   if existing_on_init and existing_on_init ~= cfg.on_init then
-    local prev_on_init, cur_on_init = existing_on_init, cfg.on_init
-    cfg.on_init = function(client, init_result)
-      if prev_on_init then
-        prev_on_init(client, init_result)
-      end
-      if cur_on_init then
-        cur_on_init(client, init_result)
-      end
-    end
+    local chained = to_callback_list(existing_on_init)
+    vim.list_extend(chained, to_callback_list(cfg.on_init))
+    cfg.on_init = chained
   end
 
   vim.lsp.config(name, cfg)

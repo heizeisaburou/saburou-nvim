@@ -166,8 +166,8 @@ map("n", "<C-A-r>", vim.lsp.buf.rename, { desc = "LSP: Rename" })
 -- =============================================================================
 
 map("t", "<C-x>", "<C-\\><C-N>", { desc = "Terminal: Leave terminal mode" })
-map("n", "<A-v>", sabunv.terminal.open_vertical_split, { desc = "Terminal: Vertical split" })
-map("n", "<A-b>", sabunv.terminal.open_horizontal_split, { desc = "Terminal: Horizontal split" })
+-- map("n", "<A-v>", sabunv.terminal.open_vertical_split, { desc = "Terminal: Vertical split" })
+-- map("n", "<A-b>", sabunv.terminal.open_horizontal_split, { desc = "Terminal: Horizontal split" })
 
 map({ "n", "i", "t" }, "<A-i>", sabunv.terminal.toggle_float, {
   desc = "Terminal: Toggle floating terminal",

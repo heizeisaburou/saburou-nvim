@@ -40,7 +40,7 @@ siempre coinciden con el nombre del paquete de Mason.
 | C                  | `c`                              | `clangd`                      | `clang_format`               | `c`                                           |
 | C++                | `cpp`                            | `clangd`                      | `clang_format`               | `cpp`                                         |
 | CMake              | `cmake`                          | `neocmake`                    | —                            | `cmake`                                       |
-| C#                 | `cs`                             | `csharp_ls`                   | `csharpier`                  | `c_sharp`                                     |
+| C#                 | `cs`                             | `roslyn_ls`                   | `csharpier`                  | `c_sharp`                                     |
 | Clojure            | `clojure`                        | `clojure_lsp`                 | `zprint`                     | `clojure`                                     |
 | EDN                | `edn`                            | —                             | `zprint`                     | `clojure` (alias)                             |
 | CSS                | `css`                            | `cssls`                       | `prettier`                   | `css`                                         |
@@ -275,7 +275,21 @@ comprobaciones sin buffer real—: ambas extensiones resuelven a `dosbatch`.
 
 ### C#
 
-`csharp_ls` y CSharpier necesitan un **.NET SDK completo**, no sólo el runtime. Si `dotnet tool install`
+El servidor es `roslyn_ls`, no `csharp_ls`. Es el LSP oficial de Microsoft
+(`Microsoft.CodeAnalysis.LanguageServer`, el mismo motor de Visual Studio y de la extensión C# Dev
+Kit), mientras que `csharp_ls` era un envoltorio de terceros bastante más pobre: `roslyn_ls` da
+análisis a nivel de solución completa, inlay hints, code lens de referencias, decompilación para
+navegar a código sin fuentes y el juego completo de refactors de Roslyn.
+
+Mason lo instala como `roslyn-language-server` (paquete NuGet) y deja el binario con ese mismo
+nombre, que es justo el `cmd` por defecto de nvim-lspconfig; no hay que tocar la ruta. Alternativa
+manual, si prefieres no pasar por Mason:
+
+```bash
+dotnet tool install --global roslyn-language-server --prerelease
+```
+
+`roslyn_ls` y CSharpier necesitan un **.NET SDK completo**, no sólo el runtime. Si `dotnet tool install`
 falla con mensajes del tipo `No .NET SDKs were found`, hay que instalar el SDK y los runtimes
 compatibles con esa versión.
 
@@ -289,6 +303,19 @@ dotnet --info
 
 En Arch, evita mezclar paquetes del sistema con Snap, repositorios de Microsoft o instalaciones
 manuales en `/usr/share/dotnet`; tener varios runtimes en paralelo sí es normal.
+
+Dos diferencias de comportamiento respecto a `csharp_ls` que conviene tener presentes:
+
+- **Necesita un proyecto de verdad.** `root_dir` solo resuelve si encuentra un `.sln`/`.slnx` o, en
+  su defecto, un `.csproj`. Un `.cs` suelto en `/tmp` no engancha ningún servidor y no hay mensaje
+  de error: simplemente no arranca. Es cómo Roslyn carga el workspace, no un fallo de la config.
+  Para probar algo rápido, `dotnet new console -o prueba` y editar ahí dentro.
+- **Razor no está soportado** por esta integración. Al abrir `.cshtml`/`.razor` el servidor avisa y
+  remite a [`seblyng/roslyn.nvim`](https://github.com/seblyng/roslyn.nvim), un plugin dedicado que
+  sí implementa el protocolo de archivos dinámicos de Razor.
+
+La primera apertura de una solución grande tarda: el servidor indexa todo el proyecto antes de dar
+diagnósticos, y avisa con un `Roslyn project initialization complete` cuando termina.
 
 ### Clojure
 

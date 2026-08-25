@@ -444,6 +444,26 @@ local function workspace_specs(roots)
   return specs
 end
 
+--- La fecha del archivo: creación si el sistema la expone, si no la de
+--- modificación. Devuelve nil si el archivo aún no existe (nota recién creada),
+--- y entonces quien llama usa la de hoy.
+---@param path any
+---@return string|nil
+local function fecha_archivo(path)
+  if not path then
+    return nil
+  end
+  local ok, st = pcall(vim.uv.fs_stat, tostring(path))
+  if not ok or not st then
+    return nil
+  end
+  local secs = (st.birthtime and st.birthtime.sec) or (st.mtime and st.mtime.sec)
+  if not secs or secs <= 0 then
+    return nil
+  end
+  return os.date("%Y-%m-%d", secs)
+end
+
 local function make_opts()
   state.roots = collect_roots()
 
@@ -476,6 +496,11 @@ local function make_opts()
         return false
       end,
 
+      -- Orden de las claves: primero la identidad, luego el mantenimiento, luego
+      -- lo de Obsidian, y lo demás alfabético (lo hace `sort_by_list`). El
+      -- mismo criterio que scripts/frontmatter.py del vault.
+      sort = { "id", "version", "created", "reviewed", "updated", "aliases", "tags" },
+
       func = function(note)
         if note.title then
           note:add_alias(note.title)
@@ -492,7 +517,13 @@ local function make_opts()
         -- Quien los mueve después es scripts/frontmatter.py del propio vault,
         -- en el pre-commit: sube `version` y `updated` de lo que cambió.
         -- `reviewed` no lo toca nadie automáticamente: es criterio propio.
+        -- Nace valiendo lo mismo que `created` —una nota está revisada el día
+        -- que la escribes— y no "hoy": si no, una nota vieja que estrena
+        -- frontmatter afirmaría que la miraste entera hoy.
         local hoy = os.date "%Y-%m-%d"
+        if out.created == nil or out.created == "" then
+          out.created = fecha_archivo(note.path) or hoy
+        end
         if out.updated == nil or out.updated == "" then
           out.updated = hoy
         end
@@ -500,7 +531,7 @@ local function make_opts()
           out.version = 1
         end
         if out.reviewed == nil or out.reviewed == "" then
-          out.reviewed = hoy
+          out.reviewed = out.created
         end
 
         return out
@@ -1172,6 +1203,7 @@ return {
 
   -- frontmatter = {
   --   enabled = true,
+  --   sort = { "id", "version", "created", "reviewed", "updated", "aliases", "tags" },
   --   func = function(note)
   --     if note.title then
   --       note:add_alias(note.title)
@@ -1185,9 +1217,10 @@ return {
   --     end
   --
   --     local hoy = os.date "%Y-%m-%d"
+  --     out.created = out.created or hoy
   --     out.updated = out.updated or hoy
   --     out.version = out.version or 1
-  --     out.reviewed = out.reviewed or hoy
+  --     out.reviewed = out.reviewed or out.created
   --     return out
   --   end,
   -- },

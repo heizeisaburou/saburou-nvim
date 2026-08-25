@@ -5,17 +5,19 @@ Volver a [README.md](/README.md)
 
 ## Brief
 
-Las _Nerd Fonts_ son fuentes de programación corrientes a las que se les han añadido miles de
-iconos (Font Awesome, Devicons, Octicons, Material Design, etc.). Mi configuración usa esos
-iconos por todas partes: explorador de archivos, statusline, diagnósticos, autocompletado, etc.
-Sin una Nerd Font verás cuadrados, interrogantes o huecos en blanco en su lugar.
+Las _Nerd Fonts_ son fuentes de programación corrientes a las que se les han añadido
+miles de iconos (Font Awesome, Devicons, Octicons, Material Design, etc.). Mi
+configuración usa esos iconos por todas partes: explorador de archivos, statusline,
+diagnósticos, autocompletado, etc. Sin una Nerd Font verás cuadrados, interrogantes o
+huecos en blanco en su lugar.
 
-Quien dibuja el texto es **la terminal**, no Neovim, así que no basta con instalar la fuente: después
-hay que seleccionarla en la terminal (o en tu GUI de Neovim si usas una).
+Quien dibuja el texto es **la terminal**, no Neovim, así que no basta con instalar la
+fuente: después hay que seleccionarla en la terminal (o en tu GUI de Neovim si usas
+una).
 
 Esta nota cubre cómo instalarlas, en Windows, Linux y macOS. Los ejemplos usan
-`JetBrainsMono Nerd Font` porque es la que uso yo, pero vale cualquiera del [catálogo](https://www.nerdfonts.com/font-downloads); solo tienes
-que cambiar el nombre de la fuente o del paquete.
+`JetBrainsMono Nerd Font` porque es la que uso yo, pero vale cualquiera del [catálogo](https://www.nerdfonts.com/font-downloads);
+solo tienes que cambiar el nombre de la fuente o del paquete.
 
 ## Elegir la variante
 
@@ -27,10 +29,11 @@ Cada fuente del catálogo se publica en varias variantes y el nombre importa:
 | `JetBrainsMono Nerd Font Mono`  | Los encoge todos al ancho de una celda, se ven pequeños |
 | `JetBrainsMono Nerd Font Propo` | Ajusta el ancho de los iconos al espaciado proporcional |
 
-Elige la que **no** termine en `Mono` para que los iconos no se vean todos del mismo tamaño.
+Elige la que **no** termine en `Mono` para que los iconos no se vean todos del mismo
+tamaño.
 
-Los instaladores y los paquetes suelen traer las tres variantes a la vez, así que la elección
-normalmente se hace al configurar la terminal, no al instalar.
+Los instaladores y los paquetes suelen traer las tres variantes a la vez, así que la
+elección normalmente se hace al configurar la terminal, no al instalar.
 
 ## Installation
 
@@ -46,10 +49,11 @@ winget install DEVCOM.JetBrainsMonoNerdFont
 
 1. Descarga el `.zip` de la fuente en <https://www.nerdfonts.com/font-downloads>.
 2. Extrae el `.zip`.
-3. Selecciona los `.ttf`, botón derecho → **Instalar** (o **Instalar para todos los usuarios**, que
-   requiere permisos de administrador).
+3. Selecciona los `.ttf`, botón derecho → **Instalar** (o **Instalar para todos los usuarios**,
+   que requiere permisos de administrador).
 
-En ambos casos, cierra y vuelve a abrir la terminal para que reconozca la fuente nueva.
+En ambos casos, cierra y vuelve a abrir la terminal para que reconozca la fuente
+nueva.
 
 ### Linux
 
@@ -59,8 +63,8 @@ En ambos casos, cierra y vuelve a abrir la terminal para que reconozca la fuente
 sudo pacman -S --needed ttf-jetbrains-mono-nerd
 ```
 
-Todas las Nerd Fonts están empaquetadas en el grupo `nerd-fonts`, así que puedes ver el catálogo
-entero con:
+Todas las Nerd Fonts están empaquetadas en el grupo `nerd-fonts`, así que puedes ver el
+catálogo entero con:
 
 ```sh
 pacman -Sg nerd-fonts
@@ -70,30 +74,32 @@ pacman -Sg nerd-fonts
 
 > [!WARNING]
 >
-> Existe el paquete `fonts-jetbrains-mono`, pero es la fuente **original sin parchear**: no trae los
-> iconos y no sirve para esta configuración. Debian no empaqueta las Nerd Fonts.
+> Existe el paquete `fonts-jetbrains-mono`, pero es la fuente **original sin parchear**: no
+> trae los iconos y no sirve para esta configuración. Debian no empaqueta las Nerd
+> Fonts.
 
 Instálala a mano siguiendo [Instalación manual en Linux](#instalación-manual-en-linux).
 
 #### Fedora
 
-Fedora tampoco empaqueta las Nerd Fonts en sus repositorios oficiales; la excepción es
-`cascadia-mono-nf-fonts`, que sí es una fuente con los símbolos de Nerd Fonts:
+Fedora tampoco empaqueta las Nerd Fonts en sus repositorios oficiales; la excepción
+es `cascadia-mono-nf-fonts`, que sí es una fuente con los símbolos de Nerd Fonts:
 
 ```sh
 sudo dnf install cascadia-mono-nf-fonts
 ```
 
 Para cualquier otra fuente, incluida JetBrains Mono, instálala a mano siguiendo
-[Instalación manual en Linux](#instalación-manual-en-linux). Hay repositorios COPR de terceros que las empaquetan, pero no son
-oficiales, suelen ir por detrás en versión y no los mantengo probados.
+[Instalación manual en Linux](#instalación-manual-en-linux). Hay repositorios COPR de terceros que las empaquetan,
+pero no son oficiales, suelen ir por detrás en versión y no los mantengo probados.
 
 #### Instalación manual en Linux
 
-Es la vía que funciona en cualquier distribución. Las fuentes se instalan copiando los `.ttf` a un
-directorio de fuentes y regenerando la caché:
+Es la vía que funciona en cualquier distribución. Las fuentes se instalan copiando
+los `.ttf` a un directorio de fuentes y regenerando la caché:
 
-- `~/.local/share/fonts` — solo para tu usuario, no necesita `root`. **Es la opción recomendada.**
+- `~/.local/share/fonts` — solo para tu usuario, no necesita `root`. **Es la opción
+  recomendada.**
 - `/usr/local/share/fonts` — para todos los usuarios del sistema, necesita `sudo`.
 
 ```sh
@@ -119,8 +125,8 @@ Comprueba que el sistema la ve con:
 fc-list | grep -i "jetbrainsmono nerd"
 ```
 
-Si el comando no devuelve nada, la fuente no está instalada donde el sistema la busca, o falta
-ejecutar `fc-cache -fv`.
+Si el comando no devuelve nada, la fuente no está instalada donde el sistema la
+busca, o falta ejecutar `fc-cache -fv`.
 
 ### macOS
 
@@ -134,8 +140,8 @@ Puedes instalarla mediante Homebrew:
 brew install --cask font-jetbrains-mono-nerd-font
 ```
 
-También puedes instalarla a mano copiando los `.ttf` a `~/Library/Fonts` (solo tu usuario) o
-`/Library/Fonts` (todos los usuarios), o abriéndolos con **Font Book**.
+También puedes instalarla a mano copiando los `.ttf` a `~/Library/Fonts` (solo tu
+usuario) o `/Library/Fonts` (todos los usuarios), o abriéndolos con **Font Book**.
 
 Comprueba la instalación con:
 
@@ -145,8 +151,8 @@ fc-list | grep -i "jetbrainsmono nerd"
 
 ## Configurar la terminal
 
-Instalar la fuente no la activa; hay que seleccionarla en la terminal usando el nombre de la
-variante (recuerda: la que **no** termina en `Mono`).
+Instalar la fuente no la activa; hay que seleccionarla en la terminal usando el
+nombre de la variante (recuerda: la que **no** termina en `Mono`).
 
 **Kitty** (`~/.config/kitty/kitty.conf`):
 

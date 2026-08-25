@@ -4,16 +4,16 @@ Volver a [README.md](/README.md)
 
 ## Brief
 
-Herramientas de línea de comandos para trabajar con distintos asistentes de inteligencia
-artificial:
+Herramientas de línea de comandos para trabajar con distintos asistentes de
+inteligencia artificial:
 
 - `opencode`
 - `claude`
 - `codex`
 
-Esta nota cubre cómo instalar las tres (en Windows y Linux, todas vía `npm`) y las teclas para
-togglear cada una —además de Copilot, que no es una CLI pero se integra junto a ellas— dentro de
-Neovim.
+Esta nota cubre cómo instalar las tres (en Windows y Linux, todas vía `npm`) y las
+teclas para togglear cada una —además de Copilot, que no es una CLI pero se integra
+junto a ellas— dentro de Neovim.
 
 ## Installation
 
@@ -60,8 +60,8 @@ codex --version
 
 ## Keybindings
 
-Cada herramienta se togglea (abre/cierra) con una combinación con `Alt`, definida a mano en
-`lua/lzy/`:
+Cada herramienta se togglea (abre/cierra) con una combinación con `Alt`, definida a
+mano en `lua/lzy/`:
 
 | Tecla             | Qué hace                               | Modos   | Archivo                |
 | ----------------- | -------------------------------------- | ------- | ---------------------- |
@@ -73,14 +73,14 @@ Cada herramienta se togglea (abre/cierra) con una combinación con `Alt`, defini
 
 Copilot también se togglea con `<leader>gt`; `<A-p>` es sólo un atajo más rápido.
 
-Probadas en **kitty** (config por defecto) y **PowerShell** (Windows): ninguna de las cinco combinaciones
-está tomada por el terminal ahí, así que llegan intactas a Neovim.
+Probadas en **kitty** (config por defecto) y **PowerShell** (Windows): ninguna de las cinco
+combinaciones está tomada por el terminal ahí, así que llegan intactas a Neovim.
 
 ### Si alguna no abre
 
-Seguramente tu terminal tiene esa tecla ocupada para otra cosa. Cámbiala en la config de tu
-terminal, o directamente en el archivo indicado en la tabla (busca ahí la tecla y sustitúyela por
-otra libre).
+Seguramente tu terminal tiene esa tecla ocupada para otra cosa. Cámbiala en la config
+de tu terminal, o directamente en el archivo indicado en la tabla (busca ahí la tecla
+y sustitúyela por otra libre).
 
 ## Troubleshooting
 
@@ -114,9 +114,10 @@ claude --version
 codex --version
 ```
 
-Si `npm install -g` muestra `added ... packages`, la instalación se ha realizado correctamente; un
-`command not found` posterior normalmente indica un problema con el `PATH`.
+Si `npm install -g` muestra `added ... packages`, la instalación se ha realizado
+correctamente; un `command not found` posterior normalmente indica un problema con el
+`PATH`.
 
-Si una combinación de teclas no funciona dentro de Neovim, comprueba que tu terminal no esté
-capturándola y, si es necesario, cámbiala en la configuración del terminal o en el archivo
-indicado en **Keybindings**.
+Si una combinación de teclas no funciona dentro de Neovim, comprueba que tu terminal
+no esté capturándola y, si es necesario, cámbiala en la configuración del terminal o
+en el archivo indicado en **Keybindings**.

@@ -5,11 +5,12 @@ Volver a [README.md](/README.md)
 
 ## Brief
 
-Go es un lenguaje de programación compilado, desarrollado por Google, diseñado para ser sencillo,
-eficiente y especialmente adecuado para aplicaciones de sistemas y servicios.
+Go es un lenguaje de programación compilado, desarrollado por Google, diseñado para
+ser sencillo, eficiente y especialmente adecuado para aplicaciones de sistemas y
+servicios.
 
-Muchas de las herramientas de linting y formateo que no están activadas por defecto en esta
-configuración están desarrolladas en Go o requieren Go para funcionar.
+Muchas de las herramientas de linting y formateo que no están activadas por defecto
+en esta configuración están desarrolladas en Go o requieren Go para funcionar.
 
 ## Installation
 

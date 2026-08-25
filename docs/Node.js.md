@@ -5,10 +5,10 @@ Volver a [README.md](/README.md)
 
 ## Brief
 
-Node.js es el entorno de ejecución de JavaScript fuera del navegador, con `npm` como gestor de
-paquetes. Aquí hace falta para compilar `tree-sitter-cli` y para varias herramientas de
-JavaScript/TypeScript que usa la configuración: servidores LSP, herramientas instaladas mediante
-Mason y `copilot.lua`.
+Node.js es el entorno de ejecución de JavaScript fuera del navegador, con `npm` como
+gestor de paquetes. Aquí hace falta para compilar `tree-sitter-cli` y para varias
+herramientas de JavaScript/TypeScript que usa la configuración: servidores LSP,
+herramientas instaladas mediante Mason y `copilot.lua`.
 
 Esta nota solo cubre cómo instalarlo, en Windows, Linux y macOS.
 
@@ -72,9 +72,10 @@ npm --version
 
 > [!NOTE]
 >
-> Si la versión de Node.js proporcionada por tu distribución es demasiado antigua para alguna de
-> las herramientas utilizadas por la configuración, puede ser preferible utilizar un gestor de
-> versiones de Node.js como `nvm` en lugar del paquete de la distribución.
+> Si la versión de Node.js proporcionada por tu distribución es demasiado antigua
+> para alguna de las herramientas utilizadas por la configuración, puede ser
+> preferible utilizar un gestor de versiones de Node.js como `nvm` en lugar del paquete
+> de la distribución.
 
 ### macOS
 

@@ -7,8 +7,8 @@ Volver a [README.md](/README.md)
 
 Python es un lenguaje de programación de scripting y de propósito general.
 
-Además de ser necesario instalarlo para programar en Python es una dependencia de muchos paquetes
-que se instalan a traves de Mason.
+Además de ser necesario instalarlo para programar en Python es una dependencia de
+muchos paquetes que se instalan a traves de Mason.
 
 ## Installation
 
@@ -29,8 +29,8 @@ pip --version
 
 > [!NOTE]
 >
-> Durante la instalación, `winget` se encarga de instalar Python y registrarlo para poder
-> utilizarlo desde la terminal.
+> Durante la instalación, `winget` se encarga de instalar Python y registrarlo para
+> poder utilizarlo desde la terminal.
 
 ### Linux
 
@@ -50,8 +50,8 @@ python --version
 
 ## Activation
 
-Para programar en Python primero asegurate de que esté instalado a nivel de sistema. Lo
-siguiente:
+Para programar en Python primero asegurate de que esté instalado a nivel de sistema.
+Lo siguiente:
 
 - [lua/lzy/conform.lua](/lua/lzy/conform.lua) ― descomenta `python = { "ruff_format" }`
 - [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) ― descomenta `python`
@@ -74,5 +74,5 @@ pip3 --version
 
 > [!NOTE]
 >
-> En macOS, Homebrew instala Python con los comandos `python3` y `pip3`. No es necesario instalar
-> Python mediante Xcode Command Line Tools.
+> En macOS, Homebrew instala Python con los comandos `python3` y `pip3`. No es necesario
+> instalar Python mediante Xcode Command Line Tools.
