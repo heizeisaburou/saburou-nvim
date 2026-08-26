@@ -350,5 +350,6 @@ para mover el contenido en una dirección o en la otra cuando lo necesites.
 | Vimdoc             | `vimdoc`                         | —                             | —                            | `vimdoc`                                      |
 | Vue                | `vue`                            | `vue_ls`                      | `prettier`                   | `vue`                                         |
 | WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | pendiente (sin parser catalogado)             |
+| XML                | `xml` / `xsd` / `xslt` / `svg`   | `lemminx`                     | vía LSP                      | `xml` + `dtd`                                 |
 | YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                                        |
 | Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                                         |

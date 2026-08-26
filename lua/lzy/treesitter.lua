@@ -71,6 +71,7 @@ M.languages = {
   -- "vim",
   -- "vimdoc",
   -- "vue",
+  -- "xml", -- arrastra el parser `dtd` como dependencia
   -- "yaml",
   -- "zig",
   -- "zsh",
@@ -86,6 +87,7 @@ M.enabled_highlights = {
   cs = true,
   css = true,
   dart = true,
+  dtd = true, -- `.dtd`; parser que arrastra `xml`
   edn = true,
   elixir = true,
   erlang = true,
@@ -131,6 +133,7 @@ M.enabled_highlights = {
   scala = true,
   solidity = true,
   sql = true,
+  svg = true, -- SVG es XML; requiere el alias de M.language_aliases
   svelte = true,
   swift = true,
   toml = true,
@@ -141,18 +144,25 @@ M.enabled_highlights = {
   vim = true,
   vimdoc = true,
   vue = true,
+  xml = true,
+  xsd = true, -- `.xsd`; requiere el alias de M.language_aliases
+  xslt = true, -- `.xsl`/`.xslt`; requiere el alias de M.language_aliases
   yaml = true,
   zig = true,
   zsh = true,
 }
 
--- Algunos filetypes no comparten nombre con su parser. nvim-treesitter ya
--- registra `cs -> c_sharp` y `ocamlinterface -> ocaml_interface`; estos alias
--- adicionales pertenecen a los filetypes secundarios que añadimos.
 -- Filetypes que no comparten nombre con su parser. nvim-treesitter ya registra
--- los casos conocidos (cs -> c_sharp, ocamlinterface -> ocaml_interface). Sin
--- entradas por ahora; las plantillas Go usan directamente `gotmpl`.
-M.language_aliases = {}
+-- los casos conocidos (cs -> c_sharp, ocamlinterface -> ocaml_interface); estos
+-- alias adicionales pertenecen a los filetypes secundarios que añadimos. Las
+-- plantillas Go no necesitan alias: usan directamente `gotmpl`.
+M.language_aliases = {
+  -- La familia XML: Neovim les da filetype propio a estas extensiones, pero el
+  -- parser es el mismo `xml` para todas.
+  svg = "xml",
+  xsd = "xml",
+  xslt = "xml", -- `.xsl` y `.xslt`
+}
 
 local function notify(message, level)
   vim.notify(message, level, { title = "TSInstallAll" })

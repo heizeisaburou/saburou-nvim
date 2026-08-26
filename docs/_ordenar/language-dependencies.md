@@ -99,6 +99,7 @@ siempre coinciden con el nombre del paquete de Mason.
 | Vimdoc             | `vimdoc`                         | —                             | —                            | `vimdoc`                                      |
 | Vue                | `vue`                            | `vue_ls`                      | `prettier`                   | `vue`                                         |
 | WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | pendiente (sin parser catalogado)             |
+| XML                | `xml` / `xsd` / `xslt` / `svg`   | `lemminx`                     | vía LSP                      | `xml` + `dtd`                                 |
 | YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                                        |
 | Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                                         |
 
@@ -908,6 +909,32 @@ parser catalogado.
 No se ha instalado localmente ningún ensamblador binario de WebAssembly (`wat2wasm`/`wasm2wat` de
 WABT) para producir `.wasm`; los archivos de prueba son solo texto WAT, que es lo único que
 `wasm_language_tools` analiza.
+
+### XML
+
+`lemminx` (Mason: `lemminx`) para `.xml`, `.xsd`, `.xsl`/`.xslt` y `.svg`. Mason instala el binario
+nativo que publica `redhat-developer/vscode-xml`, con asset propio para `linux_x64`, `linux_arm64`,
+`darwin_x64` y `darwin_arm64`: **no hace falta JDK** pese a que el proyecto sea Java.
+
+Sin entrada en Conform: lemminx expone su propio `textDocument/formatting` y el atajo de formato de
+esta config cae al LSP cuando Conform no cubre el filetype (`lsp_format = "fallback"`), igual que
+GLSL y WebAssembly. El formato respeta `shiftwidth`/`expandtab` del buffer, que es lo que aplica la
+política de indentación. Aparte del formato, valida el documento y comprueba lo que declare contra
+su XSD o su DTD.
+
+Descartado `xmlformatter` (Mason: `xmlformatter`, binario `xmlformat`): es un paquete de PyPI, y
+Python es una dependencia circunstancial de esta configuración, el mismo motivo por el que
+`sqlfluff` está fuera por defecto. `xmllint` (libxml2) formatea de sobra y viene de serie en la
+mayoría de Linux y en macOS, pero no está en Mason —`:MasonInstallAll` no puede traerlo—, no da
+diagnósticos y aborta con cualquier documento mal formado. Queda como apaño de consola, no como
+formatter de la config.
+
+Tree-sitter: el parser `xml` declara `dtd` como dependencia, así que se instalan los dos. Neovim
+reparte esta familia en cuatro filetypes (`xml`, `xsd`, `xslt`, `svg`) con un único parser detrás, de
+ahí los tres alias de `M.language_aliases`; `.dtd` sí tiene filetype y parser propios.
+
+En macOS el binario de lemminx llega sin firmar y Gatekeeper puede bloquearlo. Si pasa:
+`xattr -d com.apple.quarantine` sobre el ejecutable que instaló Mason.
 
 ### Vue
 

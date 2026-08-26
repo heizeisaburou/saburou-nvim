@@ -65,6 +65,7 @@ M.servers = {
   -- "jsonls", -- .json
   -- "julials", -- Julia; cmd propio, ver M.config
   -- "kotlin_language_server",
+  -- "lemminx", -- XML (.xml/.xsd/.xsl/.xslt/.svg); también formatea, ver language-dependencies.md
   -- "metals", -- scala
   -- "neocmake", -- cmake
   -- "nil_ls", -- Nix; no nixd, ver next-languages.md
