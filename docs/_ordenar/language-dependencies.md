@@ -170,14 +170,15 @@ arranca desde un lanzador de escritorio en vez de una terminal, como pasa con `f
 No es exclusivo de Conform: `suricata_language_server` usa el mismo helper para localizar su
 ejecutable dentro del virtualenv en el que se instala, porque tampoco está en Mason.
 
-| Herramienta                | Lenguaje | Se instala con                 | Fuera del `PATH` en         |
-| -------------------------- | -------- | ------------------------------ | --------------------------- |
-| `runic`                    | Julia    | `Pkg.Apps.add("Runic")`        | `~/.julia/bin`              |
-| `erlfmt`                   | Erlang   | `rebar3 as release escriptize` | `~/.local/share/erlfmt/...` |
-| `forge_fmt`                | Solidity | instalador de Foundry          | `~/.config/.foundry/bin`    |
-| `nasmfmt`                  | NASM     | `go install`                   | `~/go/bin`                  |
-| `fish_indent`              | Fish     | paquete `fish` del sistema     | —                           |
-| `suricata-language-server` | Suricata | `pip install` en un venv       | `~/.venv/sls/bin`           |
+| Herramienta                | Lenguaje | Se instala con                 | Fuera del `PATH` en          |
+| -------------------------- | -------- | ------------------------------ | ---------------------------- |
+| `runic`                    | Julia    | `Pkg.Apps.add("Runic")`        | `~/.julia/bin`               |
+| `erlfmt`                   | Erlang   | `rebar3 as release escriptize` | `~/.local/share/erlfmt/...`  |
+| `forge_fmt`                | Solidity | instalador de Foundry          | `~/.config/.foundry/bin`     |
+| `nasmfmt`                  | NASM     | `go install`                   | `~/go/bin`                   |
+| `fish_indent`              | Fish     | paquete `fish` del sistema     | —                            |
+| `suricata-language-server` | Suricata | `pip install` en un venv       | `~/.venv/sls/bin`            |
+| `suricata-check`           | Suricata | `pip install` en un venv       | `~/.venv/suricata-check/bin` |
 
 ### Paquetes de AUR y Chaotic-AUR
 
@@ -1072,6 +1073,39 @@ registra sobre `hog` y sobre `suricata`, el filetype que anuncia upstream y que 
 Resaltado: lo da `syntax/hog.vim`, que viene en el runtime de Neovim —aquí sí—, así que no hace falta
 añadir nada. Tree-sitter tampoco tiene parser catalogado; mismo criterio que YARA.
 
+#### suricata-check: el linter de calidad
+
+El LSP dice si la firma **compila**. Lo que no dice es si la firma sirve para algo en producción:
+que le falte `classtype`, que no declare dirección, que no tenga un `content` que sostenga el fast
+pattern. De eso se encarga `suricata-check` (PyPI, `hog = { "suricata_check" }` en
+[lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua)).
+
+No está en Mason **ni en el catálogo de nvim-lint**, así que la definición del linter va entera a
+mano. Se instala igual que el servidor, en un virtualenv:
+
+```sh
+python3 -m venv ~/.venv/suricata-check && ~/.venv/suricata-check/bin/pip install suricata-check
+```
+
+Cuatro cosas de la herramienta que condicionan cómo está definido, todas comprobadas ejecutándola:
+
+- **No lee stdin.** Sólo acepta una ruta (`-r`) o una firma suelta (`-s`), así que `stdin = false` y
+  el linteo depende de que el archivo esté en disco. Con los eventos que usa esta capa
+  (`BufReadPost`/`BufWritePost`) eso siempre se cumple.
+- **`-o` no es opcional en la práctica.** Por defecto vale `.` y escribe ahí tres archivos
+  (`suricata-check.jsonl`, `.log` y `-fast.log`); sin redirigirlo, cada guardado ensucia el
+  directorio de reglas. Van a `stdpath("cache")/suricata-check`.
+- **La severidad por defecto es inusable como diagnóstico continuo.** Con `INFO` devuelve unos 50
+  avisos para un fichero de cinco reglas, casi todos sugerencias de metadatos (`created_at`,
+  `attack_target`, `performance_impact`...). Con `--issue-severity WARNING` quedan los accionables:
+  sobre el fichero de errores del laboratorio, 2; sobre el de firmas válidas, ninguno.
+- **Colorea siempre**, ignorando `NO_COLOR`, y sale con código 0 haya hallazgos o no. De ahí que el
+  parser quite los escapes ANSI y que el linter lleve `ignore_exitcode = true`.
+
+Se solapa en parte con el LSP —la firma sin `sid` la marcan los dos, cada uno con su `source`—, pero
+el resto no: el LSP no opina sobre metadatos ni sobre convenciones de `msg`, y `suricata-check` no
+compila nada.
+
 Para probarlo, un proyecto mínimo con los dos marcadores de raíz:
 
 ```sh
@@ -1208,6 +1242,7 @@ máquina concreta.
 - [Documentación de YARA](https://yara.readthedocs.io/)
 - [Suricata Language Server](https://github.com/StamusNetworks/suricata-language-server)
 - [Suricata en AUR](https://aur.archlinux.org/packages/suricata)
+- [suricata-check](https://github.com/Koen1999/suricata-check)
 - [prettier-plugin-liquid](https://github.com/Shopify/prettier-plugin-liquid)
 - [jinja-lsp](https://github.com/uros-5/jinja-lsp)
 - [prettier-plugin-handlebars](https://github.com/ggoodman/prettier-plugin-handlebars)
