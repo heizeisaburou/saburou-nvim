@@ -241,6 +241,7 @@ return {
   wasm_language_tools = "wasm-language-tools",
   wgsl_analyzer = "wgsl-analyzer",
   yamlls = "yaml-language-server",
+  yls = "yls-yara",
   zk = "zk",
   zls = "zls",
 

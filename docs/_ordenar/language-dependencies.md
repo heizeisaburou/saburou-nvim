@@ -89,6 +89,7 @@ siempre coinciden con el nombre del paquete de Mason.
 | Solidity           | `solidity`                       | `solidity_ls_nomicfoundation` | `forge_fmt`                  | `solidity`                                    |
 | SQL                | `sql`                            | `postgres_lsp` / `sqls`       | `sqlfluff` / `pg_format`     | `sql`                                         |
 | Surface            | `surface`                        | —                             | `mix`                        | —                                             |
+| Suricata / Snort   | `hog`                            | `suricata_language_server`    | —                            | pendiente (resalta `syntax/hog.vim`)          |
 | Svelte             | `svelte`                         | `svelte`                      | `prettier_svelte`            | `svelte`                                      |
 | Swift              | `swift`                          | `sourcekit`                   | `swiftformat`                | `swift`                                       |
 | TOML               | `toml`                           | `taplo`                       | `taplo`                      | `toml`                                        |
@@ -101,6 +102,7 @@ siempre coinciden con el nombre del paquete de Mason.
 | WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | pendiente (sin parser catalogado)             |
 | XML                | `xml` / `xsd` / `xslt` / `svg`   | `lemminx`                     | vía LSP                      | `xml` + `dtd`                                 |
 | YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                                        |
+| YARA               | `yara`                           | `yls`                         | vía LSP                      | pendiente (resalta `syntax/yara.vim`)         |
 | Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                                         |
 
 Además se instala el parser `printf`, usado como parser auxiliar. `expert` se mantiene como
@@ -165,13 +167,17 @@ Conform.
 están en él porque el instalador editó el rc de la shell —lo que deja de cumplirse si Neovim
 arranca desde un lanzador de escritorio en vez de una terminal, como pasa con `forge`—.
 
-| Herramienta   | Lenguaje | Se instala con                 | Fuera del `PATH` en         |
-| ------------- | -------- | ------------------------------ | --------------------------- |
-| `runic`       | Julia    | `Pkg.Apps.add("Runic")`        | `~/.julia/bin`              |
-| `erlfmt`      | Erlang   | `rebar3 as release escriptize` | `~/.local/share/erlfmt/...` |
-| `forge_fmt`   | Solidity | instalador de Foundry          | `~/.config/.foundry/bin`    |
-| `nasmfmt`     | NASM     | `go install`                   | `~/go/bin`                  |
-| `fish_indent` | Fish     | paquete `fish` del sistema     | —                           |
+No es exclusivo de Conform: `suricata_language_server` usa el mismo helper para localizar su
+ejecutable dentro del virtualenv en el que se instala, porque tampoco está en Mason.
+
+| Herramienta                | Lenguaje | Se instala con                 | Fuera del `PATH` en         |
+| -------------------------- | -------- | ------------------------------ | --------------------------- |
+| `runic`                    | Julia    | `Pkg.Apps.add("Runic")`        | `~/.julia/bin`              |
+| `erlfmt`                   | Erlang   | `rebar3 as release escriptize` | `~/.local/share/erlfmt/...` |
+| `forge_fmt`                | Solidity | instalador de Foundry          | `~/.config/.foundry/bin`    |
+| `nasmfmt`                  | NASM     | `go install`                   | `~/go/bin`                  |
+| `fish_indent`              | Fish     | paquete `fish` del sistema     | —                           |
+| `suricata-language-server` | Suricata | `pip install` en un venv       | `~/.venv/sls/bin`           |
 
 ### Paquetes de AUR y Chaotic-AUR
 
@@ -944,6 +950,155 @@ Tree-sitter usa el parser `vue`.
 Para un análisis TypeScript completo dentro de `<script>`, el proyecto debe tener disponible su
 TypeScript/tsdk correspondiente.
 
+### YARA
+
+`yls` (Mason: `yls-yara`) para `.yar` y `.yara`, filetype `yara`. Es el language server de YARA de
+Avast, y el paquete de Mason no es el `yls` pelado sino su plugin `yls-yara`, que es quien arrastra
+`yara-python` —el compilador de verdad— y compila la regla en cada guardado para devolver los
+errores como diagnósticos. Sin el plugin quedan el completado, los hovers, el goto-definition y el
+formato, pero no la validación. El ejecutable que deja en `mason/bin` se llama `yls`, que es el
+nombre que espera nvim-lspconfig.
+
+Es un paquete de PyPI, así que necesita [Python](/docs/langs/Python.md) —dependencia circunstancial de esta
+configuración— y Python 3.8 o superior. El registro de Mason declara el paquete sólo para `linux` y
+`win`: **en macOS `:MasonInstallAll` no lo ofrece** aunque el wheel sea `py3-none-any`. Ahí la vía es
+pip, preferiblemente en un virtualenv, y dejar el `yls` resultante en el `PATH`:
+
+```sh
+python3 -m venv ~/.venv/yls && ~/.venv/yls/bin/pip install yls-yara
+```
+
+Sin entrada en Conform: `yls` implementa `textDocument/formatting` (su propio README lo llama
+"opinionated code formatting"), y el atajo de formato cae al LSP cuando Conform no cubre el
+filetype (`lsp_format = "fallback"`), igual que GLSL, WebAssembly y XML. Comprobado sobre una regla
+desordenada a propósito: normaliza indentación, espacios alrededor de `=` y de los operadores, y
+parte la condición en una línea por operando.
+
+Dos avisos sobre ese formateo, los dos verificados ejecutando el servidor:
+
+- **Hay que guardar antes.** `yls` compara el buffer con el archivo en disco y, si no coinciden,
+  responde `Please save the file before formatting.` y no toca nada. Aquí importa porque el formateo
+  es manual (`<leader>fm` / `<A-f>`) y `format_on_save` está desactivado: el caso normal es pulsar el
+  atajo con cambios sin guardar, que es justo el que no funciona.
+- **Formatea con tabuladores**, sin mirar `shiftwidth`/`expandtab`. Es lo contrario de lemminx, que sí
+  respeta el buffer, así que la política de [lua/user/indent.lua](/lua/user/indent.lua) no se aplica a
+  YARA. Con `tabstop = 2` la diferencia no se ve —parecen espacios—, pero los bytes son `\t`:
+  comprobado con `cat -A` sobre el buffer formateado, con `expandtab` activo.
+
+Tree-sitter: no hay parser. `yara` no aparece en el catálogo de `nvim-treesitter` (comprobado sobre
+`SUPPORTED_LANGUAGES.md` de la versión fijada; tampoco `sigma` ni `suricata`). Existen grammars de
+YARA en la comunidad y se podrían registrar a mano en `nvim-treesitter.parsers`, pero eso deja un
+parser fuera del flujo de `:TSInstallAll` y sin nadie que lo actualice: se descarta hasta que uno
+esté catalogado, mismo criterio que Batch y WebAssembly.
+
+El agujero que sí había que tapar es el resaltado. Neovim 0.12 detecta la extensión y trae
+`ftplugin/yara.vim` (comentarios `//`, `commentstring`), pero **no publica ningún `syntax/yara.vim`**:
+verificado abriendo un `.yar` real, `&syntax` vale `yara` y `b:current_syntax` se queda sin definir,
+es decir, cero highlighting. Por eso esta configuración incluye uno propio en
+[syntax/yara.vim](/syntax/yara.vim). Es el único archivo de sintaxis Vim del repositorio y es
+deliberadamente conservador: cubre la gramática —reglas, secciones, identificadores `$`/`#`/`@`/`!`,
+cadenas de texto, hexadecimales y regex, modificadores y operadores— y no el catálogo de módulos,
+que cambia con cada versión de YARA. Cuando el proyecto Vim publique el suyo, basta con borrar el
+archivo para volver al del runtime.
+
+Para probarlo hace falta un proyecto, no un archivo suelto: el `root_markers` de `yls` es `.git`, así
+que sin repositorio la raíz se resuelve fuera y el servidor analiza en un contexto que no es el tuyo.
+El mínimo es:
+
+```sh
+mkdir -p yara-lab/rules && cd yara-lab && git init
+```
+
+Y dentro, reglas que provoquen cada clase de error: una condición que use un `$string` no declarado,
+un módulo usado sin su `import`, una regla sin sección `condition` y dos reglas con el mismo nombre.
+Son los cuatro errores que devuelve el compilador (`undefined string`, `undefined identifier`,
+`syntax error ... expecting <condition>` y `duplicated identifier`). Conviene añadir una regla válida
+como control: si ésa también da diagnósticos, el problema no son las reglas.
+
+Dos detalles del archivo de sintaxis que no son evidentes y conviene no "arreglar":
+
+- `contains` es palabra clave de YARA, pero no puede ir en un `syn keyword`: ahí es el nombre de un
+  argumento de `:syntax` y Vim contesta `E395`. Va como `syn match`.
+- La región de cadena hexadecimal exige que la llave venga de una asignación (`\%(=\s*\)\@<={`).
+  Con un `start="{"` a secas, el `{` que abre el cuerpo de la regla se traga el resto del archivo.
+
+### Suricata / Snort
+
+`suricata-language-server` de Stamus Networks para las reglas de Suricata (y de Snort, que comparten
+formato). Da comprobación de sintaxis y autocompletado de keywords.
+
+**No está en Mason ni en nvim-lspconfig**, así que a diferencia del resto de servidores la
+definición completa —`cmd`, `filetypes` y raíz— vive en `M.config.suricata_language_server` de
+[lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua). Se instala con pip y su README recomienda un
+virtualenv dedicado:
+
+```sh
+python3 -m venv ~/.venv/sls && ~/.venv/sls/bin/pip install suricata-language-server
+```
+
+Ese directorio no está en el `PATH` salvo que se active el venv, así que el servidor se resuelve con
+el mismo helper que las herramientas externas de Conform (`hzsr.sys.executable.external`), con
+`~/.venv/sls/bin` como ruta de fallback y un aviso accionable si no aparece por ningún lado.
+
+El servidor **no lleva analizador propio**: le pide al binario `suricata` del sistema tanto la lista
+de keywords como la validación de las firmas, y esa es justamente su gracia —comprueba contra la
+misma versión del motor a la que van a ir las reglas—.
+
+Por eso el binario **no es opcional**. Comprobado ejecutando el servidor con `suricata` fuera del
+`PATH`: el cliente arranca y llega a `initialized`, pero cada análisis muere con
+`FileNotFoundError: [Errno 2] No such file or directory: 'suricata'` —`SuriCmd._run_suricata` captura
+`CalledProcessError` pero no `FileNotFoundError`— y el buffer se queda con cero diagnósticos y cero
+keywords. Es decir, un LSP adjunto que no hace nada, que es la peor forma de fallar. De ahí que la
+configuración avise en cuanto se activa el servidor sin el binario delante.
+
+En Arch, `suricata` **no está en los repositorios oficiales ni en Chaotic-AUR** (comprobado contra
+la base de datos de CAUR): sólo en AUR, así que la única vía es Yay, con `--sudoloop` como manda la
+convención de esta guía:
+
+```sh
+yay --sudoloop -S suricata
+```
+
+La alternativa a instalar el motor es `--container`, que lanza Suricata en Docker (`--image` elige la
+imagen), y existe `--suricata-binary /ruta` para apuntar a una instalación fuera del `PATH`. Ninguna
+de las tres se activa por defecto; se añaden al `cmd` de `M.config`.
+
+Filetype: **no hace falta ninguna detección propia**. Neovim ya mapea `.rules` al filetype `hog`
+(Snort/Suricata) y, además, es más listo que un mapeo global —que era el riesgo de tocar aquí—:
+descarta antes las reglas de udev (`/etc/udev/`, `/lib/udev/`, `/usr/lib/udev/`), las de polkit y las
+de `/etc/ufw/`, que llevan al filetype que les toca. Verificado con un `.rules` real. El servidor se
+registra sobre `hog` y sobre `suricata`, el filetype que anuncia upstream y que no asigna nadie.
+
+Resaltado: lo da `syntax/hog.vim`, que viene en el runtime de Neovim —aquí sí—, así que no hace falta
+añadir nada. Tree-sitter tampoco tiene parser catalogado; mismo criterio que YARA.
+
+Para probarlo, un proyecto mínimo con los dos marcadores de raíz:
+
+```sh
+mkdir -p suricata-lab/rules && cd suricata-lab && git init && touch suricata.yaml
+```
+
+Un `.rules` con errores debería marcar keyword inexistente, `sid` ausente, protocolo desconocido y
+valor no numérico donde se espera un número. Y otro con firmas válidas, que **no** debe dar errores
+pero sí `HINT` y `WARN`: son el *engine analysis* de Suricata opinando sobre el rendimiento de la
+firma (fast pattern ausente, falta de `flow`...). Si sólo aparecen errores y ningún hint, el servidor
+está hablando con el binario a medias.
+
+### Sigma, STIX y OpenIOC
+
+No necesitan nada: no son lenguajes con gramática propia, son convenciones sobre un formato base que
+la configuración ya cubre. **Sigma** es YAML (`yamlls` + parser `yaml`), **STIX** es JSON (`jsonls` +
+parser `json`) y **OpenIOC** es XML (`lemminx` + parser `xml`).
+
+La mejora posible sería asociarles un schema para validación y autocompletado —`yaml.schemas` en
+`yamlls`, `json.schemas` en `jsonls`, un `.xsd` en `lemminx`—, filtrando por patrón de fichero para
+no aplicarlo a todo el YAML o el JSON del sistema. No está hecho: es opcional y cada schema añade
+una descarga y un patrón que mantener.
+
+**KQL** (Kusto, el lenguaje de consulta de Sentinel y Defender) queda fuera por ahora: no hay ningún
+LSP ni parser de Tree-sitter maduro para Neovim, y el lenguaje se usa casi siempre dentro del portal
+web, no en un editor local.
+
 ## Formatters externos y plugins de Prettier
 
 Estos formatters no se consideran paquetes instalables directamente por Mason en esta
@@ -989,6 +1144,10 @@ hablen el mismo languageId/filetype:
 - YAML con estructura de Ansible → `yaml.ansible`.
 - `edn` → parser Tree-sitter `clojure`.
 - `lhaskell` → parser Tree-sitter `haskell`.
+- `.yar`, `.yara` → `yara`, de serie en Neovim; sin parser Tree-sitter, resalta con
+  [syntax/yara.vim](/syntax/yara.vim) porque el runtime no trae ninguno.
+- `.rules` → `hog` (Snort/Suricata), también de serie y ya con las excepciones de udev, polkit y
+  ufw resueltas; no hay que añadir ningún mapeo propio.
 
 Antes de depurar un LSP, comprobar `:set filetype?`; un filetype incorrecto suele explicar tanto
 que el servidor no se adjunte como que se active el servidor equivocado.
@@ -1017,9 +1176,11 @@ Al añadir o quitar soporte de un lenguaje, revisar como mínimo:
 1. Identificador de LSP y, si aplica, mapeo de paquete de Mason.
 2. `formatters_by_ft` y cualquier resolver de ejecutables/plugins externos.
 3. Parser de Tree-sitter y aliases de filetype.
-4. Detección de extensiones/filetypes no estándar.
-5. Dependencias del SDK/toolchain que Mason no instala.
-6. README y esta guía, sin introducir rutas personales, versiones locales ni estados de pruebas
+4. Si no hay parser, comprobar que el runtime de Neovim trae `syntax/<lenguaje>.vim`; si no lo
+   trae, el lenguaje se abre sin ningún resaltado (caso de YARA).
+5. Detección de extensiones/filetypes no estándar.
+6. Dependencias del SDK/toolchain que Mason no instala.
+7. README y esta guía, sin introducir rutas personales, versiones locales ni estados de pruebas
    temporales.
 
 Las versiones concretas observadas durante pruebas locales sólo deberían entrar en el repositorio
@@ -1043,6 +1204,10 @@ máquina concreta.
 - [djLint](https://djlint.com/)
 - [django-language-server](https://github.com/joshuadavidthomas/django-language-server)
 - [Shopify Liquid tooling](https://shopify.dev/docs/themes/tools/liquid)
+- [YLS, el language server de YARA](https://github.com/avast/yls)
+- [Documentación de YARA](https://yara.readthedocs.io/)
+- [Suricata Language Server](https://github.com/StamusNetworks/suricata-language-server)
+- [Suricata en AUR](https://aur.archlinux.org/packages/suricata)
 - [prettier-plugin-liquid](https://github.com/Shopify/prettier-plugin-liquid)
 - [jinja-lsp](https://github.com/uros-5/jinja-lsp)
 - [prettier-plugin-handlebars](https://github.com/ggoodman/prettier-plugin-handlebars)

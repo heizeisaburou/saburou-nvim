@@ -232,6 +232,12 @@ Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _si
 soportado. El formateador y el linter son opcionales, y en muchos lenguajes el propio
 LSP ya formatea.
 
+Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**.
+Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo
+`syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. La excepción
+actual es YARA, para el que Neovim no publica ninguno: por eso el repositorio incluye
+[syntax/yara.vim](/syntax/yara.vim). No hay nada que descomentar, se carga solo.
+
 Después de descomentar, dos comandos:
 
 - `:MasonInstallAll` — instala los servidores, formateadores y linters que hayas dejado
@@ -340,6 +346,7 @@ para mover el contenido en una dirección o en la otra cuando lo necesites.
 | Solidity           | `solidity`                       | `solidity_ls_nomicfoundation` | `forge_fmt`                  | `solidity`                                    |
 | SQL                | `sql`                            | `postgres_lsp` / `sqls`       | `sqlfluff` / `pg_format`     | `sql`                                         |
 | Surface            | `surface`                        | —                             | `mix`                        | —                                             |
+| Suricata / Snort   | `hog`                            | `suricata_language_server`    | —                            | pendiente (resalta `syntax/hog.vim`)          |
 | Svelte             | `svelte`                         | `svelte`                      | `prettier_svelte`            | `svelte`                                      |
 | Swift              | `swift`                          | `sourcekit`                   | `swiftformat`                | `swift`                                       |
 | TOML               | `toml`                           | `taplo`                       | `taplo`                      | `toml`                                        |
@@ -352,4 +359,5 @@ para mover el contenido en una dirección o en la otra cuando lo necesites.
 | WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | pendiente (sin parser catalogado)             |
 | XML                | `xml` / `xsd` / `xslt` / `svg`   | `lemminx`                     | vía LSP                      | `xml` + `dtd`                                 |
 | YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | `yaml`                                        |
+| YARA               | `yara`                           | `yls`                         | vía LSP                      | pendiente (resalta `syntax/yara.vim`)         |
 | Zig                | `zig`                            | `zls`                         | `zigfmt`                     | `zig`                                         |

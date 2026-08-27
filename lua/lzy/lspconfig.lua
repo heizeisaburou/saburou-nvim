@@ -83,6 +83,7 @@ M.servers = {
   -- "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
   -- "sourcekit", -- swift
   -- "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp
+  -- "suricata_language_server", -- Reglas Suricata/Snort (`hog`); ver M.config
   -- "svelte",
   -- "taplo", -- .toml
   -- "texlab", -- latex
@@ -92,6 +93,7 @@ M.servers = {
   -- "vue_ls", -- Vue (framework de javascript)
   -- "wasm_language_tools", -- WebAssembly Text Format (.wat/.wast)
   -- "yamlls", -- .yaml
+  -- "yls", -- YARA (.yar/.yara); Mason: yls-yara; también formatea
   -- "zls", -- zig
 }
 
@@ -510,6 +512,45 @@ M.config = {
     end,
   },
 
+  suricata_language_server = function()
+    -- Ni nvim-lspconfig ni Mason lo conocen, así que la definición completa
+    -- (ejecutable, filetypes y raíz) sale de aquí. Se instala con pip y su
+    -- README recomienda un virtualenv dedicado, de ahí el `paths` de fallback:
+    -- ese directorio no está en el `PATH` salvo que se active el venv.
+    local server = require("hzsr.sys.executable").external {
+      bin = "suricata-language-server",
+      paths = { "~/.venv/sls/bin" },
+      why = "las reglas Suricata se quedan sin diagnósticos ni autocompletado",
+      how = "Instálalo con `python3 -m venv ~/.venv/sls && "
+        .. "~/.venv/sls/bin/pip install suricata-language-server`.",
+    }
+    server.available()
+
+    -- El servidor no lleva analizador propio: delega en el binario `suricata`
+    -- del sistema tanto la lista de keywords como la comprobación de firmas.
+    -- Sin él el cliente adjunta igual pero cada análisis muere con un
+    -- FileNotFoundError interno y el buffer se queda sin nada; conviene avisar
+    -- porque el síntoma es "el LSP está pero no dice nada".
+    if vim.fn.executable "suricata" == 0 then
+      vim.notify_once(
+        "suricata-language-server necesita el binario `suricata`, que no está "
+          .. "en el PATH: sin él no da diagnósticos ni autocompletado. "
+          .. "En Arch está solo en AUR: `yay --sudoloop -S suricata`.",
+        vim.log.levels.WARN
+      )
+    end
+
+    return {
+      cmd = { server.command() },
+      -- `hog` es el filetype que Neovim asigna de serie a los `.rules` de
+      -- Snort/Suricata; `suricata` no lo pone nadie, pero es el que anuncia el
+      -- propio servidor y no estorba tenerlo.
+      filetypes = { "hog", "suricata" },
+      root_markers = { "suricata.yaml", ".git" },
+      single_file_support = true,
+    }
+  end,
+
   taplo = {},
 
   tinymist = {
@@ -527,6 +568,12 @@ M.config = {
   },
 
   yamlls = {},
+
+  -- yls trae de nvim-lspconfig `cmd`, `filetypes` y `root_markers` ya
+  -- correctos, así que no necesita ajustes. Declara además el filetype `yar`,
+  -- que no asigna nadie —Neovim manda `.yar` al filetype `yara`—: sobra, pero
+  -- tampoco estorba.
+  yls = {},
 
   zls = {},
 
