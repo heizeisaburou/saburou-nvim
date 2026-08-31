@@ -234,9 +234,10 @@ LSP ya formatea.
 
 Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**.
 Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo
-`syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. La excepción
-actual es YARA, para el que Neovim no publica ninguno: por eso el repositorio incluye
-[syntax/yara.vim](/syntax/yara.vim). No hay nada que descomentar, se carga solo.
+`syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones
+actuales son YARA y JQL, para los que Neovim no publica ninguno: por eso el repositorio
+incluye [syntax/yara.vim](/syntax/yara.vim) y [syntax/jql.vim](/syntax/jql.vim). No hay
+nada que descomentar, se cargan solos.
 
 Después de descomentar, dos comandos:
 
@@ -323,6 +324,7 @@ para mover el contenido en una dirección o en la otra cuando lo necesites.
 | JavaScript         | `javascript` / `javascriptreact` | `vtsls`                       | `prettier`                   | `javascript`                                  |
 | Julia              | `julia`                          | `julials`                     | `runic`                      | `julia`                                       |
 | Jinja              | `jinja`                          | `jinja_lsp`                   | `prettier_jinja`             | `jinja` + `jinja_inline`                      |
+| JQL                | `jql`                            | —                             | —                            | no existe (resalta `syntax/jql.vim`)          |
 | JSON               | `json`                           | `jsonls`                      | `biome`                      | `json` / `json5`                              |
 | Kotlin             | `kotlin`                         | `kotlin_language_server`      | `ktlint`                     | `kotlin`                                      |
 | LaTeX / TeX        | `tex` / `plaintex`               | `texlab`                      | `latexindent`                | —                                             |

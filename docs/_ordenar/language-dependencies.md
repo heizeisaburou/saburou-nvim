@@ -66,6 +66,7 @@ siempre coinciden con el nombre del paquete de Mason.
 | JavaScript         | `javascript` / `javascriptreact` | `vtsls`                       | `prettier`                   | `javascript`                                  |
 | Julia              | `julia`                          | `julials`                     | `runic`                      | `julia`                                       |
 | Jinja              | `jinja`                          | `jinja_lsp`                   | `prettier_jinja`             | `jinja` + `jinja_inline`                      |
+| JQL                | `jql`                            | —                             | —                            | no existe (resalta `syntax/jql.vim`)          |
 | JSON               | `json`                           | `jsonls`                      | `biome`                      | `json` / `json5`                              |
 | Kotlin             | `kotlin`                         | `kotlin_language_server`      | `ktlint`                     | `kotlin`                                      |
 | LaTeX / TeX        | `tex` / `plaintex`               | `texlab`                      | `latexindent`                | —                                             |
@@ -1133,6 +1134,52 @@ una descarga y un patrón que mantener.
 LSP ni parser de Tree-sitter maduro para Neovim, y el lenguaje se usa casi siempre dentro del portal
 web, no en un editor local.
 
+### JQL
+
+Sólo resaltado: [syntax/jql.vim](/syntax/jql.vim) más el mapeo de `.jql` en
+[lua/user/opts.lua](/lua/user/opts.lua). Ni LSP, ni formatter, ni parser, y no por falta de buscar.
+
+**No hay language server** y difícilmente lo habrá genérico: validar un JQL de verdad exige saber qué
+proyectos, estados, sprints, campos personalizados y usuarios existen en *tu* instancia, y eso sólo
+lo sabe la API de Jira (`/rest/jql/autocompletedata` y su `/suggestions`). Un servidor sin
+credenciales no podría pasar de comprobar paréntesis. **Tree-sitter tampoco tiene parser**, y aquí ni
+siquiera existe una grammar de la comunidad que registrar a mano: Atlassian definió JQL con ANTLR, no
+con tree-sitter.
+
+Los plugins de Jira para Neovim que sí existen (`jira.nvim` en sus varias versiones, `jiratui.nvim`)
+aceptan JQL, pero como *string* que le pasan a un picker para listar issues; no dan soporte de
+lenguaje dentro del buffer. No se instala ninguno: son integración con Jira, no soporte de lenguaje,
+y esa decisión no depende de esta tabla.
+
+Neovim no conoce la extensión `.jql` —no aparece en `filetype.lua` del runtime— ni publica ningún
+`syntax/jql.vim`, así que sin las dos piezas del repositorio una consulta guardada se abre sin
+filetype y sin resaltado. `.jql` no es una extensión estándar de nada; es la que usan las extensiones
+equivalentes de VS Code y la que se asume aquí.
+
+El archivo de sintaxis es **gramatical, no un catálogo**, mismo criterio que
+[syntax/yara.vim](/syntax/yara.vim): un campo se reconoce por ir delante de un operador y una función
+por ir delante de `(`, en vez de listar los nombres de Jira, que cambian con cada instancia (campos
+personalizados `cf[10042]`) y con cada versión. Cubre operadores simbólicos y de palabra
+(`WAS`, `CHANGED`, `IN`, `IS`), sus predicados (`FROM`, `TO`, `BY`, `BEFORE`, `AFTER`, `ON`,
+`DURING`), `ORDER BY` con sus campos y `ASC`/`DESC`, cadenas con comillas simples o dobles,
+`EMPTY`/`NULL`, fechas absolutas y relativas (`-1w`) y números.
+
+Tres detalles que no son evidentes y conviene no "arreglar":
+
+- **JQL no tiene comentarios.** Cualquier texto fuera de la consulta es un error de sintaxis para
+  Jira, así que el archivo no define ningún grupo de comentario a propósito. Si hace falta anotar
+  consultas, el sitio es un `.md` con la consulta en un bloque de código, no el `.jql`.
+- Los operadores van en **un solo `syn match`** con alternativas. Separados, el `!` suelto de `NOT`
+  se queda con el primer carácter de `!=` y `!~`.
+- Las fechas se definen **después** de los números. Cuando dos items empiezan en la misma columna
+  gana el definido más tarde, y al revés `2026-08-01` se resalta como tres números sueltos.
+  El `ORDER BY` es una región que llega hasta el final del buffer: es siempre la última cláusula de
+  una consulta, y sus campos no van seguidos de ningún operador, así que el match de campo no los ve.
+
+Comprobación rápida: abrir un `.jql` y mirar `:set filetype?` (debe decir `jql`) y `:echo
+b:current_syntax` (debe decir `jql`, no vacío). Si el filetype está bien y `b:current_syntax` sale
+vacío, el que no se ha cargado es el archivo de sintaxis.
+
 ## Formatters externos y plugins de Prettier
 
 Estos formatters no se consideran paquetes instalables directamente por Mason en esta
@@ -1182,6 +1229,8 @@ hablen el mismo languageId/filetype:
   [syntax/yara.vim](/syntax/yara.vim) porque el runtime no trae ninguno.
 - `.rules` → `hog` (Snort/Suricata), también de serie y ya con las excepciones de udev, polkit y
   ufw resueltas; no hay que añadir ningún mapeo propio.
+- `.jql` → `jql`, mapeo propio: el runtime no conoce la extensión. Sin parser Tree-sitter ni LSP,
+  resalta con [syntax/jql.vim](/syntax/jql.vim).
 
 Antes de depurar un LSP, comprobar `:set filetype?`; un filetype incorrecto suele explicar tanto
 que el servidor no se adjunte como que se active el servidor equivocado.
@@ -1211,7 +1260,7 @@ Al añadir o quitar soporte de un lenguaje, revisar como mínimo:
 2. `formatters_by_ft` y cualquier resolver de ejecutables/plugins externos.
 3. Parser de Tree-sitter y aliases de filetype.
 4. Si no hay parser, comprobar que el runtime de Neovim trae `syntax/<lenguaje>.vim`; si no lo
-   trae, el lenguaje se abre sin ningún resaltado (caso de YARA).
+   trae, el lenguaje se abre sin ningún resaltado (caso de YARA y JQL).
 5. Detección de extensiones/filetypes no estándar.
 6. Dependencias del SDK/toolchain que Mason no instala.
 7. README y esta guía, sin introducir rutas personales, versiones locales ni estados de pruebas

@@ -215,3 +215,12 @@ vim.filetype.add {
     jade = "pug",
   },
 }
+-- JQL: nvim no conoce la extensión `.jql` ni trae `syntax/jql.vim`, así que sin
+-- este mapeo una consulta guardada se abre sin filetype y sin resaltado. No hay
+-- LSP ni parser de Tree-sitter para JQL: el resaltado del repositorio es todo
+-- lo que hay.
+vim.filetype.add {
+  extension = {
+    jql = "jql",
+  },
+}
