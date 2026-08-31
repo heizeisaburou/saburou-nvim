@@ -286,6 +286,30 @@ para mover el contenido en una dirección o en la otra cuando lo necesites.
   queda bien con una fuente `JetBrainsMono Nerd Font` de `11px`; probado en una _Kitty con
   zsh_ y _Terminal de Windows con Powershell_.
 
+#### Terminal integrada
+
+`<A-i>` abre una terminal flotante. Qué shell arranca lo decide
+[lua/user/terminal.lua](/lua/user/terminal.lua):
+
+| `shell` | Qué abre |
+| --- | --- |
+| `"auto"` (por defecto) | La shell en la que estás, heredada del proceso padre de Neovim. |
+| `"system"` | `vim.o.shell` fuera de Windows; en Windows `pwsh`, Windows PowerShell y `cmd.exe`, en ese orden. |
+| `"pwsh"`, `"zsh"`, `"fish"`… | Una shell concreta, por nombre. Si no está instalada, avisa y usa la del sistema. |
+| `{ "nu", "--login" }` | Un comando completo, con sus argumentos. |
+
+`"auto"` es el valor por defecto porque `$SHELL` **no dice en qué shell estás**, sino cuál
+es tu shell de login, y ninguna shell la reescribe al arrancar: si abres pwsh desde zsh,
+`$SHELL` sigue diciendo zsh y la terminal integrada te abriría zsh. Lo único que sabe la
+verdad es el árbol de procesos, y de ahí sale `"auto"`. En Windows no se puede consultar
+sin pagar una llamada a PowerShell en cada arranque, así que ahí `"auto"` es directamente
+`"system"`.
+
+`:TerminalInfo` dice qué shell salió elegida y por qué vía.
+
+Esta preferencia no toca `vim.o.shell`: `:!`, `:make` y los plugins siguen usando la shell
+de ejecución que configuró Neovim.
+
 ## Lenguajes soportados
 
 Esta es la matriz canónica del repositorio: si añades un lenguaje, se actualiza aquí y en
