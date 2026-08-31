@@ -1,3 +1,8 @@
+# shuck: directivas `source` en la configuración de zsh
+
+Notas de uso del language server de zsh. El resto —instalación, formatter, parser— está en
+[language-dependencies.md](/docs/_ordenar/language-dependencies.md#zsh).
+
 • lint=true indica a Shuck que, además de importar los símbolos del archivo, analice también su
 contenido:
 

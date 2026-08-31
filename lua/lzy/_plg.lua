@@ -161,6 +161,21 @@ return {
     "sindrets/diffview.nvim",
     event = "BufReadPre",
     dependencies = { "nvim-lua/plenary.nvim" },
+    -- Mismo motivo que `keys`: sin esta lista, en una sesión sin archivo
+    -- abierto (`nvim` a secas) el plugin no se ha cargado y sus comandos
+    -- todavía no existen. lazy.nvim crea un stub por cada nombre que lo carga
+    -- y reenvía la llamada, así que `:Diffview<Tab>` completa desde el arranque
+    -- y `:'<,'>DiffviewFileHistory` conserva el rango. Es la lista completa de
+    -- `plugin/diffview.lua`.
+    cmd = {
+      "DiffviewOpen",
+      "DiffviewFileHistory",
+      "DiffviewClose",
+      "DiffviewFocusFiles",
+      "DiffviewToggleFiles",
+      "DiffviewRefresh",
+      "DiffviewLog",
+    },
     keys = function()
       return require("lzy.diffview").keys
     end,

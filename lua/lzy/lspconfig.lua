@@ -79,7 +79,7 @@ M.servers = {
   -- "ruby_lsp",
   -- "ruff", -- Linter y formateador adicional para python
   -- "shopify_theme_ls", -- Liquid (Shopify)
-  -- "shuck",
+  -- "shuck", -- Zsh (.zsh/.zshrc); ver language-dependencies.md
   -- "solidity_ls_nomicfoundation", -- Solidity (Hardhat/Foundry)
   -- "sourcekit", -- swift
   -- "sqls", -- SQL del resto de motores; le cede la raíz a postgres_lsp

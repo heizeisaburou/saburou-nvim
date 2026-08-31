@@ -33,7 +33,6 @@ M.languages = {
   -- "css",
   -- "dart", -- externo
   -- "elixir",
-  -- "fish",
   -- "fsharp",
   -- "go",
   -- "gomod",
