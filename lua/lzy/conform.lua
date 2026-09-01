@@ -2,7 +2,11 @@
 
 local M = {}
 
-local line_length = 85
+-- Ancho por defecto, configurable en `lua/user/format.lua`. Es un default, no
+-- una imposición: los formatters que leen configuración de proyecto (Prettier,
+-- vía `--config-precedence file-override`) ceden ante un `.prettierrc` o un
+-- `.editorconfig` del repositorio y solo usan esto cuando no hay ninguno.
+local line_length = require("user.format").line_length
 local scalafmt_fallback_dialect = "scala3"
 local scalafmt_fallback_version = "3.10.6"
 local indent = require "sabunv.indent"
@@ -88,6 +92,66 @@ local formatters_by_ft = {
   -- yaml = { "yamlfmt" },
   -- zig = { "zigfmt" },
 }
+
+-- Markdown va con `--prose-wrap never`: un párrafo, una línea.
+--
+-- Cortar la prosa a un ancho fijo es correcto en un terminal y en un diff, y es
+-- justo lo que rompe el archivo en Obsidian y en cualquier editor gráfico: ahí
+-- el editor vuelve a ajustar al ancho del panel, encima de nuestros cortes, y
+-- el párrafo queda irregular. Como el renderizado es idéntico en los dos casos
+-- (en CommonMark un salto simple dentro de un párrafo es un espacio), cortar
+-- solo tiene coste.
+--
+-- Quien quiera cortar lo pide en el `.prettierrc` de su proyecto, y entonces
+-- `--config-precedence file-override` hace que gane. Esto detecta ese caso para
+-- que `markdown_wrap` se ejecute solo cuando hay algo que ajustar.
+---@param ctx conform.Context?
+---@return boolean wrap
+---@return integer width Ancho pedido por el proyecto, o el nuestro.
+local function project_wraps_prose(ctx)
+  -- Sin contexto no hay proyecto que consultar: quedan nuestros defaults. Pasa
+  -- al invocar un formatter a mano (los specs lo hacen).
+  if not ctx or not ctx.dirname then
+    return false, line_length
+  end
+
+  local found = vim.fs.find(function(name)
+    return name == ".prettierrc"
+      or name == ".prettierrc.json"
+      or name == ".prettierrc.yaml"
+      or name == ".prettierrc.yml"
+      or name == ".prettierrc.json5"
+      or name == "prettier.config.js"
+      or name == "prettier.config.mjs"
+      or name == ".prettierrc.js"
+      or name == ".prettierrc.mjs"
+  end, { path = ctx.dirname, upward = true, type = "file", limit = 1 })[1]
+
+  -- `max_line_length` de un `.editorconfig` llega aquí como `textwidth`, que
+  -- Neovim rellena de serie. Es el ancho del proyecto aunque no use Prettier.
+  local editorconfig_width = ctx.buf and vim.api.nvim_buf_is_valid(ctx.buf)
+      and vim.bo[ctx.buf].textwidth
+    or 0
+  local width = editorconfig_width > 0 and editorconfig_width or line_length
+
+  if not found then
+    return false, width
+  end
+
+  local file = io.open(found, "r")
+  if not file then
+    return false, width
+  end
+
+  local contents = file:read "*a"
+  file:close()
+
+  -- Basta con mirar las dos claves; no merece la pena interpretar JS para esto.
+  local wrap = contents:match "[\"']?proseWrap[\"']?%s*[:=]%s*[\"']always[\"']" ~= nil
+  local declared = contents:match "[\"']?printWidth[\"']?%s*[:=]%s*(%d+)"
+
+  return wrap, declared and tonumber(declared) or width
+end
 
 ---@param line string
 ---@return string? indent
@@ -655,6 +719,8 @@ local formatters = {
       })[1] or "/dev/null"
       local args = {
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--ignore-path",
@@ -670,9 +736,15 @@ local formatters = {
       end
 
       if ft == "markdown" then
+        -- Un párrafo, una línea. Un salto suelto dentro de un párrafo no es un
+        -- salto en CommonMark —se renderiza como un espacio—, así que juntarlo
+        -- no cambia lo que se ve y sí arregla los párrafos que quedaron
+        -- cortados. Los saltos de verdad (`\\` o dos espacios al final) los
+        -- respeta Prettier.
         table.insert(args, "--prose-wrap")
-        table.insert(args, "always")
+        table.insert(args, "never")
       end
+
 
       return args
     end,
@@ -703,6 +775,8 @@ local formatters = {
         "--plugin",
         plugin,
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--parser",
@@ -730,6 +804,8 @@ local formatters = {
         "--parser",
         "liquid-html",
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
@@ -755,6 +831,8 @@ local formatters = {
         "--plugin",
         prettier_gotmpl_plugin,
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
@@ -783,6 +861,8 @@ local formatters = {
         "--parser",
         "jinja-template",
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
@@ -811,6 +891,8 @@ local formatters = {
         "--parser",
         "glimmer",
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
@@ -836,6 +918,8 @@ local formatters = {
         "--parser",
         "twig",
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
@@ -861,6 +945,8 @@ local formatters = {
         "--parser",
         "pug",
         "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
         "--tab-width=" .. tostring(config.width),
         config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
         "--stdin-filepath",
@@ -1092,6 +1178,13 @@ local formatters = {
   -- de enlace, HTML) se pasa intacto. Implementado en `hzsr.md` (Lua puro, sin
   -- dependencias).
   markdown_wrap = {
+    -- Prettier ajusta la prosa, pero se le dan mal las listas, las citas y los
+    -- bloques de fórmulas, así que cuando hay que ajustar lo hace esta pasada.
+    -- Por defecto no hay que ajustar nada y no se ejecuta: solo corre si el
+    -- proyecto pide `proseWrap: always` en su configuración de Prettier.
+    condition = function(_, ctx)
+      return (project_wraps_prose(ctx))
+    end,
     format = function(_, ctx, lines, callback)
       -- La pasada completa sobre una secuencia de líneas, con el ancho
       -- disponible para ellas. Declarada antes de tiempo porque el contenido de
@@ -1455,7 +1548,8 @@ local formatters = {
         return out
       end
 
-      callback(nil, process(lines, line_length))
+      local _, width = project_wraps_prose(ctx)
+      callback(nil, process(lines, width))
     end,
   },
 

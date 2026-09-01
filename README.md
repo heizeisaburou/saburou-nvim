@@ -280,11 +280,48 @@ para mover el contenido en una dirección o en la otra cuando lo necesites.
   estilo `spaces|tabs` y si has escogido `spaces` entonces puedes decidir cuántos con
   `width`.
 
-- En [lua/lzy/conform.lua](/lua/lzy/conform.lua) puedes especificar un `line-lenght` por defecto. A menos que
-  sea reemplazado por la configuración de formateo del proyecto este será el valor
-  que se usará para determinar cuándo una línea es demasiado larga. `line-lenght = 97`
+- En [lua/user/format.lua](/lua/user/format.lua) puedes especificar un `line_length` por defecto. A menos que
+  sea reemplazado por la configuración de formateo del proyecto (`.prettierrc`,
+  `.editorconfig`) este será el valor
+  que se usará para determinar cuándo una línea es demasiado larga. `line_length = 97`
   queda bien con una fuente `JetBrainsMono Nerd Font` de `11px`; probado en una _Kitty con
   zsh_ y _Terminal de Windows con Powershell_.
+
+#### Markdown: por qué no se cortan las líneas
+
+El formateador de markdown **no ajusta la prosa**: junta cada párrafo en una sola línea,
+por larga que sea, y el ajuste lo pone el editor.
+
+Qué lenguajes se ajustan se decide en [lua/user/wrap.lua](/lua/user/wrap.lua), con la
+misma forma que la indentación: un `default` y excepciones por filetype. De fábrica solo
+markdown. `<A-w>` lo alterna para el archivo que tengas delante, y lo que elijas manda
+sobre la tabla hasta que lo cierres.
+
+La razón es que cortar a un ancho fijo solo tiene sentido en un terminal. En Obsidian, en
+VS Code o en cualquier editor gráfico, el editor vuelve a ajustar al ancho del panel
+**encima** de tus cortes, y el párrafo queda irregular: larga, corta, larga, corta. Y como
+en CommonMark un salto simple dentro de un párrafo se renderiza como un espacio, el
+resultado visible es idéntico se corte o no. Cortar solo tiene coste.
+
+Por eso los párrafos se juntan en vez de dejarse como estén: un salto suelto no es un
+salto de verdad, así que unirlo no cambia nada de lo que se ve y además repara las notas
+que quedaron cortadas. Los saltos de verdad —`\` o dos espacios al final— se respetan.
+
+Todo lo demás se sigue formateando: listas, tablas, énfasis, definiciones de referencia,
+frontmatter y la indentación con tabs.
+
+Si un proyecto concreto sí quiere prosa ajustada, lo pide en su propia configuración y
+gana sobre la nuestra:
+
+```json
+// .prettierrc
+{ "proseWrap": "always", "printWidth": 80 }
+```
+
+Esto vale para todos los lenguajes, no solo markdown: los formatters de Prettier llevan
+`--config-precedence file-override`, así que un `.prettierrc` o un `.editorconfig` del
+repositorio manda sobre los valores de [lua/lzy/conform.lua](/lua/lzy/conform.lua). Sin
+ellos, mandan los nuestros.
 
 #### Terminal integrada
 

@@ -30,6 +30,119 @@ describe("Conform Markdown pipeline", function()
     return result
   end
 
+  --- Un directorio temporal con los archivos de configuración indicados.
+  ---@param files table<string, string>
+  ---@return conform.Context
+  local function project(files)
+    local dir = vim.fn.tempname()
+    vim.fn.mkdir(dir, "p")
+
+    for name, contents in pairs(files) do
+      vim.fn.writefile(vim.split(contents, "\n"), vim.fs.joinpath(dir, name))
+    end
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.bo[buf].filetype = "markdown"
+
+    return {
+      buf = buf,
+      filename = vim.fs.joinpath(dir, "nota.md"),
+      dirname = dir,
+    }
+  end
+
+  --- `markdown_wrap` con un ancho explícito.
+  ---
+  --- Estos tests comprueban *dónde* parte y cómo alinea, no con qué ancho por
+  --- defecto. Fijarlo aquí los desacopla de `line_length`: cuando pasó de 97 a
+  --- 85 (e4157d2, que solo tocó conform.lua) dos de ellos se quedaron en rojo
+  --- sin que nada estuviera roto. El ancho se pide por el mismo camino que un
+  --- proyecto real, un `.prettierrc`.
+  local wrap_contexts = {}
+
+  ---@param width integer
+  ---@param lines string[]
+  ---@return string[]
+  local function wrap_at(width, lines)
+    wrap_contexts[width] = wrap_contexts[width]
+      or project { [".prettierrc"] = ('{ "printWidth": %d }'):format(width) }
+
+    local result
+    conform.formatters.markdown_wrap.format(nil, wrap_contexts[width], lines, function(err, value)
+      assert.is_nil(err)
+      result = value
+    end)
+    return result
+  end
+
+  describe("prose wrapping is opt-in", function()
+    -- Cortar la prosa a un ancho fijo rompe el archivo en Obsidian y en
+    -- cualquier editor gráfico, que vuelve a ajustar al ancho del panel encima
+    -- de nuestros cortes. Por defecto no se corta; quien lo quiera lo pide en
+    -- la configuración de Prettier de su proyecto.
+    local markdown_wrap = require("lzy.conform").opts.formatters.markdown_wrap
+
+    it("does not run in a project without Prettier configuration", function()
+      assert.is_false(markdown_wrap.condition(nil, project {}))
+    end)
+
+    it("does not run when the project asks Prettier not to wrap", function()
+      assert.is_false(
+        markdown_wrap.condition(nil, project { [".prettierrc"] = '{ "proseWrap": "never" }' })
+      )
+    end)
+
+    it("runs when the project asks Prettier to wrap", function()
+      assert.is_true(
+        markdown_wrap.condition(nil, project { [".prettierrc"] = '{ "proseWrap": "always" }' })
+      )
+    end)
+
+    it("takes the width from the project, not from ours", function()
+      local ctx = project { [".prettierrc"] = '{ "proseWrap": "always", "printWidth": 40 }' }
+      local input = {
+        "Un párrafo bastante largo que tiene que acabar cortado a cuarenta columnas "
+          .. "y no a las ochenta y cinco de la configuración.",
+      }
+      local result
+
+      markdown_wrap.format(nil, ctx, input, function(err, value)
+        assert.is_nil(err)
+        result = value
+      end)
+
+      for _, line in ipairs(result) do
+        assert.is_true(#line <= 40, ("línea de %d columnas: %s"):format(#line, line))
+      end
+      assert.is_true(#result > 1)
+    end)
+
+    it("asks Prettier to join paragraphs, not to wrap them", function()
+      -- `never` junta cada párrafo en una línea, así que además de no cortar
+      -- repara los que quedaron cortados. Un salto suelto dentro de un párrafo
+      -- no es un salto en CommonMark, así que juntarlo no cambia lo que se ve.
+      local prettier = require("lzy.conform").opts.formatters.prettier
+      local args = prettier.append_args(nil, project { ["nota.md"] = "# t" })
+      local index
+      for i, value in ipairs(args) do
+        if value == "--prose-wrap" then
+          index = i
+          break
+        end
+      end
+
+      -- luassert acepta el mensaje; su stub de tipos dice que no.
+      ---@diagnostic disable-next-line: redundant-parameter
+      assert.is_not_nil(index, "faltan los argumentos de ajuste de prosa")
+      assert.are.equal("never", args[index + 1])
+
+      -- Y aun así el proyecto manda: con `--config-precedence file-override` un
+      -- `.prettierrc` con `proseWrap: always` gana a este `never`.
+      assert.is_true(vim.tbl_contains(args, "--config-precedence"))
+      assert.is_true(vim.tbl_contains(args, "file-override"))
+    end)
+  end)
+
   it("keeps the semantic formatter order", function()
     assert.are.same({
       "markdown_callouts",
@@ -185,9 +298,9 @@ describe("Conform Markdown pipeline", function()
       "10. ordenado con [[Windows 11 - Maquina Virtual]] y la sección de "
         .. "[[Windows 11 - Maquina Virtual#drivers|drivers]].",
     }
-    local wrapped = run("markdown_wrap", input)
+    local wrapped = wrap_at(97, input)
     assert.are.same(expected, wrapped)
-    assert.are.same(expected, run("markdown_wrap", wrapped))
+    assert.are.same(expected, wrap_at(97, wrapped))
 
     for _, line in ipairs(wrapped) do
       local prefix = line:match "^ *[-*+] +%[.%] +"
@@ -207,7 +320,7 @@ describe("Conform Markdown pipeline", function()
         .. "porque el instalador no trae los controladores de",
       "      red y te quedas sin conexión.",
     }
-    local wrapped = run("markdown_wrap", input)
+    local wrapped = wrap_at(97, input)
     assert.are.same(expected, wrapped)
     -- La primera línea llega justo al límite medida como se ve, aunque en
     -- bruto ocupe mucho más que 97 columnas.
@@ -227,7 +340,7 @@ describe("Conform Markdown pipeline", function()
       "- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que "
         .. "`nvim-treesitter` compile los parsers.",
     }
-    assert.are.same(expected, run("markdown_wrap", input))
+    assert.are.same(expected, wrap_at(97, input))
     assert.are.equal(95, hzsr.md.visible_width(expected[1]))
 
     -- Y sólo el énfasis de verdad: un `_` dentro de una palabra, un `*` de
@@ -242,9 +355,9 @@ describe("Conform Markdown pipeline", function()
       "  | a | b |",
       "  | - | - |",
     }
-    assert.are.same(input, run("markdown_wrap", input))
-    assert.are.same({ "* * *" }, run("markdown_wrap", { "* * *" }))
-    assert.are.same({ "---" }, run("markdown_wrap", { "---" }))
+    assert.are.same(input, wrap_at(97, input))
+    assert.are.same({ "* * *" }, wrap_at(97, { "* * *" }))
+    assert.are.same({ "---" }, wrap_at(97, { "---" }))
   end)
 
   it("keeps the indentation of a standalone paragraph while reflowing it", function()
@@ -255,7 +368,7 @@ describe("Conform Markdown pipeline", function()
     assert.are.same({
       "  Párrafo sangrado con [[Windows 11 - Maquina Virtual]] y la sección de "
         .. "[[Windows 11 - Maquina Virtual#drivers|drivers]].",
-    }, run("markdown_wrap", input))
+    }, wrap_at(97, input))
   end)
 
   it("reflows quoted prose by visible width, discounting the marker", function()
@@ -270,9 +383,9 @@ describe("Conform Markdown pipeline", function()
       "> NOTA: Si vienes desde otra nota, empieza a leer desde "
         .. "[Windows](/docs/Compilador%20de%20C.md#windows).",
     }
-    local wrapped = run("markdown_wrap", input)
+    local wrapped = wrap_at(97, input)
     assert.are.same(expected, wrapped)
-    assert.are.same(expected, run("markdown_wrap", wrapped))
+    assert.are.same(expected, wrap_at(97, wrapped))
     assert.is_true(#wrapped[1] > 97)
     assert.is_true(hzsr.md.visible_width(wrapped[1]) <= 97)
   end)
@@ -295,9 +408,9 @@ describe("Conform Markdown pipeline", function()
       "> - ítem con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que también debería "
         .. "juntarse.",
     }
-    local wrapped = run("markdown_wrap", input)
+    local wrapped = wrap_at(97, input)
     assert.are.same(expected, wrapped)
-    assert.are.same(expected, run("markdown_wrap", wrapped))
+    assert.are.same(expected, wrap_at(97, wrapped))
   end)
 
   it("discounts one quote marker per level when measuring nested content", function()
@@ -309,7 +422,7 @@ describe("Conform Markdown pipeline", function()
       "> > cita anidada con [Windows](/docs/Compilador%20de%20C.md#windows) y texto que debería "
         .. "juntarse.",
     }
-    assert.are.same(expected, run("markdown_wrap", input))
+    assert.are.same(expected, wrap_at(97, input))
 
     -- El ancho disponible baja lo que ocupa el marcador: medido como se ve, el
     -- contenido de la cita anidada cabe en 97 menos las cuatro columnas de
@@ -324,13 +437,13 @@ describe("Conform Markdown pipeline", function()
       "> cl   /nologo    algo.c",
       "> ```",
     }
-    assert.are.same(fence, run("markdown_wrap", fence))
+    assert.are.same(fence, wrap_at(97, fence))
 
     local table_in_quote = {
       "> | a | b |",
       "> | - | - |",
     }
-    assert.are.same(table_in_quote, run("markdown_wrap", table_in_quote))
+    assert.are.same(table_in_quote, wrap_at(97, table_in_quote))
 
     -- Con más de tres espacios ya no es una cita de primer nivel, así que no
     -- se toca (aquí sería la cita de un ítem de lista).
@@ -338,6 +451,6 @@ describe("Conform Markdown pipeline", function()
       "    > cita muy sangrada con [Windows](/docs/Compilador%20de%20C.md#windows) y",
       "    > texto que se queda como está.",
     }
-    assert.are.same(indented, run("markdown_wrap", indented))
+    assert.are.same(indented, wrap_at(97, indented))
   end)
 end)

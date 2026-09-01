@@ -131,6 +131,13 @@ describe("Sabunv render-markdown links", function()
     vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
     vim.bo[bufnr].filetype = "markdown"
     vim.wo.conceallevel = 2
+    -- Este spec mide geometría de extmarks, así que fija las opciones de
+    -- ventana de las que depende en vez de heredarlas. `after/ftplugin/
+    -- markdown.lua` activa `wrap`, y con la línea del badge (91 columnas) más
+    -- larga que la ventana del runner, el ancho reconstruido a partir de los
+    -- extmarks se desplaza una celda. `hzsr.md.visible_width`, que es lo que
+    -- usan los formateadores, no se ve afectado.
+    vim.wo.wrap = false
     vim.treesitter.start(bufnr, "markdown")
     require("render-markdown.core.manager").attach(bufnr)
     namespace = vim.api.nvim_get_namespaces()["render-markdown.nvim"]

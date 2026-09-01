@@ -1,3 +1,6 @@
+-- El ajuste de línea de markdown no está aquí: lo decide `lua/user/wrap.lua`
+-- a través de `sabunv.wrap`.
+
 -- gx en un vault usa exactamente el resolvedor de adjuntos de Nyabsidian.
 -- Fuera de un vault conserva el flujo independiente de Marksman/Markdown.
 

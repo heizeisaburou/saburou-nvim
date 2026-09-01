@@ -152,7 +152,7 @@ map({ "n", "i", "t" }, "<A-z>", hzsr.win.zoom.toggle, { desc = "Window: Toggle z
 -- Con `wrap` activo el scroll horizontal de abajo deja de tener sentido: no
 -- hay nada a lo que desplazarse. Son las dos caras de la misma decisión.
 map({ "n", "i" }, "<A-w>", function()
-  hzsr.win.wrap.toggle()
+  sabunv.wrap.toggle()
 end, { desc = "View: Toggle wrap" })
 
 map({ "n", "i" }, "<A-H>", "zh", { desc = "View: scroll left" })

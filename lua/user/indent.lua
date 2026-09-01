@@ -11,8 +11,12 @@ return {
   },
 
   filetypes = {
-    -- CommonMark interpreta los tabs cada 4 columnas. Mantener width = 4 evita
-    -- diferencias entre lo que muestra Neovim y lo que renderiza Obsidian.
+    -- Tabs a propósito: con tabs la anchura NO se guarda en el archivo, la
+    -- decide cada editor. Aquí se ven a 4; Obsidian los pinta según su propio
+    -- `tabSize` en `.obsidian/app.json` (por defecto 2). Si los quieres iguales
+    -- en los dos, cambia ese ajuste de Obsidian, no este: el archivo es el
+    -- mismo. Con espacios la anchura quedaría fijada en el archivo y los dos
+    -- editores tendrían que ponerse de acuerdo.
     markdown = {
       style = "tabs",
       width = 4,

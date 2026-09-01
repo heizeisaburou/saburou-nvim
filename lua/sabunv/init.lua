@@ -11,6 +11,7 @@ M.mode = require "sabunv.mode"
 M.moonfly = require "sabunv.moonfly"
 M.nvim = require "sabunv.nvim"
 M.util = require "sabunv.util"
+M.wrap = require "sabunv.wrap"
 M.terminal = require "sabunv.terminal"
 M.restart = require "sabunv.restart"
 
