@@ -149,6 +149,12 @@ map("n", "<C-k>", "<C-w>k", { desc = "Window: Focus above" })
 map("n", "<C-j>", "<C-w>j", { desc = "Window: Focus below" })
 map({ "n", "i", "t" }, "<A-z>", hzsr.win.zoom.toggle, { desc = "Window: Toggle zoom" })
 
+-- Con `wrap` activo el scroll horizontal de abajo deja de tener sentido: no
+-- hay nada a lo que desplazarse. Son las dos caras de la misma decisión.
+map({ "n", "i" }, "<A-w>", function()
+  hzsr.win.wrap.toggle()
+end, { desc = "View: Toggle wrap" })
+
 map({ "n", "i" }, "<A-H>", "zh", { desc = "View: scroll left" })
 map({ "n", "i" }, "<A-L>", "zl", { desc = "View: scroll right" })
 map({ "n", "i" }, "<A-h>", "10zh", { desc = "View: scroll left fast" })
