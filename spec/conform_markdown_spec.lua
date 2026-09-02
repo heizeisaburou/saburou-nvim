@@ -208,11 +208,18 @@ describe("Conform Markdown pipeline", function()
       "literal example",
       "```",
       "````",
+      "",
+      "```spoiler-block",
+      "otro      cuerpo",
+      "```",
     }
     local prepared = run("markdown_spoilers_prepare", source)
     assert.are.equal("```markdown hzsr-internal-spoiler-fence", prepared[1])
     assert.are.equal("~~~lua", prepared[7])
     assert.are.equal("```spoiler", prepared[12])
+    -- El nombre largo lleva su propio marcador: la vuelta tiene que devolver
+    -- el que había escrito, no el otro.
+    assert.are.equal("```markdown hzsr-internal-spoiler-block-fence", prepared[17])
 
     -- Salida representativa de Prettier: el marcador `markdown` hace que
     -- normalice el cuerpo como Markdown embebido.
@@ -226,11 +233,17 @@ describe("Conform Markdown pipeline", function()
       "```lua",
       "print('untouched')",
       "```",
+      "",
+      "```markdown hzsr-internal-spoiler-block-fence",
+      "otro cuerpo",
+      "```",
     })
     assert.are.equal("```spoiler", restored[1])
     assert.are.equal("# Heading", restored[2])
     assert.are.equal("text with spaces", restored[4])
     assert.are.equal("```lua", restored[7])
+    assert.are.equal("```spoiler-block", restored[11])
+    assert.are.equal("otro cuerpo", restored[12])
   end)
 
   it("protects inline spoilers from Prettier without stealing escaped, code or table pipes", function()

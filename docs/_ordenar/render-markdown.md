@@ -17,7 +17,7 @@ Estado verificado el 13 de agosto de 2026 con render-markdown.nvim
 ```text
 lua/lzy/render-markdown/
 ├── init.lua    # opciones, setup, tema y keymaps
-├── code.lua    # avisos de fences vacíos y sin cerrar
+├── code.lua    # avisos de fences vacíos y sin cerrar, y cabecera de los que no llevan lenguaje
 ├── cursor.lua  # cursor contextual de H1
 ├── inline.lua  # extensiones del handler markdown_inline
 ├── links.lua   # definiciones, referencias, iconos y ancho de icono
@@ -43,12 +43,19 @@ También se renderizan **énfasis**, enlaces y el resto del cuerpo.
 ```
 ````
 
+El fence acepta dos nombres, `spoiler` y `spoiler-block`, que son exactamente el mismo bloque: el
+largo por parecido con el plugin de Obsidian, el corto por escribirlo menos. La lista vive en
+`lzy.render-markdown.spoilers.block_languages` y de ahí la leen tanto el render como la cadena de
+formateo, así que añadir un nombre es añadirlo una vez.
+
 Fuera del cursor, el inline se sustituye por `󰈉 SPOILER` y el bloque por
 `󰈉 SPOILER · N líneas`. Al entrar en el inline desaparece el indicador y queda su contenido sin
 delimitadores. En un bloque, el indicador permanece como cabecera y al entrar en una línea de su
 cuerpo aparece debajo el Markdown revelado; al salir vuelve a quedar una sola línea. El bloque
-registra `spoiler` como una inyección del parser Markdown: al revelarlo no se presenta como código,
-sino con headings, énfasis y enlaces renderizados.
+registra sus nombres como una inyección del parser Markdown: al revelarlo no se presenta como
+código, sino con headings, énfasis y enlaces renderizados. El alias se registra normalizado
+(`spoiler_block`), que es la forma en la que Tree-sitter busca el lenguaje de una inyección: pasa
+el nombre a minúsculas y cambia los `-` por `_` antes de resolverlo.
 
 La detección inline es deliberadamente conservadora: no admite saltos de línea, contenido vacío,
 anidamiento ni delimitadores incompletos. Tampoco actúa dentro de código inline, enlaces, imágenes,
@@ -69,7 +76,7 @@ La única resta son los code spans —`` `#include <stdio.h>` `` es código cita
 dentro de un fence no hace falta restar nada, porque su cuerpo es otro árbol y el handler inline no
 lo ve. Los tags del frontmatter viven en el árbol YAML y hoy no reciben chip.
 
-## Bloques de código vacíos o sin cerrar
+## Bloques de código que no se ven
 
 Con los delimitadores ocultos, un fence sin cuerpo desaparecía entero: el plugin le pone
 `conceal_lines` a sus dos líneas de ``` y, sin contenido que pintar, no quedaba ni una fila en
@@ -78,20 +85,39 @@ se pintaba como código sin ninguna pista.
 
 Los dos casos son trampas de edición, y encima falsean lo que entiende cualquier cosa que lea el
 documento —el parser empareja los ``` de otra manera, así que hasta la copia inteligente de un
-bloque de más abajo se lleva texto de fuera—. Ahora se marcan en vez de ocultarse:
+bloque de más abajo se lleva texto de fuera—. Hay un tercer caso que no es un error pero se pierde
+igual: la cabecera del plugin se dibuja a partir del nombre del lenguaje, así que un fence sin
+lenguaje no recibe ninguna y su apertura se oculta como cualquier otro borde; el cuerpo queda
+flotando sobre el fondo del código, sin nada que diga dónde empieza. Los tres se marcan en vez de
+ocultarse:
 
 | Caso                                       | Vista                                     |
 | ------------------------------------------ | ----------------------------------------- |
 | ` ``` ` + ` ``` ` sin cuerpo               | dos filas ámbar, `▲ bloque de código vacío` |
 | ` ```lua ` + ` ``` ` sin cuerpo            | igual, con el lenguaje: `▲ lua · …`       |
+| ` ``` ` + ` ``` ` con el cuerpo en blanco  | igual: un cuerpo de solo espacios no es cuerpo |
 | ` ```sh ` sin cierre                       | fila roja, `▲ sh · bloque de código sin cerrar` |
+| ` ``` ` con cuerpo, sin lenguaje           | fila gris, cabecera ` texto plano `       |
 
 La detección mira los hijos del nodo: sin `code_fence_content` está vacío, con un solo
-`fenced_code_block_delimiter` nunca se cerró. En esas filas se descartan las marcas del plugin que
-las dejaban invisibles (su `conceal_lines` y su etiqueta de lenguaje) y se ponen banda y etiqueta
-propias. La banda se queda en todos los modos y también con el cursor encima; la etiqueta, que sí
-tapa el texto real, se aparta con el cursor en la línea para poder editar los ``` . Un bloque
-normal no se toca.
+`fenced_code_block_delimiter` nunca se cerró, y sin `language` en el `info_string` es texto plano.
+
+Lo de "vacío" hay que medirlo con cuidado, porque un salto de línea suelto sí produce un
+`code_fence_content`: lo que cuenta es si alguna fila del cuerpo tiene algo que no sea espacio. Y
+"fila del cuerpo" no es la línea entera. Dentro de una cita las filas llevan delante los `>` que la
+continúan, y la última llega solo hasta donde arranca el ``` de cierre. Así que se mira cada fila a
+partir de la columna donde empieza el fence, y la última recortada donde acaba el cuerpo: lo de
+delante es prefijo de la cita, lo de detrás es el propio cierre. Un `>` escrito ya dentro del
+bloque cae detrás de esa columna, así que sigue contando como contenido y el bloque no es vacío.
+
+En las filas rescatadas se descartan las marcas del plugin que las dejaban invisibles (su
+`conceal_lines` y su etiqueta de lenguaje) y se ponen banda y etiqueta propias. La banda se queda
+en todos los modos y también con el cursor encima; la etiqueta, que sí tapa el texto real, se
+aparta con el cursor en la línea para poder editar los ``` . Un bloque vacío rescata sus dos
+delimitadores; uno sin cerrar solo el suyo, porque el resto ya se ve de más; y uno sin lenguaje
+solo la apertura, porque su cierre se oculta igual que el de cualquier bloque con lenguaje. La
+cabecera de texto plano va en gris neutro a propósito: no es un aviso, es el nombre que le faltaba
+al bloque, y no debe competir con el ámbar ni con el rojo. Un bloque normal no se toca.
 
 ## Contrato visual
 
@@ -154,8 +180,10 @@ markdown_callouts → markdown_frontmatter_prepare → markdown_spoilers_prepare
 `markdown_callouts` protege la sintaxis antes de Prettier. El par de pasadas de frontmatter
 sustituye temporalmente un bloque YAML/TOML inicial por un marcador válido y lo restaura byte por
 byte, de modo que Prettier formatea el cuerpo sin reescribir la sangría de las propiedades. Después,
-`markdown_spoilers_prepare` cambia temporalmente solo los fences estructurales `spoiler` por una
-inyección Markdown marcada; así Prettier formatea su cuerpo. También sustituye cada spoiler inline
+`markdown_spoilers_prepare` cambia temporalmente solo los fences estructurales de spoiler por una
+inyección Markdown marcada; así Prettier formatea su cuerpo. Cada nombre lleva su propio marcador
+—`spoiler` y `spoiler-block` no comparten uno— para que la pasada de vuelta devuelva el que había
+escrito y no el otro. También sustituye cada spoiler inline
 por un token atómico de nueve celdas —el ancho exacto de `󰈉 SPOILER`— para impedir que Prettier
 parta su contenido oculto por el ancho bruto. La
 pasada inmediatamente posterior restaura tanto los fences como el texto inline exacto. El escáner
@@ -189,9 +217,15 @@ contar solo la label produciría un resultado distinto.
 `spec/conform_markdown_spec.lua` fija el orden semántico de la cadena y comprueba que la salida
 multilínea de Prettier se colapsa de forma idempotente. `spec/spoilers_spec.lua` cubre extmarks,
 revelado contextual, falsos positivos, inyección Markdown, ancho exacto y wrapping; el spec de
-Conform comprueba además la transformación reversible de los fences.
+Conform comprueba además la transformación reversible de los fences, con los dos nombres y su
+marcador propio.
 
 `spec/markdown_tags_and_fences_spec.lua` cubre las dos marcas propias sobre extmarks reales: qué
 tags reciben chip y cuáles no (code spans, destinos de enlace, `#123`, `#ff00ff`), y que un fence
 vacío o sin cerrar recupera sus filas con banda y etiqueta —con lenguaje cuando lo hay—, que el
 bloque normal sigue intacto y que la etiqueta se aparta con el cursor encima sin llevarse la banda.
+Fija también los tres casos que se añadieron después: un cuerpo de solo blancos cuenta como vacío,
+los `>` de una cita no cuentan como cuerpo pero un `>` escrito dentro del bloque sí, y un fence sin
+lenguaje recibe su cabecera gris sin rescatar el cierre. Como el fondo del propio plugin también
+llega al final de la línea, esas comprobaciones buscan la banda por su grupo, no la primera que
+haya en la fila.

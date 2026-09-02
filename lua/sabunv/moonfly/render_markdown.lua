@@ -145,6 +145,7 @@ local function annotation_palette()
       tag = { fg = "black", bg = "red", ctermfg = 0, ctermbg = 1 },
       empty = { fg = "black", bg = "yellow", ctermfg = 0, ctermbg = 3 },
       unclosed = { fg = "white", bg = "red", ctermfg = 15, ctermbg = 1 },
+      plain = { fg = "white", bg = "black", ctermfg = 15, ctermbg = 8 },
     }
   end
 
@@ -156,6 +157,9 @@ local function annotation_palette()
     empty = { fg = "#FFF2D6", bg = "#6A5220" },
     -- Rojo de error, más saturado que el chip: esto sí está roto.
     unclosed = { fg = "#FFE8E8", bg = "#8B1A1A" },
+    -- Gris neutro: no es un aviso, es la cabecera que le falta a un bloque sin
+    -- lenguaje. Tiene que leerse sin competir con el ámbar ni con el rojo.
+    plain = { fg = "#D7DBE0", bg = "#3A3F46" },
   }
 end
 
@@ -258,6 +262,13 @@ local function heading_highlights(state)
     ctermfg = annotations.unclosed.ctermfg,
     ctermbg = annotations.unclosed.ctermbg,
     bold = true,
+  })
+
+  set("RenderMarkdownCodePlain", {
+    fg = annotations.plain.fg,
+    bg = annotations.plain.bg,
+    ctermfg = annotations.plain.ctermfg,
+    ctermbg = annotations.plain.ctermbg,
   })
 
   set("RenderMarkdownSpoiler", {

@@ -124,6 +124,28 @@ describe("Sabunv Markdown code fences", function()
     "> ```",
     "> ```",
     "",
+    "```",
+    "",
+    "```",
+    "",
+    "```",
+    "   ",
+    "```",
+    "",
+    "> [!note]",
+    ">",
+    "> ```",
+    ">",
+    "> ```",
+    "",
+    "```",
+    ">",
+    "```",
+    "",
+    "```",
+    "texto sin lenguaje",
+    "```",
+    "",
     "```sh",
     "echo sin cerrar",
     "",
@@ -150,6 +172,18 @@ describe("Sabunv Markdown code fences", function()
         return details.hl_group
       end
     end
+  end
+
+  --- ¿Está esta banda concreta en la fila? El fondo del propio plugin también
+  --- llega hasta el final de la línea, así que hay que buscar la nuestra.
+  local function has_band(row, group)
+    for _, mark in ipairs(extmarks(bufnr, namespace)) do
+      local details = mark[4]
+      if mark[2] == row and details.hl_eol and details.hl_group == group then
+        return true
+      end
+    end
+    return false
   end
 
   local function hidden_line(row)
@@ -214,9 +248,58 @@ describe("Sabunv Markdown code fences", function()
   end)
 
   it("flags a fence that was never closed", function()
-    assert.are.equal("RenderMarkdownCodeUnclosed", band(17))
+    assert.are.equal("RenderMarkdownCodeUnclosed", band(39))
+    assert.is_false(hidden_line(39))
+    assert.are.same({ " ▲ sh · " .. code.unclosed_text .. " " }, virtual_texts(39))
+  end)
+
+  it("treats a body of only blank lines as empty", function()
+    -- Un salto de línea suelto sí crea `code_fence_content`, pero no es nada.
+    assert.is_true(has_band(17, "RenderMarkdownCodeEmpty"))
+    assert.is_true(has_band(19, "RenderMarkdownCodeEmpty"))
     assert.is_false(hidden_line(17))
-    assert.are.same({ " ▲ sh · " .. code.unclosed_text .. " " }, virtual_texts(17))
+    assert.is_false(hidden_line(19))
+    assert.are.same({ " ▲ " .. code.empty_text .. " " }, virtual_texts(17))
+
+    -- Y un cuerpo de solo espacios, tampoco.
+    assert.is_true(has_band(21, "RenderMarkdownCodeEmpty"))
+    assert.is_true(has_band(23, "RenderMarkdownCodeEmpty"))
+    assert.are.same({ " ▲ " .. code.empty_text .. " " }, virtual_texts(21))
+  end)
+
+  it("does not count the quote markers of a callout as body", function()
+    assert.is_true(has_band(27, "RenderMarkdownCodeEmpty"))
+    assert.is_true(has_band(29, "RenderMarkdownCodeEmpty"))
+    assert.is_false(hidden_line(27))
+    assert.is_false(hidden_line(29))
+    assert.are.same({ "▋", " ▲ " .. code.empty_text .. " " }, virtual_texts(27))
+  end)
+
+  it("counts a > written inside the block as body", function()
+    -- Fuera de una cita ese `>` es código, no el prefijo de nadie: el bloque
+    -- tiene cuerpo, y lo que le falta es el lenguaje.
+    assert.is_false(has_band(31, "RenderMarkdownCodeEmpty"))
+    assert.is_true(has_band(31, "RenderMarkdownCodePlain"))
+  end)
+
+  it("gives a fence without language a header of its own", function()
+    assert.is_true(has_band(35, "RenderMarkdownCodePlain"))
+    assert.is_false(hidden_line(35))
+    assert.are.same({ " " .. code.plain_text .. " " }, virtual_texts(35))
+    -- El cierre se oculta, igual que el de un bloque con lenguaje: la cabecera
+    -- ya dice dónde empieza, y con eso el bloque deja de ser invisible.
+    assert.is_true(hidden_line(37))
+  end)
+
+  it("hides the plain header under the cursor and keeps its band", function()
+    move(35)
+    assert(
+      vim.wait(1000, function()
+        return #virtual_texts(35) == 0
+      end, 10),
+      "la cabecera de texto plano no se apartó con el cursor encima"
+    )
+    assert.is_true(has_band(35, "RenderMarkdownCodePlain"))
   end)
 
   it("rescues an empty fence inside a callout without losing its quote bar", function()
@@ -228,7 +311,9 @@ describe("Sabunv Markdown code fences", function()
   end)
 
   it("does not touch a normal code block", function()
-    assert.is_nil(band(8))
+    assert.is_false(has_band(8, "RenderMarkdownCodeEmpty"))
+    assert.is_false(has_band(8, "RenderMarkdownCodeUnclosed"))
+    assert.is_false(has_band(8, "RenderMarkdownCodePlain"))
     -- La etiqueta de lenguaje del plugin sigue en su sitio y el cierre oculto.
     assert.are.same({ "lua" }, vim.list_slice(virtual_texts(8), 1, 1))
     assert.is_true(hidden_line(10))

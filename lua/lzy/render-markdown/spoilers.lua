@@ -4,6 +4,19 @@ local M = {}
 
 M.inline_text = "󰈉 SPOILER"
 
+--- Los lenguajes de fence que abren un bloque spoiler. `spoiler-block` es el
+--- nombre largo, por parecido con el plugin de Obsidian; `spoiler` es el corto.
+--- Los dos hacen exactamente lo mismo, y los dos se registran como inyección
+--- Markdown para que al revelarse el cuerpo se lea como Markdown y no como
+--- código.
+M.block_languages = { "spoiler", "spoiler-block" }
+
+---@param info string
+---@return boolean
+local function is_block_language(info)
+  return vim.tbl_contains(M.block_languages, info)
+end
+
 local excluded_query = vim.treesitter.query.parse(
   "markdown_inline",
   [[
@@ -81,7 +94,7 @@ local function is_spoiler_block(node, bufnr)
   end
   for child in node:iter_children() do
     if child:type() == "info_string" then
-      return vim.trim(vim.treesitter.get_node_text(child, bufnr)) == "spoiler"
+      return is_block_language(vim.trim(vim.treesitter.get_node_text(child, bufnr)))
     end
   end
   return false
@@ -358,7 +371,12 @@ function M.inline_width()
 end
 
 function M.setup()
-  vim.treesitter.language.register("markdown", "spoiler")
+  for _, language in ipairs(M.block_languages) do
+    -- Tree-sitter normaliza el nombre del lenguaje de una inyección antes de
+    -- buscarlo: a minúsculas y con `_` en vez de `-`. El alias hay que darlo
+    -- ya normalizado o no lo encuentra nunca.
+    vim.treesitter.language.register("markdown", (language:gsub("%-", "_")))
+  end
   local group = vim.api.nvim_create_augroup("SabunvMarkdownSpoilers", { clear = true })
   vim.api.nvim_create_autocmd("BufWipeout", {
     group = group,

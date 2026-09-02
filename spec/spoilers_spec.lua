@@ -34,6 +34,10 @@ describe("Sabunv Markdown spoilers", function()
     "| A | B |",
     "| --- | --- |",
     "| ||tabla|| | valor |",
+    "",
+    "```spoiler-block",
+    "# Nombre largo",
+    "```",
   }
 
   local function extmarks()
@@ -102,9 +106,9 @@ describe("Sabunv Markdown spoilers", function()
 
     assert(
       vim.wait(1000, function()
-        return spoiler_virtual_count() == 2
+        return spoiler_virtual_count() == 3
       end, 10),
-      "render-markdown did not render both spoiler forms"
+      "render-markdown did not render every spoiler form"
     )
   end)
 
@@ -144,7 +148,7 @@ describe("Sabunv Markdown spoilers", function()
     move(4)
     assert(
       vim.wait(1000, function()
-        return spoiler_virtual_count() == 2 and has_block_controller()
+        return spoiler_virtual_count() == 3 and has_block_controller()
       end, 10),
       "spoilers did not conceal again"
     )
@@ -153,6 +157,27 @@ describe("Sabunv Markdown spoilers", function()
     assert(
       vim.wait(1000, has_block_controller, 10),
       "the line immediately after the closing fence still revealed the block"
+    )
+  end)
+
+  it("treats the long fence name exactly like the short one", function()
+    -- `spoiler-block` y `spoiler` son el mismo bloque con dos nombres.
+    assert.are.same({ "󰈉 SPOILER · 1 línea" }, virtual_texts(14))
+
+    move(15, 3)
+    assert(
+      vim.wait(1000, function()
+        return #virtual_texts(15) > 0
+      end, 10),
+      "el bloque con nombre largo no se reveló desde su cuerpo"
+    )
+
+    move(13)
+    assert(
+      vim.wait(1000, function()
+        return spoiler_virtual_count() == 3
+      end, 10),
+      "el bloque con nombre largo no se volvió a ocultar"
     )
   end)
 
@@ -166,10 +191,13 @@ describe("Sabunv Markdown spoilers", function()
         roots[#roots + 1] = { start_row, end_row }
       end
     end)
-    local nested = vim.tbl_filter(function(range)
-      return range[1] == 6 and range[2] > range[1]
-    end, roots)
-    assert.is_true(#nested > 0, "nested Markdown roots: " .. vim.inspect(roots))
+    local function injected(row)
+      return #vim.tbl_filter(function(range)
+        return range[1] == row and range[2] > range[1]
+      end, roots) > 0
+    end
+    assert.is_true(injected(6), "nested Markdown roots: " .. vim.inspect(roots))
+    assert.is_true(injected(15), "nested Markdown roots: " .. vim.inspect(roots))
   end)
 
   it("uses the exact hidden display width for wrapping", function()

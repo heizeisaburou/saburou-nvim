@@ -168,6 +168,35 @@ local function markdown_fence(line)
   return indent, marker, vim.trim(info)
 end
 
+--- Cada lenguaje de fence spoiler tiene su propio marcador interno, para que la
+--- pasada de vuelta devuelva el nombre exacto que había escrito y no el otro.
+--- La lista sale de donde se renderizan, para que no haya dos verdades; se
+--- construye a la primera y no al cargar el módulo, que este se carga antes de
+--- que haya parsers de Tree-sitter con los que trabajar.
+local spoiler_fences
+
+---@return table<string, string> markers lenguaje -> marcador
+---@return table<string, string> languages marcador -> lenguaje
+local function spoiler_fence_maps()
+  if not spoiler_fences then
+    local markers, languages = {}, {}
+    for _, language in ipairs(require("lzy.render-markdown.spoilers").block_languages) do
+      local marker = ("markdown hzsr-internal-%s-fence"):format(language)
+      markers[language] = marker
+      languages[marker] = language
+    end
+    spoiler_fences = { markers = markers, languages = languages }
+  end
+  return spoiler_fences.markers, spoiler_fences.languages
+end
+
+---@param info string|?
+---@return boolean
+local function is_spoiler_fence_marker(info)
+  local _, languages = spoiler_fence_maps()
+  return languages[info] ~= nil
+end
+
 ---@param lines string[]
 ---@param prepare boolean
 ---@return string[]
@@ -188,11 +217,12 @@ local function transform_spoiler_fences(lines, prepare)
         active_char, active_length = nil, nil
       end
     elseif marker then
+      local markers, languages = spoiler_fence_maps()
       local replacement
-      if prepare and info == "spoiler" then
-        replacement = "markdown hzsr-internal-spoiler-fence"
-      elseif not prepare and info == "markdown hzsr-internal-spoiler-fence" then
-        replacement = "spoiler"
+      if prepare then
+        replacement = markers[info]
+      else
+        replacement = languages[info]
       end
       out[#out + 1] = replacement and (indent .. marker .. replacement) or line
       active_char, active_length = marker:sub(1, 1), #marker
@@ -345,7 +375,7 @@ local function prepare_spoilers(lines, bufnr)
       end
     elseif marker then
       active_char, active_length = marker:sub(1, 1), #marker
-      markdown_body = info == "markdown hzsr-internal-spoiler-fence"
+      markdown_body = is_spoiler_fence_marker(info)
     elseif not tables[index] then
       transformed[index] = protect_inline_spoilers(line, state)
     end
