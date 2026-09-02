@@ -67,10 +67,13 @@ describe("Sabunv sync", function()
 
   it("no copia lo que cada instalación genera para sí misma", function()
     assert.is_true(sync.deploy("/src", "/dst"))
+    -- El `.git` no está en la lista a propósito: esto reemplaza la carpeta
+    -- entera, historia incluida, para que el destino quede siendo el origen.
+    assert.is_false(vim.tbl_contains(excludes(), ".git"))
     -- `.luarc.json` es el que importa: lleva rutas absolutas al directorio de
     -- plugins del NVIM_APPNAME que lo generó, así que copiarlo deja al destino
     -- mirando la biblioteca del origen.
-    assert.are.same({ ".git", ".luarc.json", "lazy-lock.json", "nvim.log" }, excludes())
+    assert.are.same({ ".luarc.json", "lazy-lock.json", "nvim.log" }, excludes())
   end)
 
   it("borra en destino lo que sobra, pero no lo excluido", function()

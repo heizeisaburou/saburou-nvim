@@ -18,7 +18,14 @@ local DEFAULTS = {
 --- que copiarlo deja al destino mirando la biblioteca del origen. Cada uno
 --- genera el suyo con `:Luarc!`. `lazy-lock.json` es lo mismo con las versiones
 --- de los plugins, y el log no es de nadie.
-local EXCLUDES = { ".git", ".luarc.json", "lazy-lock.json", "nvim.log" }
+---
+--- El `.git` sí se copia: esto reemplaza la carpeta entera, historia incluida.
+--- Así el destino queda siendo el origen y su `git status` vuelve a enseñar solo
+--- lo que se le haya cambiado encima a mano, en vez de mezclarlo con todo lo que
+--- haya avanzado el origen desde la última copia. La contrapartida es que un
+--- commit que solo exista en el destino desaparece: esto es un espejo, no una
+--- sincronización de ida y vuelta.
+local EXCLUDES = { ".luarc.json", "lazy-lock.json", "nvim.log" }
 
 --- Sincroniza src → dst (rsync; fallback cp). Devuelve true/false.
 ---@param src string|?

@@ -482,8 +482,8 @@ function M.fetch_web_title(opts)
   opts = opts or {}
   local notify_user = opts.notify or notify
   local request = opts.request or request_url
-  local context = require("lzy.obsidian.links").cursor_context()
-  local ref = context and context.ref or nil
+  local ctx = require("lzy.obsidian.links").cursor_context()
+  local ref = ctx and ctx.ref or nil
   local url = ref and (ref.raw_target or ref.target) or nil
   if
     not ref

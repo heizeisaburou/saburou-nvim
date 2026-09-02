@@ -9,7 +9,7 @@ local M = {}
 local line_length = require("user.format").line_length
 local scalafmt_fallback_dialect = "scala3"
 local scalafmt_fallback_version = "3.10.6"
-local indent = require "sabunv.indent"
+local indent_config = require "sabunv.indent"
 local executable = require "hzsr.sys.executable"
 local spoiler_format_state = {}
 local frontmatter_format_state = {}
@@ -478,10 +478,10 @@ end
 
 local function indent_for(ctx)
   if ctx and ctx.buf then
-    return indent.for_buffer(ctx.buf)
+    return indent_config.for_buffer(ctx.buf)
   end
 
-  return indent.for_buffer()
+  return indent_config.for_buffer()
 end
 
 local function filetype_for(ctx)

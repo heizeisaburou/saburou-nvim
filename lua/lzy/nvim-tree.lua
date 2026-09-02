@@ -308,7 +308,6 @@ local min_width = 60
 -- but never let it become too narrow to be useful.
 function M.resizeTree()
   local percentage = 17
-  local min_width = min_width
   local ratio = percentage / 100
   local width = math.floor(vim.go.columns * ratio)
   if width < min_width then
