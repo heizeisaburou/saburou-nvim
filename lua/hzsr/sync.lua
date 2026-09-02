@@ -10,6 +10,16 @@ local DEFAULTS = {
   dst = vim.fn.expand("~/.config/nvim"),
 }
 
+--- Lo que no se copia nunca, porque no es la configuración: es lo que cada
+--- instalación genera para sí misma.
+---
+--- `.luarc.json` es el caso importante. Lleva rutas absolutas al directorio de
+--- plugins del NVIM_APPNAME que lo generó (`~/.local/share/<appname>/lazy`), así
+--- que copiarlo deja al destino mirando la biblioteca del origen. Cada uno
+--- genera el suyo con `:Luarc!`. `lazy-lock.json` es lo mismo con las versiones
+--- de los plugins, y el log no es de nadie.
+local EXCLUDES = { ".git", ".luarc.json", "lazy-lock.json", "nvim.log" }
+
 --- Sincroniza src → dst (rsync; fallback cp). Devuelve true/false.
 ---@param src string|?
 ---@param dst string|?
@@ -24,8 +34,14 @@ function M.deploy(src, dst)
 
   local cmd
   if vim.fn.executable("rsync") == 1 then
-    cmd = { "rsync", "-a", "--delete", "--exclude", ".git", src .. "/", dst .. "/" }
+    cmd = { "rsync", "-a", "--delete" }
+    for _, name in ipairs(EXCLUDES) do
+      vim.list_extend(cmd, { "--exclude", name })
+    end
+    vim.list_extend(cmd, { src .. "/", dst .. "/" })
   else
+    -- `cp` no sabe excluir: copia de más y no borra de menos. Sirve para salir
+    -- del paso, pero el destino queda con el `.luarc.json` del origen.
     cmd = { "cp", "-a", src .. "/.", dst .. "/" }
   end
 

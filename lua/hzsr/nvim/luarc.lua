@@ -157,6 +157,28 @@ function M.encode(appname)
   return vim.json.encode(M.generate(appname), { indent = "  " })
 end
 
+--- Escribe el `.luarc.json` directamente, sin pasar por un buffer.
+---
+--- El buffer existe para poder mirar lo que va a quedar antes de guardarlo,
+--- que es lo que quieres cuando lo lanzas a mano. Cuando lo lanza un script no
+--- hay nadie mirando y no hay UI a la que abrirlo, así que aquí se escribe y ya.
+---@param appname? string
+---@return boolean ok
+---@return string path_or_error
+function M.write(appname)
+  local path = M.config_path(appname)
+  local file, err = io.open(path, "w")
+
+  if not file then
+    return false, err or ("no se pudo escribir " .. path)
+  end
+
+  file:write(M.encode(appname), "\n")
+  file:close()
+
+  return true, path
+end
+
 ---@param appname? string
 ---@return integer bufnr
 function M.create_buffer(appname)

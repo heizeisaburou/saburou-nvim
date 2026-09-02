@@ -193,6 +193,11 @@ configuración de los plugins de `Lazy`. Esto hace que sea más fácil modificar
 Por defecto la crea en la ruta correcta, solo tienes que guardar el archivo y
 recargar Neovim con `<leader>rs`.
 
+`:Luarc!` lo escribe directamente, sin abrir el buffer. Es lo que hace falta desde un
+script o en headless (`nvim --headless -c "Luarc!" -c "qa!"`), donde no hay nadie mirando
+ni UI a la que abrirlo. Ojo: escribe el archivo entero, así que se lleva por delante lo
+que hubieras añadido a mano.
+
 > [!note]
 >
 > Este comando hay que ejecutarlo cada vez que agregues nuevos paquetes al gestor de
