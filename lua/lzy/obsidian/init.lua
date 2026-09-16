@@ -1228,12 +1228,16 @@ local function nyabsidian_template()
 ---@field add_attachment? fun(path: string, ctx: table)
 ---@field post_set_workspace? fun(workspace: table)
 
+---@alias nyabsidian.NewNotesLocation "current_dir"|"notes_subdir"
+
 ---@class nyabsidian.VaultConfig
 ---@field frontmatter? nyabsidian.FrontmatterOpts
 ---@field link? nyabsidian.LinkOpts
 ---@field templates? nyabsidian.TemplateOpts
 ---@field daily_notes? nyabsidian.DailyNotesOpts
 ---@field attachments? nyabsidian.AttachmentsOpts
+---@field notes_subdir? string
+---@field new_notes_location? nyabsidian.NewNotesLocation
 ---@field note_id_func? fun(title: string|?, path: string|?): string
 ---@field note_path_func? fun(spec: { id: string, dir: string, title: string|? }): string
 ---@field callbacks? nyabsidian.CallbackConfig
@@ -1282,6 +1286,11 @@ return {
   -- templates = { folder = "Templates" },
   -- daily_notes = { folder = "Daily", default_tags = { "diario" } },
   -- attachments = { folder = "Archivos" },
+
+  --- Dónde crear notas nuevas: en la carpeta de la nota actual o en una
+  --- subcarpeta fija del vault. La segunda opción usa el valor de notes_subdir.
+  -- notes_subdir = "Notas",
+  -- new_notes_location = "notes_subdir", -- "current_dir" | "notes_subdir"
 
   --- Opciones propias de Nyabsidian, no de obsidian.nvim. Ambas usan
   --- "preserve" por defecto: cada referencia conserva su clase original
