@@ -4,69 +4,45 @@
 
 ![Vista previa](/docs/attachments/preview.png)
 
-`saburou-nvim` es mi configuración de _**Neovim**_. Es una configuración opinionada que ha
-alcanzado una fase en la que principalmente me ocupo de arreglar bugs o dar soporte a
-lenguajes de programación diversos.
+`saburou-nvim` es mi configuración de _**Neovim**_. Es una configuración opinionada que ha alcanzado una fase en la que principalmente me ocupo de arreglar bugs o dar soporte a lenguajes de programación diversos.
 
-- Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en
-  [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
+- Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
 
 ## Agradecimientos
 
 - [@POLA](https://github.com/POLA-LCS) y [@Misitox](https://github.com/mateolgallegoss) por ser los primeros betatesters de Windows.
-- [@SamuelGiron1](https://github.com/SamuelGiron1) por ser el primer betatester de macOS y también por ayudarme a
-  redactar la guía completa de macOS dejandome utilizar su mac.
+- [@SamuelGiron1](https://github.com/SamuelGiron1) por ser el primer betatester de macOS y también por ayudarme a redactar la guía completa de macOS dejandome utilizar su mac.
 
 ## Installation
 
 > [!note] Si usas macOS
 >
-> La documentación de macOS está completa, pero no dispongo de un equipo macOS con el
-> que probarla ni con el que reproducir bugs. Antes de instalar, lee [macOS support](/docs/macOS%20support.md).
+> La documentación de macOS está completa, pero no dispongo de un equipo macOS con el que probarla ni con el que reproducir bugs. Antes de instalar, lee [macOS support](/docs/macOS%20support.md).
 
 ### Pre-requisitos
 
 #### Imprescindibles
 
-- **[Neovim](/docs/Neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de
-  Neovim 0.12. No se garantiza compatibilidad con versiones anteriores ni futuras.
-- Una **[Nerd Font](/docs/Nerd%20Font.md)** configurada en la terminal para mostrar correctamente los iconos.
-  Elige una variante que no termine en `Mono` para que los iconos no se vean todos del
-  mismo tamaño.
-- **[Git](/docs/Git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los
-  plugins, y para crear el directorio `.git` en la raíz de tu proyecto ya que es la
-  manera en la que la mayoría de los linters de distintos lenguajes reconocen el
-  directorio raíz.
-- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `mason.nvim` y `nvim-treesitter`
-  puedan descargar dependencias opcionales de la configuración.
-- **[ripgrep](/docs/ripgrep.md)** — necesario para las búsquedas de texto utilizadas por distintas
-  funcionalidades de la configuración.
+- **[Neovim](/docs/Neovim.md) 0.12+** La configuración usa APIs y comportamientos disponibles a partir de Neovim 0.12. No se garantiza compatibilidad con versiones anteriores ni futuras.
+- Una **[Nerd Font](/docs/Nerd%20Font.md)** configurada en la terminal para mostrar correctamente los iconos. Elige una variante que no termine en `Mono` para que los iconos no se vean todos del mismo tamaño.
+- **[Git](/docs/Git.md)** ― necesario para clonar el repositorio, para que `lazy.nvim` instale los plugins, y para crear el directorio `.git` en la raíz de tu proyecto ya que es la manera en la que la mayoría de los linters de distintos lenguajes reconocen el directorio raíz.
+- **[curl](/docs/Curl.md)** disponible en el `PATH` — necesario para que `mason.nvim` y `nvim-treesitter` puedan descargar dependencias opcionales de la configuración.
+- **[ripgrep](/docs/ripgrep.md)** — necesario para las búsquedas de texto utilizadas por distintas funcionalidades de la configuración.
 - **[Cargo+Rust](/docs/Cargo+Rust.md)** — necesario para compilar e instalar `tree-sitter-cli`.
-- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que `nvim-treesitter` compile
-  los parsers.
-- **[Node.js](/docs/Node.js.md)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de
-  JavaScript/TypeScript usadas por la configuración, como por ejemplo para instalar
-  `prettier` que es un formateador core de la configuración porque lo utilizamos para
-  `markdown`, para varias herramientas instaladas mediante `Mason`, `copilot.lua` y también
-  para poder instalar `codex`, `claude` y `copilot` en tu sistema.
-- **[Compilador de C](/docs/Compilador%20de%20C.md)** — necesario para que `mason.nvim` y `nvim-treesitter` puedan compilar
-  dependencias opcionales de la configuración (incluidos los parsers de Tree-sitter).
-  En Linux, `gcc` o `clang` disponible en el `PATH`; en Windows es `MSVC`.
+- **[tree-sitter-cli](/docs/tree-sitter-cli.md) 0.26.1 o superior** — necesario para que `nvim-treesitter` compile los parsers.
+- **[Node.js](/docs/Node.js.md)** — necesario para compilar `tree-sitter-cli` y para varias herramientas de JavaScript/TypeScript usadas por la configuración, como por ejemplo para instalar `prettier` que es un formateador core de la configuración porque lo utilizamos para `markdown`, para varias herramientas instaladas mediante `Mason`, `copilot.lua` y también para poder instalar `codex`, `claude` y `copilot` en tu sistema.
+- **[Compilador de C](/docs/Compilador%20de%20C.md)** — necesario para que `mason.nvim` y `nvim-treesitter` puedan compilar dependencias opcionales de la configuración (incluidos los parsers de Tree-sitter). En Linux, `gcc` o `clang` disponible en el `PATH`; en Windows es `MSVC`.
 
 #### Circunstanciales
 
-- **[AI CLI Tools](/docs/AI%20CLI%20Tools.md)** — OpenCode, Claude y Codex; necesarios para utilizar las
-  funcionalidades de IA proporcionadas por la configuración.
+- **[AI CLI Tools](/docs/AI%20CLI%20Tools.md)** — OpenCode, Claude y Codex; necesarios para utilizar las funcionalidades de IA proporcionadas por la configuración.
 
 - **[Python](/docs/langs/Python.md)** Utilizado por muchos paquetes en que se instalan por medio de `Mason`.
 
 > [!WARNING] Dependencias circunstanciales molestas
 >
-> - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración
->   entonces instalalos o comenta los plugins. Una vez terminada la alpha, tras la
->   limpieza, esto dejara de ser así. Y hay más casos así:
->     - No instalar Python provoca que la instalación de muchos paquetes de Mason
->       fallen.
+> - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración entonces instalalos o comenta los plugins. Una vez terminada la alpha, tras la limpieza, esto dejara de ser así. Y hay más casos así:
+>     - No instalar Python provoca que la instalación de muchos paquetes de Mason fallen.
 
 ## Lenguajes
 
@@ -79,10 +55,7 @@ lenguajes de programación diversos.
 
 > [!WARNING]
 >
-> La configuración tarda bastante más tiempo en cargar en Windows que en Linux. Esto
-> en principio no es cosa mia, y aunque quiero optimizarlo no llegará hasta el
-> refactor (si es que puedo hacerlo). Por ejemplo en mi máquina VMWare tarda _6
-> segundos_ en abrir T_T.
+> La configuración tarda bastante más tiempo en cargar en Windows que en Linux. Esto en principio no es cosa mia, y aunque quiero optimizarlo no llegará hasta el refactor (si es que puedo hacerlo). Por ejemplo en mi máquina VMWare tarda _6 segundos_ en abrir T_T.
 
 **Clonar como configuración principal**
 
@@ -157,18 +130,15 @@ alias nombre_que_tu_quieras='NVIM_APPNAME=nombre_que_tu_quieras nvim'
 
 ### Lazy sync
 
-El gestor de paquetes `Lazy` se invoca automáticamente la primera vez que arrancas mi
-configuración de Neovim.
+El gestor de paquetes `Lazy` se invoca automáticamente la primera vez que arrancas mi configuración de Neovim.
 
-Si por lo que sea cerraste bruscamente Neovim, o quieres actualizar los paquetes `Lazy`
-puedes utilizar `:Lazy sync` en cualquier momento.
+Si por lo que sea cerraste bruscamente Neovim, o quieres actualizar los paquetes `Lazy` puedes utilizar `:Lazy sync` en cualquier momento.
 
 Tras actualizar los paquetes recarga la configuración con `<leader>rs`.
 
 > [!note]
 >
-> Los paquetes con pocas estrellas o que podrían romper la configuración tienen el
-> commit fijado en [/lua/lzy/_plg.lua](/lua/lzy/_plg.lua) mediante `commit = "..."`.
+> Los paquetes con pocas estrellas o que podrían romper la configuración tienen el commit fijado en [/lua/lzy/_plg.lua](/lua/lzy/_plg.lua) mediante `commit = "..."`.
 
 ### Instalar linters, formateadores y treesitters
 
@@ -187,92 +157,63 @@ Una vez ejecutados recarga Neovim con `<leader>rs`.
 
 ### Reconocimiento de tipos de la configuración
 
-El comando `:Luarc` crea un archivo para que el linter de lua reconozca los tipos de mi
-configuración de los plugins de `Lazy`. Esto hace que sea más fácil modificarla.
+El comando `:Luarc` crea un archivo para que el linter de lua reconozca los tipos de mi configuración de los plugins de `Lazy`. Esto hace que sea más fácil modificarla.
 
-Por defecto la crea en la ruta correcta, solo tienes que guardar el archivo y
-recargar Neovim con `<leader>rs`.
+Por defecto la crea en la ruta correcta, solo tienes que guardar el archivo y recargar Neovim con `<leader>rs`.
 
-`:Luarc!` lo escribe directamente, sin abrir el buffer. Es lo que hace falta desde un
-script o en headless (`nvim --headless -c "Luarc!" -c "qa!"`), donde no hay nadie mirando
-ni UI a la que abrirlo. Ojo: escribe el archivo entero, así que se lleva por delante lo
-que hubieras añadido a mano.
+`:Luarc!` lo escribe directamente, sin abrir el buffer. Es lo que hace falta desde un script o en headless (`nvim --headless -c "Luarc!" -c "qa!"`), donde no hay nadie mirando ni UI a la que abrirlo. Ojo: escribe el archivo entero, así que se lleva por delante lo que hubieras añadido a mano.
 
 > [!note]
 >
-> Este comando hay que ejecutarlo cada vez que agregues nuevos paquetes al gestor de
-> paquetes Lazy (los que indicas en [/lua/lzy/_plg.lua](/lua/lzy/_plg.lua).
+> Este comando hay que ejecutarlo cada vez que agregues nuevos paquetes al gestor de paquetes Lazy (los que indicas en [/lua/lzy/_plg.lua](/lua/lzy/_plg.lua).
 
 ### Ajustar la configuración
 
-Por defecto desactivo en mi configuración la mayoría de linter, formateadores, etc.
-por dos motivos:
+Por defecto desactivo en mi configuración la mayoría de linter, formateadores, etc. por dos motivos:
 
 - Porque si no lo hicieramos la cantidad de dependencias sería absurda:
 	- Aparecerían muchos errores, pareciendo que _saburou-nvim_ está roto.
-	- Se aumentaría mucho la plataforma de ataque por número de dependencias que se
-	  instalan mediante `Mason`.
+	- Se aumentaría mucho la plataforma de ataque por número de dependencias que se instalan mediante `Mason`.
 
-Rust tampoco se activa por defecto, aunque [Cargo+Rust](/docs/Cargo+Rust.md) sea un
-requisito para construir `tree-sitter-cli`. Tener el toolchain instalado elimina el
-coste de esa dependencia, pero no el de ejecución: habilitar el parser, `rust_analyzer`
-y `rustfmt` añade más código procesando los archivos y proyectos que se abren, y con
-ello más superficie de ataque. Si vas a editar Rust, activa solo las piezas que necesites
-en las listas descritas más abajo.
+Rust tampoco se activa por defecto. Aunque [Cargo+Rust](/docs/Cargo+Rust.md) ya forma parte de las dependencias necesarias para construir `tree-sitter-cli`, eso no implica que vayas a utilizar Rust en Neovim.
 
-También tomamos algunas decisiones como sincronizar el clipboard del usuario si es
-que se puede, algo que un usuario experimentado de Neovim probablemente no quiera.
+Las dependencias necesarias ya están presentes, así que activar el parser, `rust_analyzer` y `rustfmt` funciona sin pasos adicionales. Aun así, se dejan desactivados por defecto: si no trabajas con Rust, no tiene sentido habilitar componentes que no vas a usar y que amplían innecesariamente lo que la configuración instala o ejecuta.
 
-Todo eso se ajusta a mano, y siempre igual: cada archivo tiene **una lista, con lo
-activo arriba y el resto comentado justo debajo**. Descomentar una línea es activarla.
-No hay ningún archivo de opciones aparte ni nada que generar.
+Si vas a trabajar con Rust, puedes habilitar esas piezas en las listas descritas más abajo.
+
+También tomamos algunas decisiones como sincronizar el clipboard del usuario si es que se puede, algo que un usuario experimentado de Neovim probablemente no quiera.
+
+Todo eso se ajusta a mano, y siempre igual: cada archivo tiene **una lista, con lo activo arriba y el resto comentado justo debajo**. Descomentar una línea es activarla. No hay ningún archivo de opciones aparte ni nada que generar.
 
 #### Añadir soporte para un lenguaje
 
-Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lenguaje no es
-una sola cosa**. Son hasta cuatro herramientas independientes, cada una en su archivo,
-y ninguna necesita a las otras. Descomenta el lenguaje en las que te interesen:
+Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lenguaje no es una sola cosa**. Son hasta cuatro herramientas independientes, cada una en su archivo, y ninguna necesita a las otras. Descomenta el lenguaje en las que te interesen:
 
-| Archivo                                           | Lista              | Qué te da                                                 |
-| ------------------------------------------------- | ------------------ | --------------------------------------------------------- |
-| [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua)   | `M.servers`        | Diagnósticos, ir a definición, autocompletado y renombrar |
-| [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) | `M.languages`      | Resaltado, plegado y movimientos por sintaxis             |
-| [lua/lzy/conform.lua](/lua/lzy/conform.lua)       | `formatters_by_ft` | Formateo al guardar                                       |
-| [lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua)   | `M.linters_by_ft`  | Diagnósticos donde no llega el LSP                        |
+| Archivo | Lista | Qué te da |
+| --- | --- | --- |
+| [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) | `M.servers` | Diagnósticos, ir a definición, autocompletado y renombrar |
+| [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) | `M.languages` | Resaltado, plegado y movimientos por sintaxis |
+| [lua/lzy/conform.lua](/lua/lzy/conform.lua) | `formatters_by_ft` | Formateo al guardar |
+| [lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua) | `M.linters_by_ft` | Diagnósticos donde no llega el LSP |
 
-Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_
-soportado. El formateador y el linter son opcionales, y en muchos lenguajes el propio
-LSP ya formatea.
+Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_ soportado. El formateador y el linter son opcionales, y en muchos lenguajes el propio LSP ya formatea.
 
-Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**.
-Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo
-`syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones
-actuales son YARA y JQL, para los que Neovim no publica ninguno: por eso el repositorio
-incluye [syntax/yara.vim](/syntax/yara.vim) y [syntax/jql.vim](/syntax/jql.vim). No hay
-nada que descomentar, se cargan solos.
+Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA y JQL, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim) y [syntax/jql.vim](/syntax/jql.vim). No hay nada que descomentar, se cargan solos.
 
 Después de descomentar, dos comandos:
 
-- `:MasonInstallAll` — instala los servidores, formateadores y linters que hayas dejado
-  activos.
+- `:MasonInstallAll` — instala los servidores, formateadores y linters que hayas dejado activos.
 - `:TSInstallAll` — compila los parsers de Tree-sitter.
 
-La tabla de [Lenguajes soportados](#lenguajes-soportados) te dice qué nombre lleva cada lenguaje en cada
-columna, que no siempre es el que esperarías.
+La tabla de [Lenguajes soportados](#lenguajes-soportados) te dice qué nombre lleva cada lenguaje en cada columna, que no siempre es el que esperarías.
 
 > [!WARNING]
 >
-> Cada herramienta arrastra lo suyo, y ahí es donde la cosa se complica de verdad.
-> Descomentar `sql` te pide [Python](/docs/langs/Python.md); un servidor de Groovy o de Kotlin, un JDK; varios
-> formateadores, [Node.js](/docs/Node.js.md). Por eso vienen desactivados: no para esconderlos, sino
-> para que la instalación por defecto no te obligue a instalar medio ecosistema. Los
-> comentarios de cada lista avisan de los casos raros.
+> Cada herramienta arrastra lo suyo, y ahí es donde la cosa se complica de verdad. Descomentar `sql` te pide [Python](/docs/langs/Python.md); un servidor de Groovy o de Kotlin, un JDK; varios formateadores, [Node.js](/docs/Node.js.md). Por eso vienen desactivados: no para esconderlos, sino para que la instalación por defecto no te obligue a instalar medio ecosistema. Los comentarios de cada lista avisan de los casos raros.
 
 #### Tus mapeos y tus manías
 
-[lua/user/cfg.lua](/lua/user/cfg.lua) es tu archivo. Mapeos, comandos y las decisiones que no son
-técnicas sino de gusto. Es el único sitio que puedes tocar sin chocar con el resto de
-la configuración.
+[lua/user/cfg.lua](/lua/user/cfg.lua) es tu archivo. Mapeos, comandos y las decisiones que no son técnicas sino de gusto. Es el único sitio que puedes tocar sin chocar con el resto de la configuración.
 
 Lo primero que hay ahí es lo primero que probablemente quieras cambiar:
 
@@ -280,65 +221,38 @@ Lo primero que hay ahí es lo primero que probablemente quieras cambiar:
 local sync_clipboard = true
 ```
 
-Sincroniza el clipboard del sistema con los registros de Neovim, para que copiar y
-pegar funcione como en cualquier otro programa. Está en `true` porque en tus primeros
-meses con Neovim es una pelea que no hace falta pelear. Cuando deje de serlo, ponlo
-en `false`: recuperas el control de los registros, y te quedan `<leader>cs` y `<leader>cn`
-para mover el contenido en una dirección o en la otra cuando lo necesites.
+Sincroniza el clipboard del sistema con los registros de Neovim, para que copiar y pegar funcione como en cualquier otro programa. Está en `true` porque en tus primeros meses con Neovim es una pelea que no hace falta pelear. Cuando deje de serlo, ponlo en `false`: recuperas el control de los registros, y te quedan `<leader>cs` y `<leader>cn` para mover el contenido en una dirección o en la otra cuando lo necesites.
 
 #### Indentación
 
-- En [lua/user/indent.lua](/lua/user/indent.lua) puedes configurar la indentación por lenguaje. Primero el
-  estilo `spaces|tabs` y si has escogido `spaces` entonces puedes decidir cuántos con
-  `width`.
+- En [lua/user/indent.lua](/lua/user/indent.lua) puedes configurar la indentación por lenguaje. Primero el estilo `spaces|tabs` y si has escogido `spaces` entonces puedes decidir cuántos con `width`.
 
-- En [lua/user/format.lua](/lua/user/format.lua) puedes especificar un `line_length` por defecto. A menos que
-  sea reemplazado por la configuración de formateo del proyecto (`.prettierrc`,
-  `.editorconfig`) este será el valor
-  que se usará para determinar cuándo una línea es demasiado larga. `line_length = 97`
-  queda bien con una fuente `JetBrainsMono Nerd Font` de `11px`; probado en una _Kitty con
-  zsh_ y _Terminal de Windows con Powershell_.
+- En [lua/user/format.lua](/lua/user/format.lua) puedes especificar un `line_length` por defecto. A menos que sea reemplazado por la configuración de formateo del proyecto (`.prettierrc`, `.editorconfig`) este será el valor que se usará para determinar cuándo una línea es demasiado larga. `line_length = 97` queda bien con una fuente `JetBrainsMono Nerd Font` de `11px`; probado en una _Kitty con zsh_ y _Terminal de Windows con Powershell_.
 
 #### Markdown: por qué no se cortan las líneas
 
-El formateador de markdown **no ajusta la prosa**: junta cada párrafo en una sola línea,
-por larga que sea, y el ajuste lo pone el editor.
+El formateador de markdown **no ajusta la prosa**: junta cada párrafo en una sola línea, por larga que sea, y el ajuste lo pone el editor.
 
-Qué lenguajes se ajustan se decide en [lua/user/wrap.lua](/lua/user/wrap.lua), con la
-misma forma que la indentación: un `default` y excepciones por filetype. De fábrica solo
-markdown. `<A-w>` lo alterna para el archivo que tengas delante, y lo que elijas manda
-sobre la tabla hasta que lo cierres.
+Qué lenguajes se ajustan se decide en [lua/user/wrap.lua](/lua/user/wrap.lua), con la misma forma que la indentación: un `default` y excepciones por filetype. De fábrica solo markdown. `<A-w>` lo alterna para el archivo que tengas delante, y lo que elijas manda sobre la tabla hasta que lo cierres.
 
-La razón es que cortar a un ancho fijo solo tiene sentido en un terminal. En Obsidian, en
-VS Code o en cualquier editor gráfico, el editor vuelve a ajustar al ancho del panel
-**encima** de tus cortes, y el párrafo queda irregular: larga, corta, larga, corta. Y como
-en CommonMark un salto simple dentro de un párrafo se renderiza como un espacio, el
-resultado visible es idéntico se corte o no. Cortar solo tiene coste.
+La razón es que cortar a un ancho fijo solo tiene sentido en un terminal. En Obsidian, en VS Code o en cualquier editor gráfico, el editor vuelve a ajustar al ancho del panel **encima** de tus cortes, y el párrafo queda irregular: larga, corta, larga, corta. Y como en CommonMark un salto simple dentro de un párrafo se renderiza como un espacio, el resultado visible es idéntico se corte o no. Cortar solo tiene coste.
 
-Por eso los párrafos se juntan en vez de dejarse como estén: un salto suelto no es un
-salto de verdad, así que unirlo no cambia nada de lo que se ve y además repara las notas
-que quedaron cortadas. Los saltos de verdad —`\` o dos espacios al final— se respetan.
+Por eso los párrafos se juntan en vez de dejarse como estén: un salto suelto no es un salto de verdad, así que unirlo no cambia nada de lo que se ve y además repara las notas que quedaron cortadas. Los saltos de verdad —`\` o dos espacios al final— se respetan.
 
-Todo lo demás se sigue formateando: listas, tablas, énfasis, definiciones de referencia,
-frontmatter y la indentación con tabs.
+Todo lo demás se sigue formateando: listas, tablas, énfasis, definiciones de referencia, frontmatter y la indentación con tabs.
 
-Si un proyecto concreto sí quiere prosa ajustada, lo pide en su propia configuración y
-gana sobre la nuestra:
+Si un proyecto concreto sí quiere prosa ajustada, lo pide en su propia configuración y gana sobre la nuestra:
 
 ```json
 // .prettierrc
 { "proseWrap": "always", "printWidth": 80 }
 ```
 
-Esto vale para todos los lenguajes, no solo markdown: los formatters de Prettier llevan
-`--config-precedence file-override`, así que un `.prettierrc` o un `.editorconfig` del
-repositorio manda sobre los valores de [lua/lzy/conform.lua](/lua/lzy/conform.lua). Sin
-ellos, mandan los nuestros.
+Esto vale para todos los lenguajes, no solo markdown: los formatters de Prettier llevan `--config-precedence file-override`, así que un `.prettierrc` o un `.editorconfig` del repositorio manda sobre los valores de [lua/lzy/conform.lua](/lua/lzy/conform.lua). Sin ellos, mandan los nuestros.
 
 #### Terminal integrada
 
-`<A-i>` abre una terminal flotante. Qué shell arranca lo decide
-[lua/user/terminal.lua](/lua/user/terminal.lua):
+`<A-i>` abre una terminal flotante. Qué shell arranca lo decide [lua/user/terminal.lua](/lua/user/terminal.lua):
 
 | `shell` | Qué abre |
 | --- | --- |
@@ -347,117 +261,99 @@ ellos, mandan los nuestros.
 | `"pwsh"`, `"zsh"`, `"fish"`… | Una shell concreta, por nombre. Si no está instalada, avisa y usa la del sistema. |
 | `{ "nu", "--login" }` | Un comando completo, con sus argumentos. |
 
-`"auto"` es el valor por defecto porque `$SHELL` **no dice en qué shell estás**, sino cuál
-es tu shell de login, y ninguna shell la reescribe al arrancar: si abres pwsh desde zsh,
-`$SHELL` sigue diciendo zsh y la terminal integrada te abriría zsh. Lo único que sabe la
-verdad es el árbol de procesos, y de ahí sale `"auto"`. En Windows no se puede consultar
-sin pagar una llamada a PowerShell en cada arranque, así que ahí `"auto"` es directamente
-`"system"`.
+`"auto"` es el valor por defecto porque `$SHELL` **no dice en qué shell estás**, sino cuál es tu shell de login, y ninguna shell la reescribe al arrancar: si abres pwsh desde zsh, `$SHELL` sigue diciendo zsh y la terminal integrada te abriría zsh. Lo único que sabe la verdad es el árbol de procesos, y de ahí sale `"auto"`. En Windows no se puede consultar sin pagar una llamada a PowerShell en cada arranque, así que ahí `"auto"` es directamente `"system"`.
 
 `:TerminalInfo` dice qué shell salió elegida y por qué vía.
 
-Esta preferencia no toca `vim.o.shell`: `:!`, `:make` y los plugins siguen usando la shell
-de ejecución que configuró Neovim.
+Esta preferencia no toca `vim.o.shell`: `:!`, `:make` y los plugins siguen usando la shell de ejecución que configuró Neovim.
 
 ## Lenguajes soportados
 
-Esta es la matriz canónica del repositorio: si añades un lenguaje, se actualiza aquí y en
-ningún otro sitio. [language-dependencies.md](/docs/_ordenar/language-dependencies.md) la
-enlaza y se ocupa de lo que no cabe en una tabla: dependencias de sistema, instalación y
-las rarezas de cada herramienta.
+Esta es la matriz canónica del repositorio: si añades un lenguaje, se actualiza aquí y en ningún otro sitio. [language-dependencies.md](/docs/_ordenar/language-dependencies.md) la enlaza y se ocupa de lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta.
 
-Los nombres de la columna **LSP** son los identificadores que usa la configuración de
-Neovim; no siempre coinciden con el nombre del paquete de Mason.
+Los nombres de la columna **LSP** son los identificadores que usa la configuración de Neovim; no siempre coinciden con el nombre del paquete de Mason.
 
 > [!IMPORTANT]
 >
-> Que una integración aparezca aquí significa que la configuración sabe utilizarla; **no
-> implica que esté activada por defecto**. Casi todas las líneas están comentadas para
-> mantener una instalación base pequeña.
+> Que una integración aparezca aquí significa que la configuración sabe utilizarla; **no implica que esté activada por defecto**. Casi todas las líneas están comentadas para mantener una instalación base pequeña.
 
-| Lenguaje / formato | Filetype                         | LSP                           | Formatter                    | Linter           | Tree-sitter                                   |
-| ------------------ | -------------------------------- | ----------------------------- | ---------------------------- | ---------------- | --------------------------------------------- |
-| Ansible            | `yaml.ansible`                   | `ansiblels`                   | `yamlfmt` (vía `yaml`)       | —                | `yaml` (fallback)                             |
-| Assembly (GAS)     | `asm`                            | `asm_lsp`                     | — (no existe)                | —                | `asm`                                         |
-| Assembly (NASM)    | `nasm`                           | `asm_lsp`                     | `nasmfmt`                    | —                | `nasm`                                        |
-| Bash               | `bash`                           | `bashls`                      | `shfmt`                      | —                | `bash`                                        |
-| Batch              | `dosbatch`                       | —                             | —                            | —                | pendiente (`tree-sitter-batch` sin catalogar) |
-| C                  | `c`                              | `clangd`                      | `clang_format`               | —                | `c`                                           |
-| C++                | `cpp`                            | `clangd`                      | `clang_format`               | —                | `cpp`                                         |
-| CMake              | `cmake`                          | `neocmake`                    | —                            | —                | `cmake`                                       |
-| C#                 | `cs`                             | `roslyn_ls`                   | `csharpier`                  | —                | `c_sharp`                                     |
-| Clojure            | `clojure`                        | `clojure_lsp`                 | `zprint`                     | —                | `clojure`                                     |
-| EDN                | `edn`                            | —                             | `zprint`                     | —                | `clojure` (alias)                             |
-| CSS                | `css`                            | `cssls`                       | `prettier`                   | —                | `css`                                         |
-| Dart               | `dart`                           | `dartls`                      | `dart_format`                | —                | `dart`                                        |
-| Django templates   | `htmldjango`                     | `djls`                        | `djlint`                     | —                | `htmldjango`                                  |
-| Elixir             | `elixir`                         | `elixirls`                    | `mix`                        | —                | `elixir`                                      |
-| EEx                | `eelixir`                        | `elixirls`                    | `mix`                        | —                | —                                             |
-| HEEx               | `heex`                           | `elixirls`                    | `mix`                        | —                | `heex`                                        |
-| Erlang             | `erlang`                         | `elp`                         | `erlfmt`                     | —                | `erlang`                                      |
-| F#                 | `fsharp`                         | `fsautocomplete`              | `fantomas`                   | —                | `fsharp`                                      |
-| Fish               | `fish`                           | `fish_lsp`                    | `fish_indent`                | —                | `fish`                                        |
-| Gleam              | `gleam`                          | —                             | `gleam`                      | —                | —                                             |
-| GLSL               | `glsl`                           | `glsl_analyzer`               | vía LSP                      | —                | `glsl`                                        |
-| Go                 | `go`                             | `gopls`                       | `gofmt`                      | —                | `go`                                          |
-| Go modules         | `gomod` / `gosum` / `gowork`     | `gopls`                       | —                            | —                | `gomod` / `gosum` / `gowork`                  |
-| Go templates       | `gotmpl`                         | `gopls`                       | `prettier_gotmpl`            | —                | `gotmpl`                                      |
-| Groovy             | `groovy`                         | `groovyls`                    | `npm-groovy-lint`            | —                | `groovy`                                      |
-| Handlebars         | `handlebars`                     | —                             | `prettier_handlebars`        | —                | —                                             |
-| Haskell            | `haskell`                        | `hls`                         | `fourmolu`                   | —                | `haskell`                                     |
-| Literate Haskell   | `lhaskell`                       | `hls`                         | `fourmolu`                   | —                | `haskell` (alias)                             |
-| HTML               | `html`                           | `html`                        | `prettier`                   | —                | `html`                                        |
-| Java               | `java`                           | `jdtls`                       | `google-java-format`         | —                | `java`                                        |
-| JavaScript         | `javascript` / `javascriptreact` | `vtsls`                       | `prettier`                   | —                | `javascript`                                  |
-| Julia              | `julia`                          | `julials`                     | `runic`                      | —                | `julia`                                       |
-| Jinja              | `jinja`                          | `jinja_lsp`                   | `prettier_jinja`             | —                | `jinja` + `jinja_inline`                      |
-| JQL                | `jql`                            | —                             | —                            | —                | no existe (resalta `syntax/jql.vim`)          |
-| JSON               | `json`                           | `jsonls`                      | `biome`                      | —                | `json` / `json5`                              |
-| Kotlin             | `kotlin`                         | `kotlin_language_server`      | `ktlint`                     | —                | `kotlin`                                      |
-| LaTeX / TeX        | `tex` / `plaintex`               | `texlab`                      | `latexindent`                | —                | —                                             |
-| Liquid / Shopify   | `liquid`                         | `shopify_theme_ls`            | `prettier_liquid`            | —                | `liquid`                                      |
-| Lua                | `lua`                            | `lua_ls`                      | `stylua`                     | —                | `lua` / `luadoc`                              |
-| Make               | `make`                           | —                             | —                            | —                | `make`                                        |
-| Markdown           | `markdown`                       | `marksman`                    | `prettier` + `markdown_tabs` | —                | `markdown` + `markdown_inline`                |
-| Nix                | `nix`                            | `nil_ls`                      | `nixfmt`                     | —                | `nix`                                         |
-| OCaml              | `ocaml`                          | `ocamllsp`                    | `ocamlformat`                | —                | `ocaml`                                       |
-| OCaml interface    | `ocamlinterface`                 | `ocamllsp`                    | `ocamlformat`                | —                | `ocaml_interface`                             |
-| PHP                | `php`                            | `phpactor`                    | `php_cs_fixer`               | —                | `php`                                         |
-| PowerShell         | `ps1`                            | `powershell_es`               | vía LSP                      | —                | `powershell`                                  |
-| Pug / Jade         | `pug`                            | `pug`                         | `prettier_pug`               | —                | `pug`                                         |
-| Python             | `python`                         | `basedpyright` + `ruff`       | `ruff_format`                | —                | `python`                                      |
-| QML                | `qml`                            | `qmlls`                       | `qmlformat` (externo)        | —                | `qmljs`                                       |
-| R                  | `r`                              | `air`                         | `air`                        | —                | `r`                                           |
-| Ruby               | `ruby`                           | `ruby_lsp`                    | `rubocop`                    | —                | `ruby`                                        |
-| Rust               | `rust`                           | `rust_analyzer`               | `rustfmt`                    | —                | `rust`                                        |
-| Scala              | `scala`                          | `metals`                      | `scalafmt`                   | —                | `scala`                                       |
-| SCSS               | `scss`                           | `cssls`                       | `prettier`                   | —                | —                                             |
-| Solidity           | `solidity`                       | `solidity_ls_nomicfoundation` | `forge_fmt`                  | —                | `solidity`                                    |
-| SQL                | `sql`                            | `postgres_lsp` / `sqls`       | `sqlfluff` / `pg_format`     | `sqlfluff`       | `sql`                                         |
-| Surface            | `surface`                        | —                             | `mix`                        | —                | —                                             |
-| Suricata / Snort   | `hog`                            | `suricata_language_server`    | —                            | `suricata_check` | pendiente (resalta `syntax/hog.vim`)          |
-| Svelte             | `svelte`                         | `svelte`                      | `prettier_svelte`            | —                | `svelte`                                      |
-| Swift              | `swift`                          | `sourcekit`                   | `swiftformat`                | —                | `swift`                                       |
-| TOML               | `toml`                           | `taplo`                       | `taplo`                      | —                | `toml`                                        |
-| Twig               | `twig`                           | `twiggy_language_server`      | `prettier_twig`              | —                | `twig`                                        |
-| TypeScript / TSX   | `typescript` / `typescriptreact` | `vtsls`                       | `prettier`                   | —                | `typescript` / `tsx`                          |
-| Typst              | `typst`                          | `tinymist`                    | `typstyle`                   | —                | `typst`                                       |
-| Vim                | `vim`                            | —                             | —                            | —                | `vim`                                         |
-| Vimdoc             | `vimdoc`                         | —                             | —                            | —                | `vimdoc`                                      |
-| Vue                | `vue`                            | `vue_ls`                      | `prettier`                   | —                | `vue`                                         |
-| WebAssembly        | `wat`                            | `wasm_language_tools`         | vía LSP                      | —                | pendiente (sin parser catalogado)             |
-| XML                | `xml` / `xsd` / `xslt` / `svg`   | `lemminx`                     | vía LSP                      | —                | `xml` + `dtd`                                 |
-| YAML               | `yaml`                           | `yamlls`                      | `yamlfmt`                    | —                | `yaml`                                        |
-| YARA               | `yara`                           | `yls`                         | vía LSP                      | —                | pendiente (resalta `syntax/yara.vim`)         |
-| Zig                | `zig`                            | `zls`                         | `zigfmt`                     | —                | `zig`                                         |
-| Zsh                | `zsh`                            | `shuck`                       | — (`shfmt` no sirve)         | —                | `zsh`                                         |
+| Lenguaje / formato | Filetype | LSP | Formatter | Linter | Tree-sitter |
+| --- | --- | --- | --- | --- | --- |
+| Ansible | `yaml.ansible` | `ansiblels` | `yamlfmt` (vía `yaml`) | — | `yaml` (fallback) |
+| Assembly (GAS) | `asm` | `asm_lsp` | — (no existe) | — | `asm` |
+| Assembly (NASM) | `nasm` | `asm_lsp` | `nasmfmt` | — | `nasm` |
+| Bash | `bash` | `bashls` | `shfmt` | — | `bash` |
+| Batch | `dosbatch` | — | — | — | pendiente (`tree-sitter-batch` sin catalogar) |
+| C | `c` | `clangd` | `clang_format` | — | `c` |
+| C++ | `cpp` | `clangd` | `clang_format` | — | `cpp` |
+| CMake | `cmake` | `neocmake` | — | — | `cmake` |
+| C# | `cs` | `roslyn_ls` | `csharpier` | — | `c_sharp` |
+| Clojure | `clojure` | `clojure_lsp` | `zprint` | — | `clojure` |
+| EDN | `edn` | — | `zprint` | — | `clojure` (alias) |
+| CSS | `css` | `cssls` | `prettier` | — | `css` |
+| Dart | `dart` | `dartls` | `dart_format` | — | `dart` |
+| Django templates | `htmldjango` | `djls` | `djlint` | — | `htmldjango` |
+| Elixir | `elixir` | `elixirls` | `mix` | — | `elixir` |
+| EEx | `eelixir` | `elixirls` | `mix` | — | — |
+| HEEx | `heex` | `elixirls` | `mix` | — | `heex` |
+| Erlang | `erlang` | `elp` | `erlfmt` | — | `erlang` |
+| F# | `fsharp` | `fsautocomplete` | `fantomas` | — | `fsharp` |
+| Fish | `fish` | `fish_lsp` | `fish_indent` | — | `fish` |
+| Gleam | `gleam` | — | `gleam` | — | — |
+| GLSL | `glsl` | `glsl_analyzer` | vía LSP | — | `glsl` |
+| Go | `go` | `gopls` | `gofmt` | — | `go` |
+| Go modules | `gomod` / `gosum` / `gowork` | `gopls` | — | — | `gomod` / `gosum` / `gowork` |
+| Go templates | `gotmpl` | `gopls` | `prettier_gotmpl` | — | `gotmpl` |
+| Groovy | `groovy` | `groovyls` | `npm-groovy-lint` | — | `groovy` |
+| Handlebars | `handlebars` | — | `prettier_handlebars` | — | — |
+| Haskell | `haskell` | `hls` | `fourmolu` | — | `haskell` |
+| Literate Haskell | `lhaskell` | `hls` | `fourmolu` | — | `haskell` (alias) |
+| HTML | `html` | `html` | `prettier` | — | `html` |
+| Java | `java` | `jdtls` | `google-java-format` | — | `java` |
+| JavaScript | `javascript` / `javascriptreact` | `vtsls` | `prettier` | — | `javascript` |
+| Julia | `julia` | `julials` | `runic` | — | `julia` |
+| Jinja | `jinja` | `jinja_lsp` | `prettier_jinja` | — | `jinja` + `jinja_inline` |
+| JQL | `jql` | — | — | — | no existe (resalta `syntax/jql.vim`) |
+| JSON | `json` | `jsonls` | `biome` | — | `json` / `json5` |
+| Kotlin | `kotlin` | `kotlin_language_server` | `ktlint` | — | `kotlin` |
+| LaTeX / TeX | `tex` / `plaintex` | `texlab` | `latexindent` | — | — |
+| Liquid / Shopify | `liquid` | `shopify_theme_ls` | `prettier_liquid` | — | `liquid` |
+| Lua | `lua` | `lua_ls` | `stylua` | — | `lua` / `luadoc` |
+| Make | `make` | — | — | — | `make` |
+| Markdown | `markdown` | `marksman` | `prettier` + `markdown_tabs` | — | `markdown` + `markdown_inline` |
+| Nix | `nix` | `nil_ls` | `nixfmt` | — | `nix` |
+| OCaml | `ocaml` | `ocamllsp` | `ocamlformat` | — | `ocaml` |
+| OCaml interface | `ocamlinterface` | `ocamllsp` | `ocamlformat` | — | `ocaml_interface` |
+| PHP | `php` | `phpactor` | `php_cs_fixer` | — | `php` |
+| PowerShell | `ps1` | `powershell_es` | vía LSP | — | `powershell` |
+| Pug / Jade | `pug` | `pug` | `prettier_pug` | — | `pug` |
+| Python | `python` | `basedpyright` + `ruff` | `ruff_format` | — | `python` |
+| QML | `qml` | `qmlls` | `qmlformat` (externo) | — | `qmljs` |
+| R | `r` | `air` | `air` | — | `r` |
+| Ruby | `ruby` | `ruby_lsp` | `rubocop` | — | `ruby` |
+| Rust | `rust` | `rust_analyzer` | `rustfmt` | — | `rust` |
+| Scala | `scala` | `metals` | `scalafmt` | — | `scala` |
+| SCSS | `scss` | `cssls` | `prettier` | — | — |
+| Solidity | `solidity` | `solidity_ls_nomicfoundation` | `forge_fmt` | — | `solidity` |
+| SQL | `sql` | `postgres_lsp` / `sqls` | `sqlfluff` / `pg_format` | `sqlfluff` | `sql` |
+| Surface | `surface` | — | `mix` | — | — |
+| Suricata / Snort | `hog` | `suricata_language_server` | — | `suricata_check` | pendiente (resalta `syntax/hog.vim`) |
+| Svelte | `svelte` | `svelte` | `prettier_svelte` | — | `svelte` |
+| Swift | `swift` | `sourcekit` | `swiftformat` | — | `swift` |
+| TOML | `toml` | `taplo` | `taplo` | — | `toml` |
+| Twig | `twig` | `twiggy_language_server` | `prettier_twig` | — | `twig` |
+| TypeScript / TSX | `typescript` / `typescriptreact` | `vtsls` | `prettier` | — | `typescript` / `tsx` |
+| Typst | `typst` | `tinymist` | `typstyle` | — | `typst` |
+| Vim | `vim` | — | — | — | `vim` |
+| Vimdoc | `vimdoc` | — | — | — | `vimdoc` |
+| Vue | `vue` | `vue_ls` | `prettier` | — | `vue` |
+| WebAssembly | `wat` | `wasm_language_tools` | vía LSP | — | pendiente (sin parser catalogado) |
+| XML | `xml` / `xsd` / `xslt` / `svg` | `lemminx` | vía LSP | — | `xml` + `dtd` |
+| YAML | `yaml` | `yamlls` | `yamlfmt` | — | `yaml` |
+| YARA | `yara` | `yls` | vía LSP | — | pendiente (resalta `syntax/yara.vim`) |
+| Zig | `zig` | `zls` | `zigfmt` | — | `zig` |
+| Zsh | `zsh` | `shuck` | — (`shfmt` no sirve) | — | `zsh` |
 
-Sobre la columna **Linter**: solo lista lo que se ejecuta desde
-[nvim-lint.lua](/lua/lzy/nvim-lint.lua), es decir, diagnósticos que ningún LSP da. Un `—`
-no significa que no haya diagnósticos, sino que ya los publica el servidor de la columna
-**LSP**. Por eso está casi vacía: es la excepción, no la regla.
+Sobre la columna **Linter**: solo lista lo que se ejecuta desde [nvim-lint.lua](/lua/lzy/nvim-lint.lua), es decir, diagnósticos que ningún LSP da. Un `—` no significa que no haya diagnósticos, sino que ya los publica el servidor de la columna **LSP**. Por eso está casi vacía: es la excepción, no la regla.
 
-Dos parsers de Tree-sitter no tienen fila propia porque no son filetypes, sino
-inyecciones dentro de otros lenguajes: `printf` (cadenas de formato de C y de la shell) y
-`dtd` (que arrastra `xml`). `luadoc` y `markdown_inline` son el mismo caso y sí aparecen,
-junto a `lua` y `markdown`.
+Dos parsers de Tree-sitter no tienen fila propia porque no son filetypes, sino inyecciones dentro de otros lenguajes: `printf` (cadenas de formato de C y de la shell) y `dtd` (que arrastra `xml`). `luadoc` y `markdown_inline` son el mismo caso y sí aparecen, junto a `lua` y `markdown`.
