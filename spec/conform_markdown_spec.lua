@@ -157,6 +157,33 @@ describe("Conform Markdown pipeline", function()
     }, conform.formatters_by_ft.markdown)
   end)
 
+  it("protects callouts nested in lists, including nested callouts", function()
+    for _, case in ipairs {
+      { indent = "    ", nested_quote = ">>" },
+      { indent = "\t", nested_quote = "> >" },
+    } do
+      local indent = case.indent
+      local input = {
+        indent .. "> [!warning] Warning dentro de una lista",
+        indent .. "> Este warning pertenece al elemento `-`.",
+        indent .. ">",
+        indent .. case.nested_quote .. " [!note] Note dentro del warning",
+        indent .. case.nested_quote .. " Esta nota está a dos niveles de blockquote.",
+      }
+      local expected = {
+        input[1],
+        indent .. ">",
+        input[2],
+        input[3],
+        input[4],
+        indent .. case.nested_quote,
+        input[5],
+      }
+
+      assert.are.same(expected, run("markdown_callouts", input))
+    end
+  end)
+
   it("preserves frontmatter indentation while formatting the Markdown body", function()
     local source = {
       "---",

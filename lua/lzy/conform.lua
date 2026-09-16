@@ -1004,51 +1004,59 @@ local formatters = {
     format = function(_, ctx, lines, callback)
       local out = {}
 
-      -- Devuelve el prefijo `>` (uno o más, para blockquotes anidados) si la
-      -- línea es un header de callout `> [!...]`.
-      local function callout_prefix(line)
-        local marker = ""
-        local i = 1
+      -- Devuelve el prefijo de blockquote, incluida la sangría que lo anida en
+      -- una lista. `>` puede repetirse pegado o separado (`>>` / `> >`).
+      local function quote_prefix(line)
+        local marker = line:match "^[ \t]*" or ""
+        local i = #marker + 1
         local n = #line
+        local quoted = false
 
         while i <= n do
           local c = line:sub(i, i)
 
-          if c == " " or c == "\t" then
-            if marker ~= "" and line:sub(i + 1, i + 1) == ">" then
+          if c == ">" then
+            marker = marker .. c
+            quoted = true
+            i = i + 1
+          elseif c == " " or c == "\t" then
+            if quoted and line:sub(i + 1, i + 1) == ">" then
               marker = marker .. c
               i = i + 1
             else
               break
             end
-          elseif c == ">" then
-            marker = marker .. c
-            i = i + 1
           else
             break
           end
         end
 
-        if marker == "" then
+        if not quoted then
           return nil
         end
 
-        if line:sub(#marker + 1):match "^%s*%[!" then
-          return marker
-        end
+        return marker, i
+      end
 
-        return nil
+      -- Devuelve el prefijo `>` (uno o más, para blockquotes anidados) si la
+      -- línea es un header de callout `> [!...]`.
+      local function callout_prefix(line)
+        local prefix, content_start = quote_prefix(line)
+
+        if prefix and line:sub(content_start):match "^%s*%[!" then
+          return prefix
+        end
       end
 
       -- `true` si la línea es un blockquote con contenido (no vacío).
       local function has_body(line)
-        local marker = line:match "^(>+)"
+        local marker, content_start = quote_prefix(line)
 
         if not marker then
           return false
         end
 
-        local rest = line:sub(#marker + 1)
+        local rest = line:sub(content_start)
         return rest ~= "" and rest:match "^%s+$" == nil
       end
 
