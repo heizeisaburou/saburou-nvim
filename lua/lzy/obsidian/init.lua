@@ -15,6 +15,7 @@ local STATE_FILE = vim.fs.joinpath(STATE_DIR, "workspaces.json")
 
 local state = {
   roots = {},
+  marker_kinds = {},
   dummy = nil,
   initialized = false,
   refreshing = false,
@@ -78,6 +79,36 @@ local function inspect_root(root)
     kind = has_obsidian and (has_nyabsidian and "obsidian+nyabsidian" or "obsidian")
       or "nyabsidian",
   }
+end
+
+---@param roots string[]
+---@return table<string, string>
+local function snapshot_marker_kinds(roots)
+  local kinds = {}
+  for _, root in ipairs(roots) do
+    local info = inspect_root(root)
+    if info then
+      kinds[root] = info.kind
+    end
+  end
+  return kinds
+end
+
+---@param before table<string, string>
+---@param after table<string, string>
+---@return boolean
+local function same_marker_kinds(before, after)
+  for root, kind in pairs(before) do
+    if after[root] ~= kind then
+      return false
+    end
+  end
+  for root, kind in pairs(after) do
+    if before[root] ~= kind then
+      return false
+    end
+  end
+  return true
 end
 
 --- Busca el marker más cercano subiendo por parents.
@@ -924,7 +955,7 @@ end
 -- ― Comandos
 -- ─────────────────────────────────────────────────────────────────────────────
 
----@param opts? { notify?: boolean }
+---@param opts? { notify?: boolean, notify_changes?: boolean, only_if_changed?: boolean }
 function M.refresh(opts)
   opts = opts or {}
   if state.refreshing then
@@ -934,7 +965,9 @@ function M.refresh(opts)
 
   local ok, err = xpcall(function()
     local before = state.roots
+    local before_marker_kinds = state.marker_kinds
     local roots, found = collect_roots()
+    local marker_kinds = snapshot_marker_kinds(roots)
 
     local removed = {}
     for _, root in ipairs(before) do
@@ -943,9 +976,13 @@ function M.refresh(opts)
       end
     end
 
-    state.roots = roots
+    local changed = not same_roots(before, roots)
+      or not same_marker_kinds(before_marker_kinds, marker_kinds)
 
-    if state.initialized then
+    state.roots = roots
+    state.marker_kinds = marker_kinds
+
+    if state.initialized and (changed or not opts.only_if_changed) then
       rebuild_runtime(roots, removed)
     end
 
@@ -953,8 +990,22 @@ function M.refresh(opts)
       notify(table.concat({
         ("workspaces: %d"):format(#roots),
         found and ("cwd: %s [%s]"):format(found.root, found.kind) or "cwd: <disabled>",
-        same_roots(before, roots) and "changes: none" or "changes: applied",
+        changed and "changes: applied" or "changes: none",
       }, "\n"))
+    elseif opts.notify_changes and changed then
+      local changes = {}
+      for _, root in ipairs(roots) do
+        local previous_kind = before_marker_kinds[root]
+        if not vim.tbl_contains(before, root) then
+          changes[#changes + 1] = ("Vault activado: %s [%s]"):format(root, marker_kinds[root])
+        elseif previous_kind ~= marker_kinds[root] then
+          changes[#changes + 1] = ("Vault actualizado: %s [%s]"):format(root, marker_kinds[root])
+        end
+      end
+      for _, root in ipairs(removed) do
+        changes[#changes + 1] = "Vault desactivado: " .. root
+      end
+      notify(table.concat(changes, "\n"))
     end
   end, debug.traceback)
 
@@ -1271,6 +1322,10 @@ local function install_workspace_switch()
         return
       end
 
+      -- Redescubre tanto altas como bajas antes de consultar la lista de
+      -- workspaces. Si nada cambió, no reconstruye el runtime ni notifica.
+      M.refresh { notify_changes = true, only_if_changed = true }
+
       local ws = require("obsidian").api.find_workspace(ev.file)
       if ws then
         install_note_keymaps(ev.buf)
@@ -1578,7 +1633,19 @@ local function install_runtime()
     end,
   })
 
-  -- La detección solo al guardar un .nyabsidian (abrir el archivo no dispara).
+  -- Los cambios externos no disparan BufWritePost. Al recuperar el foco (o
+  -- volver de `:!`) redescubrimos markers; el runtime solo se reconstruye si
+  -- apareció o desapareció `.nyabsidian`/`.obsidian`.
+  vim.api.nvim_create_autocmd({ "FocusGained", "ShellCmdPost" }, {
+    group = group,
+    callback = function()
+      if state.initialized then
+        M.refresh { notify_changes = true, only_if_changed = true }
+      end
+    end,
+  })
+
+  -- Crear o editar `.nyabsidian` aplica al guardarlo (abrirlo no dispara).
   vim.api.nvim_create_autocmd("BufWritePost", {
     group = group,
     pattern = NYABSIDIAN_MARKER,

@@ -415,6 +415,44 @@ M.setup = function()
     callback = function()
       local events = require("nvim-tree.api").events
 
+      local function is_vault_marker(path)
+        local name = type(path) == "string" and vim.fs.basename(path) or nil
+        return name == ".nyabsidian" or name == ".obsidian"
+      end
+
+      local function refresh_vault_markers(...)
+        local paths = { ... }
+        if not vim.iter(paths):any(is_vault_marker) then
+          return
+        end
+
+        -- No cargamos obsidian.nvim solo por operar en el árbol. Si ya está
+        -- activo, el evento posterior a la operación puede redescubrir el
+        -- vault inmediatamente, aunque el foco siga dentro de nvim-tree.
+        local nyabsidian = package.loaded["lzy.obsidian"]
+        if nyabsidian then
+          vim.schedule(function()
+            nyabsidian.refresh { notify_changes = true, only_if_changed = true }
+          end)
+        end
+      end
+
+      events.subscribe(events.Event.FileCreated, function(data)
+        refresh_vault_markers(data.fname)
+      end)
+      events.subscribe(events.Event.FileRemoved, function(data)
+        refresh_vault_markers(data.fname)
+      end)
+      events.subscribe(events.Event.FolderCreated, function(data)
+        refresh_vault_markers(data.folder_name)
+      end)
+      events.subscribe(events.Event.FolderRemoved, function(data)
+        refresh_vault_markers(data.folder_name)
+      end)
+      events.subscribe(events.Event.NodeRenamed, function(data)
+        refresh_vault_markers(data.old_name, data.new_name)
+      end)
+
       events.subscribe(events.Event.WillRenameNode, function(data)
         local ok, plan = pcall(function()
           return require("lzy.marksman.rename").plan_file_rename(data.old_name, data.new_name)
