@@ -40,7 +40,7 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
-  "rust_analyzer", -- rust
+  -- "rust_analyzer", -- rust
   -- "air", -- R
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
   -- "asm_lsp", -- Assembly (NASM/GAS/Go asm)

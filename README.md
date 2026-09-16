@@ -213,6 +213,13 @@ por dos motivos:
 	- Se aumentaría mucho la plataforma de ataque por número de dependencias que se
 	  instalan mediante `Mason`.
 
+Rust tampoco se activa por defecto, aunque [Cargo+Rust](/docs/Cargo+Rust.md) sea un
+requisito para construir `tree-sitter-cli`. Tener el toolchain instalado elimina el
+coste de esa dependencia, pero no el de ejecución: habilitar el parser, `rust_analyzer`
+y `rustfmt` añade más código procesando los archivos y proyectos que se abren, y con
+ello más superficie de ataque. Si vas a editar Rust, activa solo las piezas que necesites
+en las listas descritas más abajo.
+
 También tomamos algunas decisiones como sincronizar el clipboard del usuario si es
 que se puede, algo que un usuario experimentado de Neovim probablemente no quiera.
 
