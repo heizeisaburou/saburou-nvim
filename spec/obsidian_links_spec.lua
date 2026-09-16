@@ -2764,6 +2764,42 @@ describe("Nyabsidian structured links and attachments", function()
       assert.are.equal("codigo sangrado\notra linea", copy_at(22, 8))
     end)
 
+    it("removes list indentation from fenced code inside nested callouts", function()
+      write("source.md", {
+        "- Este elemento contiene un callout completo.",
+        "",
+        "\t> [!warning] Warning dentro de una lista",
+        "\t>",
+        "\t> > [!note] Note dentro del warning",
+        "\t> >",
+        "\t> > - Este elemento de lista está dentro del note.",
+        "\t> >",
+        "\t> >     ```lua",
+        "\t> >     local nivel = 3",
+        "\t> >       print('con dos espacios propios')",
+        "\t> >     ```",
+        "\t> >",
+        "\t> > - Segundo elemento dentro del note.",
+        "\t> >",
+        "\t> >     ```bash",
+        "\t> >     echo \"otro bloque\"",
+        "\t> >     ```",
+      })
+      vim.cmd.edit(root .. "/source.md")
+      start_treesitter()
+
+      local lua_line = vim.api.nvim_buf_get_lines(0, 9, 10, false)[1]
+      local bash_line = vim.api.nvim_buf_get_lines(0, 16, 17, false)[1]
+      assert.are.equal(
+        "local nivel = 3\n  print('con dos espacios propios')",
+        copy_at(10, assert(lua_line:find("local", 1, true)) - 1)
+      )
+      assert.are.equal(
+        'echo "otro bloque"',
+        copy_at(17, assert(bash_line:find("echo", 1, true)) - 1)
+      )
+    end)
+
     it("keeps a `>` that belongs to the code inside a quote", function()
       write("source.md", {
         "> ```sh",

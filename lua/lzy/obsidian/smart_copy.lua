@@ -131,24 +131,17 @@ local function inline_code_at_cursor(bufnr, row0, col)
   return inner ~= "" and inner or nil
 end
 
---- Ancho del prefijo de cita (`> `, `> > `...) al principio de la línea.
+--- Ancho del prefijo estructural que Treesitter asigna a la continuación de
+--- un contenedor Markdown (`> `, sangría de lista o ambos).
 ---
---- Dentro de una cita, el texto de un nodo multilínea arrastra los `> ` de
---- las líneas de continuación: el nodo empieza después del marcador solo en
---- su primera línea. Treesitter marca esos prefijos con `block_quote_marker`
---- (primera línea de la cita) y `block_continuation` (el resto), así que se
---- pregunta por ellos en vez de adivinar con un patrón -- una línea de código
---- puede empezar por `>` (`> archivo`, un redirect) y no hay forma de
---- distinguirlo mirando solo el texto.
----
---- Del prefijo estructural solo cuentan los marcadores y el espacio de
---- cortesía que sigue al último: lo que venga detrás es sangría del contenido
---- (un bloque sangrado dentro de una cita la necesita), y de esa ya se
---- encarga la lógica de sangría de siempre.
+--- El texto de un nodo multilínea empieza después de ese prefijo solo en su
+--- primera línea; las siguientes lo arrastran entero. Se consulta el árbol en
+--- vez de adivinar con un patrón: una línea de código puede empezar por `>` o
+--- por espacios propios y ambos deben sobrevivir.
 ---@param bufnr integer
 ---@param row0 integer 0-based
 ---@return integer
-local function quote_prefix_width(bufnr, row0)
+local function container_prefix_width(bufnr, row0)
   local span = 0
   for _ = 1, 8 do
     local node = node_at(bufnr, row0, span, false)
@@ -173,9 +166,36 @@ local function quote_prefix_width(bufnr, row0)
   if not line then
     return 0
   end
+
+  -- `block_quote_marker` puede cubrir solo el `>`; su espacio de cortesía
+  -- también es estructura. `block_continuation`, en cambio, ya incluye toda
+  -- la continuación de cita/lista y no necesita ampliarse.
+  if line:sub(span, span) == ">" and line:sub(span + 1, span + 1) == " " then
+    span = span + 1
+  end
+  return span
+end
+
+--- Parte de un prefijo estructural que corresponde solo a citas. Los bloques
+--- de código sangrados necesitan conservar provisionalmente sus cuatro
+--- espacios para que `common_indent` pueda descontarlos de todas las líneas;
+--- Treesitter los incluye dentro de `block_continuation` junto al `> `.
+---@param bufnr integer
+---@param row0 integer 0-based
+---@return integer
+local function quote_prefix_width(bufnr, row0)
+  local span = container_prefix_width(bufnr, row0)
+  if span == 0 then
+    return 0
+  end
+
+  local line = vim.api.nvim_buf_get_lines(bufnr, row0, row0 + 1, false)[1]
+  if not line then
+    return 0
+  end
   local markers = line:sub(1, span):match "^.*>"
   if not markers then
-    return 0 -- sangría de lista, no cita: no es prefijo, es sangría
+    return 0
   end
   local width = #markers
   if line:sub(width + 1, width + 1) == " " then
@@ -221,24 +241,30 @@ local function block_code_at_cursor(bufnr, row0, col)
     return nil
   end
 
-  local block_row, block_col = block:range()
   local content, fence_indent = block, nil
   if block:type() == "fenced_code_block" then
     content = nil
+    local opening_delimiter
     for child in block:iter_children() do
-      if child:type() == "code_fence_content" then
+      if child:type() == "fenced_code_block_delimiter" and not opening_delimiter then
+        opening_delimiter = child
+      elseif child:type() == "code_fence_content" then
         content = child
-        break
       end
     end
-    if not content then
+    if not content or not opening_delimiter then
       return nil -- fence vacío
     end
-    -- El cuerpo arrastra la sangría del propio fence (p. ej. un bloque
-    -- dentro de un ítem de lista); esa no es del código. La primera línea
-    -- ya viene sin ella: el nodo empieza en su columna. Dentro de una cita,
-    -- parte de esa columna es el `> ` del marcador, que se quita aparte.
-    fence_indent = math.max(block_col - quote_prefix_width(bufnr, block_row), 0)
+
+    -- Treesitter incluye en el nodo del delimitador los hasta tres espacios
+    -- locales que preceden a ```. Esa es la sangría propia del fence, distinta
+    -- de la continuación del contenedor (lista/cita) que calcula la función de
+    -- arriba. Ninguna de las dos pertenece al código.
+    local ok_delimiter, delimiter = pcall(vim.treesitter.get_node_text, opening_delimiter, bufnr)
+    if not ok_delimiter or type(delimiter) ~= "string" then
+      return nil
+    end
+    fence_indent = #(delimiter:match "^[ \t]*" or "")
   end
 
   local ok, raw = pcall(vim.treesitter.get_node_text, content, bufnr)
@@ -248,22 +274,21 @@ local function block_code_at_cursor(bufnr, row0, col)
 
   local lines = vim.split(raw, "\n", { plain = true })
 
-  -- Los `> ` de las líneas de continuación son de la cita, no del código: se
-  -- van antes de mirar la sangría (si no, `common_indent` ve un `>` y decide
-  -- que no hay ninguna). La primera línea nunca los lleva: el nodo empieza
-  -- después del marcador.
+  -- Las continuaciones de lista/cita no son código. La primera línea nunca
+  -- las lleva: el nodo empieza después de ese prefijo; las demás sí.
   local content_row = select(1, content:range())
   for index = 2, #lines do
-    local prefix = quote_prefix_width(bufnr, content_row + index - 1)
+    local prefix = fence_indent ~= nil
+        and container_prefix_width(bufnr, content_row + index - 1)
+      or quote_prefix_width(bufnr, content_row + index - 1)
     if prefix > 0 then
       lines[index] = lines[index]:sub(prefix + 1)
     end
   end
 
-  local first = fence_indent and 2 or 1
   local indent = fence_indent or common_indent(lines)
 
-  for index = first, #lines do
+  for index = 1, #lines do
     local lead = #(lines[index]:match "^[ \t]*")
     lines[index] = lines[index]:sub(math.min(lead, indent) + 1)
   end
