@@ -1,20 +1,17 @@
 # Cargo + Rust
 
-Volver a [README.md](/README.md)
+Volver a [README.md](/README.md)  
 <https://doc.rust-lang.org/cargo/getting-started/installation.html>
 
 ## Brief
 
-Cargo es el gestor de paquetes y compilación de Rust; instalarlo instala también el
-propio toolchain de Rust. Es necesario para compilar [tree-sitter-cli](/docs/tree-sitter-cli.md), o, en caso de
-instalar [cargo-binstall](#cargo-binstall) para instalar el binario compilado directamente.
+Cargo es el gestor de paquetes y compilación de Rust; instalarlo instala también el propio toolchain de Rust. Es necesario para compilar [tree-sitter-cli](/docs/tree-sitter-cli.md), o, en caso de instalar [cargo-binstall](#cargo-binstall) para instalar el binario compilado directamente.
 
 ## Installation
 
 ### Windows
 
-En _Windows_ instalar _Cargo+Rust_ es más complejo que en _Linux / macOS_ debido a sus
-dependencias:
+En _Windows_ instalar _Cargo+Rust_ es más complejo que en _Linux / macOS_ debido a sus dependencias:
 
 - [Visual Studio Build Tools](/docs/Compilador%20de%20C.md#visual-studio-build-tools)
 	- MSVC C++ build tools
@@ -27,8 +24,7 @@ Empecemos por la descarga:
 
 Una vez tengas el ejecutable puedes elegir como instalar las dependencias:
 
-- [Visual Studio Installer method](#visual-studio-installer-method) → Camino simple, resuelve todas las dependencias
-  de una.
+- [Visual Studio Installer method](#visual-studio-installer-method) → Camino simple, resuelve todas las dependencias de una.
 - [Manual dependencies method](#manual-dependencies-method) → Camino intermedio; no es tan difícil.
 
 #### Installation methods
@@ -42,8 +38,7 @@ Inicia `rustup-init.exe` y selecciona la primera opción:
    (free for individuals, academic uses, and open source).
 ```
 
-Se abrirá el instalador; es una instalación pesada pero sencilla, solamente sigue los
-pasos.
+Se abrirá el instalador; es una instalación pesada pero sencilla, solamente sigue los pasos.
 
 Una vez instalado elige:
 
@@ -51,8 +46,7 @@ Una vez instalado elige:
 1) Proceed with standard installation (default - just press enter)
 ```
 
-Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres instalar
-[cargo-binstall](/docs/Cargo+Rust.md#cargo-binstall) es un buen momento para hacerlo.
+Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres instalar [cargo-binstall](/docs/Cargo+Rust.md#cargo-binstall) es un buen momento para hacerlo.
 
 ##### Manual dependencies method
 
@@ -71,8 +65,7 @@ Una vez instalado elige:
 1) Proceed with standard installation (default - just press enter)
 ```
 
-Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres instalar
-[cargo-binstall](/docs/Cargo+Rust.md#cargo-binstall) es un buen momento para hacerlo.
+Reinicia la terminal para que `cargo` esté disponible en el `PATH`. Si quieres instalar [cargo-binstall](/docs/Cargo+Rust.md#cargo-binstall) es un buen momento para hacerlo.
 
 ### Linux / macOS
 
@@ -108,24 +101,19 @@ cargo version
 
 ## cargo-binstall
 
-`cargo-binstall` es una herramienta adicional para Cargo que permite instalar binarios
-precompilados de paquetes de Rust cuando están disponibles.
+`cargo-binstall` es una herramienta adicional para Cargo que permite instalar binarios precompilados de paquetes de Rust cuando están disponibles.
 
-Si instalas `cargo-binstall` [tree-sitter-cli](/docs/tree-sitter-cli.md) dispone de binarios precompilados para
-todas las plataformas, por lo que podrás instalarlo sin necesidad de instalar
-[Node.js](/docs/Node.js.md).
+Si instalas `cargo-binstall` [tree-sitter-cli](/docs/tree-sitter-cli.md) dispone de binarios precompilados para todas las plataformas, por lo que podrás instalarlo sin necesidad de instalar [Node.js](/docs/Node.js.md).
 
 > [!NOTE]
 >
-> [Node.js](/docs/Node.js.md) sigue siendo una dependencia imprescindible de la configuración ya que no
-> solamente es necesaria para poder compilar [tree-sitter-cli](/docs/tree-sitter-cli.md).
+> [Node.js](/docs/Node.js.md) sigue siendo una dependencia imprescindible de la configuración ya que no solamente es necesaria para poder compilar [tree-sitter-cli](/docs/tree-sitter-cli.md).
 
 ### Installation of cargo-binstall
 
 <https://github.com/cargo-bins/cargo-binstall>
 
-Al igual que `cargo`, `cargo-binstall` puede instalarse mediante un binario precompilado.
-Esto evita tener que compilarlo desde el código fuente.
+Al igual que `cargo`, `cargo-binstall` puede instalarse mediante un binario precompilado. Esto evita tener que compilarlo desde el código fuente.
 
 #### Windows
 
@@ -154,8 +142,7 @@ curl -L --proto '=https' --tlsv1.2 -sSf \
 
 > [!Hint]
 >
-> No necesario reiniciar la terminal para que binstall pase a estar disponible tras
-> la instalación.
+> No necesario reiniciar la terminal para que binstall pase a estar disponible tras la instalación.
 
 ```sh
 cargo binstall -V

@@ -277,7 +277,7 @@ Esta preferencia no toca `vim.o.shell`: `:!`, `:make` y los plugins siguen usand
 
 ## Lenguajes soportados
 
-Esta es la matriz canónica del repositorio: si añades un lenguaje, se actualiza aquí y en ningún otro sitio. [language-dependencies.md](/docs/_ordenar/language-dependencies.md) la enlaza y se ocupa de lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta.
+Esta matriz también aparece en [language-dependencies.md](/docs/_ordenar/language-dependencies.md#matriz-de-soporte), donde se documenta lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta. Las dos copias son canónicas, se actualizan juntas y un test comprueba que sean idénticas.
 
 Los nombres de la columna **LSP** son los identificadores que usa la configuración de Neovim; no siempre coinciden con el nombre del paquete de Mason.
 
