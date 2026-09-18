@@ -458,12 +458,158 @@ local function add_edit(edits_by_path, path, edit)
   edits_by_path[path] = edits
 end
 
+--- El contexto compartido por un renombrado: recorrer el vault y construir el
+--- índice de notas cuesta lo mismo para una sección que para diez, así que se
+--- hace una vez y se reutiliza.
+---@return { root: string, paths: string[], index: table }
+local function rename_context()
+  local root = normalize(tostring(Obsidian.dir))
+  local paths = note_paths(root)
+  return { root = root, paths = paths, index = build_note_index(paths, root) }
+end
+
+--- Acumula en `edits_by_path` lo que hace falta para renombrar UNA sección: la
+--- declaración del heading y cada referencia que lo apunte sin ambigüedad.
+---
+--- No ensambla la edición ni avisa a nadie: eso es de quien lo llame, que puede
+--- estar juntando varias secciones en una sola edición.
 ---@param note obsidian.Note
 ---@param section obsidian.Section
 ---@param new_name string
+---@param edits_by_path table<string, lsp.TextEdit[]>
+---@param ctx { root: string, paths: string[], index: table }
+---@param selected table<integer, boolean> filas de los headings que entran en
+---este mismo renombrado, para decidir si una referencia ambigua deja de serlo
+---@return integer changed_refs
+---@return integer skipped_ambiguous
+---@return string|nil err
+local function collect_rename_edits(note, section, new_name, edits_by_path, ctx, selected)
+  note = M.load_note(note)
+  if not note then
+    return 0, 0, "no se pudo cargar la nota del heading"
+  end
+  local selected_row = section.heading_range.start_row
+  section = vim.iter(note.sections or {}):find(function(candidate)
+    return candidate.header and candidate.heading_range.start_row == selected_row
+  end)
+  if not section then
+    return 0, 0, "no se pudo reubicar el heading"
+  end
+
+  local target_path = normalize(tostring(note.path))
+  local skipped_ambiguous = 0
+  local changed_refs = 0
+  local parse_refs = require("obsidian.parse.refs")
+
+  for _, source_path in ipairs(ctx.paths) do
+    -- Los ejemplos dentro de un bloque de código no son referencias.
+    local source_lines = read_lines(source_path)
+    local excluded = require("lzy.link_target").excluded_rows(source_lines)
+    for row, line in ipairs(source_lines) do
+      for _, ref in ipairs(excluded[row - 1] and {} or parse_refs.extract(line, { row = row - 1 })) do
+        if ref.anchor then
+          local targets, ambiguous = ref_targets_note(ref, source_path, target_path, ctx.root, ctx.index)
+          if ambiguous then
+            skipped_ambiguous = skipped_ambiguous + 1
+          elseif targets then
+            local matches = M.resolve(note, ref.anchor)
+            local _, anchor_parts = M.ref_parts(ref)
+
+            -- En que posicion del anchor cae el heading que se esta renombrando,
+            -- dentro de esta resolucion concreta.
+            local function anchor_index(match, row_of)
+              for idx, chain_section in ipairs(match.chain) do
+                if chain_section.heading_range.start_row == row_of then
+                  local anchor_idx = idx - match.chain_start + 1
+                  if anchor_idx >= 1 and anchor_idx <= #anchor_parts then
+                    return anchor_idx
+                  end
+                  return nil
+                end
+              end
+              return nil
+            end
+
+            local part_idx
+            if #matches == 1 then
+              part_idx = anchor_index(matches[1], selected_row)
+            elseif #matches > 1 then
+              -- Un anchor que resuelve a varias definiciones apunta, en la
+              -- practica, a la primera: es la que encuentra quien lo sigue. Esa
+              -- es su lectura, aunque este mal escrito.
+              --
+              -- Asi que la regla es una sola: que siga apuntando a donde
+              -- apuntaba. Si la primera coincidencia es de las que se renombran,
+              -- el anchor va detras; si no, se queda quieto porque su destino no
+              -- se ha movido. Ni se rompen enlaces de mas ni se quedan atras, y
+              -- el destino del enlace no cambia nunca en silencio.
+              --
+              -- De propina, al reescribirlo deja de ser ambiguo.
+              for idx, chain_section in ipairs(matches[1].chain) do
+                if selected[chain_section.heading_range.start_row] then
+                  local hit = idx - matches[1].chain_start + 1
+                  if hit >= 1 and hit <= #anchor_parts then
+                    part_idx = hit
+                  end
+                  break
+                end
+              end
+              if not part_idx then
+                skipped_ambiguous = skipped_ambiguous + 1
+              end
+            end
+
+            local part = part_idx and anchor_parts[part_idx] or nil
+            if part then
+              add_edit(edits_by_path, source_path, {
+                range = {
+                  start = { line = row - 1, character = part.start_col },
+                  ["end"] = { line = row - 1, character = part.end_col },
+                },
+                newText = M.anchor_text(new_name, ref.kind),
+              })
+              changed_refs = changed_refs + 1
+            end
+          end
+        end
+      end
+    end
+  end
+
+  local target_lines = read_lines(target_path)
+  local line = target_lines[selected_row + 1] or ""
+  local _, prefix_end = line:find("^%s*#+%s+")
+  local start_col = line:find(section.header, (prefix_end or 0) + 1, true)
+  if not start_col then
+    start_col = line:find(section.header, 1, true)
+  end
+  if not start_col then
+    return changed_refs, skipped_ambiguous, "No se pudo localizar el texto del heading en su nota"
+  end
+  start_col = start_col - 1
+  add_edit(edits_by_path, target_path, {
+    range = {
+      start = { line = selected_row, character = start_col },
+      ["end"] = { line = selected_row, character = start_col + #section.header },
+    },
+    newText = new_name,
+  })
+
+  return changed_refs, skipped_ambiguous, nil
+end
+
+--- Renombra varias secciones a la vez, en una única edición.
+---
+--- Existe porque dos headings de la misma nota pueden llamarse igual, y quien
+--- renombra uno puede querer renombrar a sus gemelos: son el mismo concepto
+--- escrito dos veces. Juntarlos en una edición ―en vez de encadenar renombrados
+--- sueltos― importa porque cada `collect_rename_edits` lee el vault tal como
+--- está en disco: aplicado el primero, el segundo ya vería el texto cambiado.
+---@param targets { note: obsidian.Note, section: obsidian.Section }[]
+---@param new_name string
 ---@param callback fun(err: any, edit: lsp.WorkspaceEdit|?)
 ---@param opts { notify?: fun(msg: string, level?: integer) }|?
-function M.rename(note, section, new_name, callback, opts)
+function M.rename_many(targets, new_name, callback, opts)
   opts = opts or {}
   local notify = opts.notify or function(msg, level)
     vim.notify(msg, level, { title = "Nyabsidian" })
@@ -474,93 +620,42 @@ function M.rename(note, section, new_name, callback, opts)
     notify(validation_error, vim.log.levels.ERROR)
     return callback(nil, {})
   end
-  if new_name == section.header then
+
+  local pending = vim.tbl_filter(function(target)
+    return target.section.header ~= new_name
+  end, targets)
+  if #pending == 0 then
     return callback(nil, {})
   end
 
-  note = assert(M.load_note(note), "no se pudo cargar la nota del heading")
-  local selected_row = section.heading_range.start_row
-  section = assert(
-    vim.iter(note.sections or {}):find(function(candidate)
-      return candidate.header and candidate.heading_range.start_row == selected_row
-    end),
-    "no se pudo reubicar el heading"
-  )
+  local ctx = rename_context()
 
-  local root = normalize(tostring(Obsidian.dir))
-  local target_path = normalize(tostring(note.path))
-  local paths = note_paths(root)
-  local index = build_note_index(paths, root)
-  local edits_by_path = {}
-  local skipped_ambiguous = 0
-  local changed_refs = 0
-  local parse_refs = require("obsidian.parse.refs")
-
-  for _, source_path in ipairs(paths) do
-    -- Los ejemplos dentro de un bloque de código no son referencias.
-    local source_lines = read_lines(source_path)
-    local excluded = require("lzy.link_target").excluded_rows(source_lines)
-    for row, line in ipairs(source_lines) do
-      for _, ref in ipairs(excluded[row - 1] and {} or parse_refs.extract(line, { row = row - 1 })) do
-        if ref.anchor then
-          local targets, ambiguous = ref_targets_note(ref, source_path, target_path, root, index)
-          if ambiguous then
-            skipped_ambiguous = skipped_ambiguous + 1
-          elseif targets then
-            local matches = M.resolve(note, ref.anchor)
-            if #matches == 1 then
-              local match = matches[1]
-              local _, anchor_parts = M.ref_parts(ref)
-              local selected_idx
-              for idx, chain_section in ipairs(match.chain) do
-                if chain_section.heading_range.start_row == selected_row then
-                  local anchor_idx = idx - match.chain_start + 1
-                  if anchor_idx >= 1 and anchor_idx <= #anchor_parts then
-                    selected_idx = anchor_idx
-                  end
-                  break
-                end
-              end
-
-              local part = selected_idx and anchor_parts[selected_idx] or nil
-              if part then
-                add_edit(edits_by_path, source_path, {
-                  range = {
-                    start = { line = row - 1, character = part.start_col },
-                    ["end"] = { line = row - 1, character = part.end_col },
-                  },
-                  newText = M.anchor_text(new_name, ref.kind),
-                })
-                changed_refs = changed_refs + 1
-              end
-            end
-          end
-        end
-      end
+  -- Que headings entran en este renombrado, por nota. Lo necesita cada pasada
+  -- para saber si una referencia ambigua apunta solo a headings que se estan
+  -- renombrando juntos: en ese caso deja de ser ambigua y hay que actualizarla.
+  local selected_by_path = {}
+  for _, target in ipairs(pending) do
+    local loaded = M.load_note(target.note)
+    local path = loaded and normalize(tostring(loaded.path))
+    if path then
+      selected_by_path[path] = selected_by_path[path] or {}
+      selected_by_path[path][target.section.heading_range.start_row] = true
     end
   end
 
-  local declaration
-  local target_lines = read_lines(target_path)
-  local line = target_lines[selected_row + 1] or ""
-  local _, prefix_end = line:find("^%s*#+%s+")
-  local start_col = line:find(section.header, (prefix_end or 0) + 1, true)
-  if not start_col then
-    start_col = line:find(section.header, 1, true)
-  end
-  if start_col then
-    start_col = start_col - 1
-    declaration = {
-      range = {
-        start = { line = selected_row, character = start_col },
-        ["end"] = { line = selected_row, character = start_col + #section.header },
-      },
-      newText = new_name,
-    }
-    add_edit(edits_by_path, target_path, declaration)
-  else
-    notify("No se pudo localizar el texto del heading en su nota", vim.log.levels.ERROR)
-    return callback(nil, {})
+  local edits_by_path = {}
+  local changed_refs, skipped_ambiguous = 0, 0
+  for _, target in ipairs(pending) do
+    local loaded = M.load_note(target.note)
+    local selected = loaded and selected_by_path[normalize(tostring(loaded.path))] or {}
+    local refs, skipped, err =
+      collect_rename_edits(target.note, target.section, new_name, edits_by_path, ctx, selected)
+    if err then
+      notify(err, vim.log.levels.ERROR)
+      return callback(nil, {})
+    end
+    changed_refs = changed_refs + refs
+    skipped_ambiguous = skipped_ambiguous + skipped
   end
 
   local document_changes = {}
@@ -596,8 +691,136 @@ function M.rename(note, section, new_name, callback, opts)
     local suffix = skipped_ambiguous > 0
         and ("; %d referencia(s) ambiguas se dejaron intactas"):format(skipped_ambiguous)
       or ""
-    notify(("Heading renombrado; %d referencia(s) actualizadas%s"):format(changed_refs, suffix))
+    local subject = #pending == 1 and "Heading renombrado"
+      or ("%d headings renombrados"):format(#pending)
+    notify(("%s; %d referencia(s) actualizadas%s"):format(subject, changed_refs, suffix))
   end)
 end
+
+---@param note obsidian.Note
+---@param section obsidian.Section
+---@param new_name string
+---@param callback fun(err: any, edit: lsp.WorkspaceEdit|?)
+---@param opts { notify?: fun(msg: string, level?: integer) }|?
+function M.rename(note, section, new_name, callback, opts)
+  return M.rename_many({ { note = note, section = section } }, new_name, callback, opts)
+end
+
+--- Las cadenas de headings de una nota, de la raiz a cada hoja.
+---@param note obsidian.Note
+---@return { section: obsidian.Section, chain: obsidian.Section[] }[]
+function M.heading_chains(note)
+  local loaded = M.load_note(note)
+  local out = {}
+  for _, section in ipairs(loaded and loaded.sections or {}) do
+    if section.header then
+      local chain, walk = {}, section
+      while walk do
+        if walk.header then
+          table.insert(chain, 1, walk)
+        end
+        walk = walk.parent
+      end
+      out[#out + 1] = { section = section, chain = chain }
+    end
+  end
+  return out
+end
+
+--- El anchor mas corto que identifica a `section` sin ambiguedad.
+---
+--- Lo normal es que baste la hoja --`Soy un Header`--. Cuando dos headings de la
+--- nota se llaman igual eso no distingue nada, asi que se le va anadiendo padre
+--- por la izquierda hasta que sea unico: `Dos#Iguala`.
+---
+--- Si ni la cadena entera lo distingue --misma familia y mismo nombre-- no hay
+--- nada que ganar alargandolo, y se devuelve solo la hoja: mas corto y
+--- exactamente igual de ambiguo.
+---
+--- Lo usan el autocompletado de anchors y la copia inteligente, que tienen que
+--- escribir el mismo anchor para el mismo heading.
+---@param note obsidian.Note
+---@param section obsidian.Section
+---@return string[] segments
+function M.shortest_anchor(note, section)
+  local chains = M.heading_chains(note)
+
+  ---@param chain table[]
+  ---@param depth integer
+  ---@return string
+  local function tail(chain, depth)
+    local parts = {}
+    for idx = #chain - depth + 1, #chain do
+      parts[#parts + 1] = chain[idx].header
+    end
+    return table.concat(parts, "#"):lower()
+  end
+
+  local counts = {}
+  for _, entry in ipairs(chains) do
+    for depth = 1, #entry.chain do
+      local key = tail(entry.chain, depth)
+      counts[key] = (counts[key] or 0) + 1
+    end
+  end
+
+  local mine
+  for _, entry in ipairs(chains) do
+    if entry.section.heading_range.start_row == section.heading_range.start_row then
+      mine = entry.chain
+      break
+    end
+  end
+  if not mine or #mine == 0 then
+    return { section.header }
+  end
+
+  for depth = 1, #mine do
+    if (counts[tail(mine, depth)] or 0) == 1 then
+      local parts = {}
+      for idx = #mine - depth + 1, #mine do
+        parts[#parts + 1] = mine[idx].header
+      end
+      return parts
+    end
+  end
+  return { mine[#mine].header }
+end
+
+--- El anchor de `section` listo para escribir en una sintaxis concreta.
+---@param note obsidian.Note
+---@param section obsidian.Section
+---@param kind string|? `ref.kind`
+---@return string
+function M.shortest_anchor_text(note, section, kind)
+  return table.concat(
+    vim.tbl_map(function(segment)
+      return M.anchor_text(segment, kind)
+    end, M.shortest_anchor(note, section)),
+    "#"
+  )
+end
+
+--- Los otros headings de la misma nota que se llaman exactamente igual.
+---
+--- Son los que obligan a desambiguar un anchor, y por tanto los que quien
+--- renombra puede querer renombrar también.
+---@param note obsidian.Note
+---@param section obsidian.Section
+---@return { note: obsidian.Note, section: obsidian.Section }[]
+function M.twins(note, section)
+  local loaded = M.load_note(note)
+  local twins = {}
+  for _, candidate in ipairs(loaded and loaded.sections or {}) do
+    if
+      candidate.header == section.header
+      and candidate.heading_range.start_row ~= section.heading_range.start_row
+    then
+      twins[#twins + 1] = { note = loaded, section = candidate }
+    end
+  end
+  return twins
+end
+
 
 return M

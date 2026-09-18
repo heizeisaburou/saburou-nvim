@@ -125,6 +125,123 @@ local function wiki_target_context(line, character)
   }
 end
 
+---Un anchor de enlace wiki a medio teclear: lo que va tras un `#` dentro de
+---`[[...]]`. El proveedor original sí completa aquí, pero escribe el anchor en
+---slug --`#soy-un-header`--, que es la forma de la sintaxis markdown. Dentro de
+---`[[...]]` lo que se escribe es el texto del heading tal cual, con espacios y
+---mayúsculas, que es lo que hace la app de Obsidian (ver headings.anchor_text).
+---@class nyabsidian.AnchorContext
+---@field note string el destino tecleado antes del primer `#`
+---@field done string[] los segmentos de anchor ya cerrados por un `#` posterior
+---@field search string lo tecleado tras el último `#`
+---@field start_col integer 0-based, inicio del trozo que se sustituye
+---@field end_col integer 0-based, final de ese trozo
+
+---@param line string
+---@param character integer 0-based byte column
+---@return nyabsidian.AnchorContext|nil
+local function wiki_anchor_context(line, character)
+  local prefix = line:sub(1, character)
+  local open = prefix:match ".*()%[%["
+  if not open then
+    return nil
+  end
+  local body = prefix:sub(open + 2)
+  -- Un `]` cierra el enlace y un `|` abre el alias: ahí ya no se teclea anchor.
+  if body:find "[%]|]" then
+    return nil
+  end
+  local first = body:find("#", 1, true)
+  if not first then
+    return nil
+  end
+
+  local last = first
+  while true do
+    local nxt = body:find("#", last + 1, true)
+    if not nxt then
+      break
+    end
+    last = nxt
+  end
+
+  local segments = {}
+  for segment in body:sub(first + 1, last - 1):gmatch "[^#]+" do
+    segments[#segments + 1] = segment
+  end
+
+  return {
+    note = body:sub(1, first - 1),
+    done = segments,
+    search = body:sub(last + 1),
+    -- body[i] ocupa la columna 0-based `open + i`, así que el `#` está en
+    -- `open + last`; lo que se sustituye empieza en el carácter siguiente, que
+    -- es lo único que se reescribe: el `#` ya tecleado se queda donde está.
+    start_col = open + last + 1,
+    end_col = character,
+  }
+end
+
+---Cada heading de la nota, con el anchor mas corto que lo identifica.
+---
+---El calculo vive en `headings.shortest_anchor` porque no es cosa del
+---autocompletado: la copia inteligente tiene que escribir exactamente el mismo
+---anchor para el mismo heading.
+---@param note obsidian.Note
+---@return { segments: string[], header: string, parents: string[] }[]
+local function anchor_suggestions(note)
+  local headings = require "lzy.obsidian.headings"
+  local out = {}
+  for _, entry in ipairs(headings.heading_chains(note)) do
+    local parents = {}
+    for idx = 1, #entry.chain - 1 do
+      parents[#parents + 1] = entry.chain[idx].header
+    end
+    out[#out + 1] = {
+      segments = headings.shortest_anchor(note, entry.section),
+      header = entry.section.header,
+      parents = parents,
+    }
+  end
+  return out
+end
+
+---El anchor tal cual se escribe dentro de `[[...]]`.
+---@param segments string[]
+---@return string
+local function anchor_written(segments)
+  local headings = require "lzy.obsidian.headings"
+  return table.concat(
+    vim.tbl_map(function(segment)
+      return headings.anchor_text(segment, "wiki")
+    end, segments),
+    "#"
+  )
+end
+
+---@param note obsidian.Note
+---@param name string
+---@return boolean
+local function note_is_named(note, name)
+  name = vim.trim(name):lower()
+  if name == "" then
+    return false
+  end
+  local candidates = { tostring(note.id or "") }
+  if note.path then
+    candidates[#candidates + 1] = vim.fs.basename(tostring(note.path)):gsub("%.md$", "")
+  end
+  for _, alias in ipairs(note.aliases or {}) do
+    candidates[#candidates + 1] = alias
+  end
+  for _, candidate in ipairs(candidates) do
+    if candidate:lower() == name then
+      return true
+    end
+  end
+  return false
+end
+
 ---Un destino de enlace bajo el cursor, sea cual sea su sintaxis.
 ---@param line string
 ---@param character integer 0-based byte column
@@ -214,6 +331,33 @@ local function note_needle(query)
   return search
 end
 
+---Busca las notas cuyo nombre coincide con lo tecleado y les pide sus
+---headings.
+---@param needle string
+---@param exact boolean si sólo valen las notas que se llaman exactamente así
+---@param done fun(notes: obsidian.Note[])
+local function notes_named(needle, exact, done)
+  if vim.trim(needle) == "" then
+    return done {}
+  end
+  require("obsidian.search").find_notes_async(needle, function(notes)
+    if not exact then
+      return done(notes)
+    end
+    local matched = {}
+    for _, note in ipairs(notes) do
+      if note_is_named(note, needle) then
+        matched[#matched + 1] = note
+      end
+    end
+    done(matched)
+  end, {
+    dir = require("obsidian.api").resolve_workspace_dir(),
+    search = { sort = false, include_templates = false, ignore_case = true },
+    notes = {},
+  })
+end
+
 ---`/` es navegación de rutas, y obsidian.nvim no la hace: su completion de
 ---enlaces es una búsqueda de notas por nombre, así que ni ofrece las carpetas
 ---por las que bajar ni entiende un destino que empieza por `/`. Aquí se recorre
@@ -266,6 +410,36 @@ local function complete_target(params, context, callback)
     }
   end
 
+  -- Un `[[Nota con` sin `#` todavía: además de la nota, se ofrecen sus
+  -- headings ya montados --`Nota con espacios#Soy un Header`--, para no tener
+  -- que escribir el `#` y volver a pedir la lista. Las notas en sí las sigue
+  -- poniendo el proveedor original, así que aquí sólo se añaden los anchors.
+  if context.kind == "wiki" then
+    local needle = note_needle(query)
+    if not needle then
+      return callback { isIncomplete = true, items = items }
+    end
+    return notes_named(needle, false, function(notes)
+      for _, note in ipairs(notes) do
+        local target = note_target(bufnr, query, note, root, context.kind)
+        for _, suggestion in ipairs(target and anchor_suggestions(note) or {}) do
+          local written = target .. "#" .. anchor_written(suggestion.segments)
+          add {
+            label = written,
+            filterText = written,
+            -- Detrás de la nota a secas: primero se elige nota, luego heading.
+            sortText = "2" .. written:lower(),
+            detail = #suggestion.parents > 0 and table.concat(suggestion.parents, " › ")
+              or "Heading",
+            kind = vim.lsp.protocol.CompletionItemKind.Reference,
+            textEdit = edit(written),
+          }
+        end
+      end
+      callback { isIncomplete = true, items = items }
+    end)
+  end
+
   local needle = context.notes and note_needle(query) or nil
   if not needle then
     return callback { isIncomplete = true, items = items }
@@ -295,6 +469,40 @@ local function complete_target(params, context, callback)
     search = { sort = false, include_templates = false, ignore_case = true },
     notes = {},
   })
+end
+
+---Completa el anchor de un `[[Nota#...]]`.
+---
+---El proveedor original ya ofrece estos headings, pero escritos en slug, que es
+---la forma de la sintaxis markdown y no la de un wikilink (ver `sanitize`). Aquí
+---se escriben con `headings.anchor_text`, o sea tal cual los lee una persona.
+---@param params lsp.CompletionParams
+---@param context nyabsidian.AnchorContext
+---@param callback fun(result: lsp.CompletionList)
+local function complete_anchor(params, context, callback)
+  notes_named(context.note, true, function(notes)
+    local items = {}
+    for _, note in ipairs(notes) do
+      for _, suggestion in ipairs(anchor_suggestions(note)) do
+        local written = anchor_written(suggestion.segments)
+        items[#items + 1] = {
+          label = written,
+          filterText = written,
+          sortText = written:lower(),
+          detail = #suggestion.parents > 0 and table.concat(suggestion.parents, " › ") or "Heading",
+          kind = vim.lsp.protocol.CompletionItemKind.Reference,
+          textEdit = {
+            newText = written,
+            range = {
+              start = { line = params.position.line, character = context.start_col },
+              ["end"] = { line = params.position.line, character = context.end_col },
+            },
+          },
+        }
+      end
+    end
+    callback { isIncomplete = true, items = items }
+  end)
 end
 
 ---@param bufnr integer
@@ -345,6 +553,11 @@ local function custom_completion(params, callback)
   local target = target_context(line, params.position.character)
   if target then
     return complete_target(params, target, callback)
+  end
+
+  local anchor = wiki_anchor_context(line, params.position.character)
+  if anchor then
+    return complete_anchor(params, anchor, callback)
   end
 
   local start_col = reference_id_context(line, params.position.character)
@@ -414,9 +627,17 @@ local function creates_note_named_like_a_path(item)
   return coord.is_pathish(item.sortText or item.filterText or item.label)
 end
 
+--- Dentro de `[[Nota#...]]` el proveedor original escribe el anchor en slug
+--- --`#soy-un-header`--, que es la forma de la sintaxis markdown: ahí sobra
+--- entera, porque un wikilink lleva el texto del heading tal cual. Sus items se
+--- retiran y los pone `complete_anchor`.
 ---@param list lsp.CompletionList
+---@param in_wiki_anchor boolean|nil
 ---@return lsp.CompletionList
-local function sanitize(list)
+local function sanitize(list, in_wiki_anchor)
+  if in_wiki_anchor then
+    return { isIncomplete = list.isIncomplete, items = {} }
+  end
   local items = {}
   for _, item in ipairs(list.items or {}) do
     if not creates_note_named_like_a_path(item) then
@@ -484,13 +705,21 @@ function M.setup()
   patch_trigger_characters(handlers)
   local original = handlers["textDocument/completion"]
   handlers["textDocument/completion"] = function(params, callback, dispatchers)
+    local bufnr = vim.uri_to_bufnr(params.textDocument.uri)
+    local line = vim.api.nvim_buf_get_lines(
+      bufnr,
+      params.position.line,
+      params.position.line + 1,
+      false
+    )[1] or ""
+    local in_wiki_anchor = wiki_anchor_context(line, params.position.character) ~= nil
     local pending, original_result, custom_result, original_error = 2
     local function finish()
       pending = pending - 1
       if pending == 0 then
         callback(
           original_error,
-          merge(sanitize(completion_list(original_result)), custom_result)
+          merge(sanitize(completion_list(original_result), in_wiki_anchor), custom_result)
         )
       end
     end
@@ -511,6 +740,9 @@ M.target_context = target_context
 M.definition_target_context = definition_target_context
 M.inline_target_context = inline_target_context
 M.wiki_target_context = wiki_target_context
+M.wiki_anchor_context = wiki_anchor_context
+M.anchor_suggestions = anchor_suggestions
+M.anchor_written = anchor_written
 M.reference_id_context = reference_id_context
 M.sanitize = sanitize
 M.custom_completion = custom_completion

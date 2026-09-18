@@ -46,7 +46,16 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(vim.fs.joinpath(root, "source.md"))
   end
 
+  -- Un renombrado de heading pregunta el alcance cuando hay gemelos, y sin
+  -- interfaz el prompt colgaria la suite. La respuesta por defecto es la primera
+  -- opcion, "solo este", que es lo que se hacia antes de que existiera el menu;
+  -- los tests que quieran otra cosa sustituyen esto y lo restauran.
+  local default_select
   before_each(function()
+    default_select = vim.ui.select
+    vim.ui.select = function(entries, _, callback)
+      callback(entries[1])
+    end
     vim.fn.mkdir(root, "p")
     vim.fn.chdir(root)
     if not initialized then
@@ -72,6 +81,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   after_each(function()
+    vim.ui.select = default_select
     vim.cmd "silent! %bwipeout!"
     vim.fn.delete(root, "rf")
     vim.fn.delete(root .. "-external", "rf")
@@ -1243,6 +1253,157 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal("[[nota#header#From declaration]]", vim.fn.readfile(root .. "/source.md")[1])
   end)
 
+  describe("choosing how many twin headings a rename touches", function()
+    -- Dos headings de la misma nota que se llaman igual suelen ser el mismo
+    -- concepto escrito dos veces. Antes se renombraba uno en silencio; ahora se
+    -- pregunta, tambien cuando el enlace no era ambiguo.
+    local function rename_at(row, col, new_name, choice)
+      write("gemelos.md", { "# Uno", "## Igual", "# Dos", "## Igual" })
+      -- La tercera linea es ambigua a proposito: no dice a cual de los dos
+      -- `Igual` apunta.
+      write("enlaces.md", {
+        "[[gemelos#Uno#Igual]]",
+        "[[gemelos#Dos#Igual]]",
+        "[[gemelos#Igual]]",
+      })
+      vim.cmd.edit(vim.fs.joinpath(root, "gemelos.md"))
+      vim.api.nvim_win_set_cursor(0, { row, col })
+
+      local prompted
+      local original = vim.ui.select
+      vim.ui.select = function(entries, opts, callback)
+        prompted = opts and opts.prompt
+        callback(entries[choice])
+      end
+
+      local done = false
+      local handlers = require "obsidian.lsp.handlers"
+      handlers["textDocument/prepareRename"]({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = row - 1, character = col },
+      }, function() end, {})
+      handlers["textDocument/rename"]({ newName = new_name }, function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+        done = true
+      end, {})
+      vim.wait(3000, function()
+        return done
+      end, 10)
+      vim.cmd "silent! wall"
+      vim.ui.select = original
+      return prompted
+    end
+
+    it("asks about the twin even when nothing was ambiguous", function()
+      local prompted = rename_at(2, 3, "Renombrado", 1)
+      assert.is_not_nil(prompted)
+      assert.matches("Igual", prompted)
+    end)
+
+    it("takes the ambiguous link along when the first twin is the one renamed", function()
+      -- Un anchor ambiguo apunta en la practica a la primera coincidencia. Si es
+      -- esa la que se renombra, el anchor la sigue: su destino no cambia, solo
+      -- cambia como se escribe.
+      rename_at(2, 3, "Renombrado", 1)
+      assert.are.same(
+        { "# Uno", "## Renombrado", "# Dos", "## Igual" },
+        vim.fn.readfile(vim.fs.joinpath(root, "gemelos.md"))
+      )
+      assert.are.same({
+        "[[gemelos#Uno#Renombrado]]",
+        "[[gemelos#Dos#Igual]]",
+        "[[gemelos#Renombrado]]",
+      }, vim.fn.readfile(vim.fs.joinpath(root, "enlaces.md")))
+    end)
+
+    it("leaves the ambiguous link alone when the renamed twin is not its target", function()
+      -- Aqui se renombra el segundo. El anchor apuntaba al primero, que no se ha
+      -- movido, asi que no hay nada que seguir.
+      rename_at(4, 3, "Renombrado", 1)
+      assert.are.same(
+        { "# Uno", "## Igual", "# Dos", "## Renombrado" },
+        vim.fn.readfile(vim.fs.joinpath(root, "gemelos.md"))
+      )
+      assert.are.same({
+        "[[gemelos#Uno#Igual]]",
+        "[[gemelos#Dos#Renombrado]]",
+        "[[gemelos#Igual]]",
+      }, vim.fn.readfile(vim.fs.joinpath(root, "enlaces.md")))
+    end)
+
+    it("renames both twins, and every link including the ambiguous one", function()
+      rename_at(2, 3, "Renombrado", 2)
+      assert.are.same(
+        { "# Uno", "## Renombrado", "# Dos", "## Renombrado" },
+        vim.fn.readfile(vim.fs.joinpath(root, "gemelos.md"))
+      )
+      -- Aqui el ambiguo SI se actualiza: sus dos destinos pasan a llamarse
+      -- igual, asi que sigue significando lo mismo; dejarlo quieto lo dejaria
+      -- apuntando a un heading que ya no existe.
+      assert.are.same({
+        "[[gemelos#Uno#Renombrado]]",
+        "[[gemelos#Dos#Renombrado]]",
+        "[[gemelos#Renombrado]]",
+      }, vim.fn.readfile(vim.fs.joinpath(root, "enlaces.md")))
+    end)
+
+    it("applies the same ambiguity rule to Markdown links, in slug form", function()
+      -- El renombrado no distingue sintaxis: reescribe cualquier referencia con
+      -- `anchor_text(kind)`. Asi que un enlace markdown ambiguo sigue la misma
+      -- regla que el wikilink, pero escrito en slug, que es lo que admite su
+      -- sintaxis.
+      write("gemelos.md", { "# Uno", "## Igual", "# Dos", "## Igual" })
+      write("enlaces.md", {
+        "[primero](gemelos.md#uno#igual)",
+        "[segundo](gemelos.md#dos#igual)",
+        "[ambiguo](gemelos.md#igual)",
+      })
+      vim.cmd.edit(vim.fs.joinpath(root, "gemelos.md"))
+      vim.api.nvim_win_set_cursor(0, { 2, 3 })
+
+      local done = false
+      local handlers = require "obsidian.lsp.handlers"
+      handlers["textDocument/prepareRename"]({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 1, character = 3 },
+      }, function() end, {})
+      handlers["textDocument/rename"]({ newName = "Dos Palabras" }, function(err, edit)
+        assert.is_nil(err)
+        vim.lsp.util.apply_workspace_edit(edit, "utf-8")
+        done = true
+      end, {})
+      vim.wait(3000, function()
+        return done
+      end, 10)
+      vim.cmd "silent! wall"
+
+      assert.are.same({
+        "[primero](gemelos.md#uno#dos-palabras)",
+        "[segundo](gemelos.md#dos#igual)",
+        "[ambiguo](gemelos.md#dos-palabras)",
+      }, vim.fn.readfile(vim.fs.joinpath(root, "enlaces.md")))
+    end)
+
+    it("does not ask when the heading has no twin", function()
+      write("solo.md", { "# Uno", "## Unico" })
+      vim.cmd.edit(vim.fs.joinpath(root, "solo.md"))
+      vim.api.nvim_win_set_cursor(0, { 2, 3 })
+      local prompted = false
+      local original = vim.ui.select
+      vim.ui.select = function(entries, _, callback)
+        prompted = true
+        callback(entries[1])
+      end
+      require("obsidian.lsp.handlers")["textDocument/prepareRename"]({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 1, character = 3 },
+      }, function() end, {})
+      vim.ui.select = original
+      assert.is_false(prompted)
+    end)
+  end)
+
   it("resolves and renames the shortest unambiguous ancestor suffix", function()
     write("nota.md", {
       "# NOTENAME",
@@ -1306,7 +1467,11 @@ describe("Nyabsidian structured links and attachments", function()
       "[[nota#fathera#Child A]]",
       "[[nota#notename#fathera#Child A]]",
       "[[nota#fatherb#child]]",
-      "[[nota#child]]",
+      -- `#child` es ambiguo y apunta, en la practica, a la primera coincidencia
+      -- --la de FatherA, comprobada arriba--, que es justo la que se renombra:
+      -- el anchor la sigue en vez de quedarse apuntando a un heading que ya no
+      -- existe. Y de paso deja de ser ambiguo.
+      "[[nota#Child A]]",
     }, vim.fn.readfile(root .. "/source.md"))
   end)
 
@@ -2431,6 +2596,111 @@ describe("Nyabsidian structured links and attachments", function()
     end, list.items))
   end)
 
+  describe("completing a heading inside a wiki link", function()
+    -- El proveedor de obsidian.nvim ya ofrecia estos headings, pero escritos en
+    -- slug --`#soy-un-header`--, que es la forma de la sintaxis markdown. Dentro
+    -- de `[[...]]` se escribe el texto del heading tal cual.
+    ---@return lsp.CompletionList
+    local function complete(line)
+      write("Nota con espacios.md", { "# Hola", "", "## Soy un Header" })
+      write("wiki.md", { line })
+      vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+      local result
+      require("lzy.obsidian.completion").custom_completion({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 0, character = #line },
+      }, function(value)
+        result = value
+      end)
+      assert(vim.wait(2000, function()
+        return result ~= nil
+      end, 10), "completion did not finish")
+      return result
+    end
+
+    ---@return string[]
+    local function written(result)
+      return vim.tbl_map(function(entry)
+        return entry.textEdit.newText
+      end, result.items)
+    end
+
+    it("writes the heading verbatim, not the markdown slug", function()
+      local targets = written(complete "[[Nota con espacios#")
+      assert.is_true(vim.tbl_contains(targets, "Soy un Header"))
+      assert.is_false(vim.tbl_contains(targets, "soy-un-header"))
+    end)
+
+    it("replaces only what follows the hash, keeping the hash in place", function()
+      local line = "[[Nota con espacios#"
+      local entry = vim.iter(complete(line).items):find(function(item)
+        return item.textEdit.newText == "Hola"
+      end)
+      assert.is_not_nil(entry)
+      -- El `#` esta en la columna 19: la edicion empieza en la siguiente.
+      assert.are.equal(#line, entry.textEdit.range.start.character)
+    end)
+
+    it("offers the headings before the hash is even typed", function()
+      local targets = written(complete "[[Nota con")
+      assert.is_true(vim.tbl_contains(targets, "Nota con espacios#Soy un Header"))
+    end)
+
+    it("does not treat a markdown link as a wiki anchor", function()
+      local completion = require "lzy.obsidian.completion"
+      assert.is_nil(completion.wiki_anchor_context("[Algo](nota.md#frag", 19))
+      assert.is_nil(completion.wiki_anchor_context("[[Nota]] y [x](a.md#f", 21))
+    end)
+
+    it("climbs no further than the nearest parent that already disambiguates", function()
+      -- `Igual` se repite, pero sus padres inmediatos ya son distintos: la
+      -- cadena para ahi y no llega a nombrar a `Alpha`, que es comun a los dos.
+      write("Ambiguo.md", { "# Alpha", "## Beta", "### Igual", "## Gamma", "### Igual" })
+      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Ambiguo.md"))
+      local targets = vim.tbl_map(function(suggestion)
+        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+      assert.is_true(vim.tbl_contains(targets, "Beta#Igual"))
+      assert.is_true(vim.tbl_contains(targets, "Gamma#Igual"))
+      assert.is_false(vim.tbl_contains(targets, "Alpha#Beta#Igual"))
+    end)
+
+    it("keeps climbing when the nearest parent repeats too", function()
+      -- Aqui el padre inmediato es `Beta` en los dos, asi que hace falta el
+      -- abuelo; y solo el abuelo.
+      write("Abuelo.md", {
+        "# Delta", "## Beta", "### Repetido",
+        "# Epsilon", "## Beta", "### Repetido",
+      })
+      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Abuelo.md"))
+      local targets = vim.tbl_map(function(suggestion)
+        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+      assert.is_true(vim.tbl_contains(targets, "Delta#Beta#Repetido"))
+      assert.is_true(vim.tbl_contains(targets, "Epsilon#Beta#Repetido"))
+    end)
+
+    it("names no parent at all when the heading has no twin", function()
+      write("Unico.md", { "# Sin gemelo", "## Unico" })
+      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Unico.md"))
+      local targets = vim.tbl_map(function(suggestion)
+        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+      assert.is_true(vim.tbl_contains(targets, "Unico"))
+      assert.is_false(vim.tbl_contains(targets, "Sin gemelo#Unico"))
+    end)
+
+    it("disambiguates two headings with the same name using their parent", function()
+      write("Repes.md", { "# Uno", "## Igual", "# Dos", "## Igual" })
+      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Repes.md"))
+      local targets = vim.tbl_map(function(suggestion)
+        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+      assert.is_true(vim.tbl_contains(targets, "Uno#Igual"))
+      assert.is_true(vim.tbl_contains(targets, "Dos#Igual"))
+    end)
+  end)
+
   describe("browsing a path inside a link", function()
     -- Escribir una ruta es escribir una ruta: las tres sintaxis de destino se
     -- comportan igual. `[Algo](/` era la que no hacía nada.
@@ -2855,6 +3125,34 @@ describe("Nyabsidian structured links and attachments", function()
       write("Windows 11.md", { "# My Header", "", "body" })
       vim.cmd.edit(root .. "/Windows 11.md")
       assert.are.equal("[[Windows 11#My Header]]", copy_at(1, 3))
+    end)
+
+    it("adds the parents a duplicated heading needs to stop being ambiguous", function()
+      -- Copiar la hoja a secas daria `[[gemelos#Iguala]]`, que apunta a los dos.
+      -- Una copia que sale ambigua no sirve, asi que lleva los padres justos.
+      write("gemelos.md", { "# Uno", "## Iguala", "# Dos", "## Iguala" })
+      vim.cmd.edit(root .. "/gemelos.md")
+      assert.are.equal("[[gemelos#Uno#Iguala]]", copy_at(2, 3))
+      assert.are.equal("[[gemelos#Dos#Iguala]]", copy_at(4, 3))
+      -- Los padres no se anaden porque si: estos no tienen gemelo.
+      assert.are.equal("[[gemelos#Uno]]", copy_at(1, 2))
+    end)
+
+    it("climbs only as far as it needs to, and gives up when nothing distinguishes", function()
+      -- Aqui el padre inmediato es `Beta` en los dos, asi que hace falta el abuelo.
+      write("abuelo.md", {
+        "# Delta", "## Beta", "### Repe",
+        "# Epsilon", "## Beta", "### Repe",
+      })
+      vim.cmd.edit(root .. "/abuelo.md")
+      assert.are.equal("[[abuelo#Delta#Beta#Repe]]", copy_at(3, 4))
+
+      -- Y cuando ni la cadena entera distingue --misma familia, mismo nombre--
+      -- alargarlo no gana nada: se queda la hoja, mas corta e igual de ambigua.
+      write("sinremedio.md", { "# Raiz", "## Hija", "## Hija" })
+      vim.cmd.edit(root .. "/sinremedio.md")
+      assert.are.equal("[[sinremedio#Hija]]", copy_at(2, 3))
+      assert.are.equal("[[sinremedio#Hija]]", copy_at(3, 3))
     end)
 
     it("falls back to a link to the current note on plain text with nothing else to copy", function()

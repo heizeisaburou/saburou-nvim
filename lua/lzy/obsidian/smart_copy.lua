@@ -458,7 +458,14 @@ local function heading_link_at_cursor(bufnr, row0)
   -- El enlace se pega dentro de `[[...]]`, así que el anchor va con el texto
   -- del heading tal cual (ver headings.anchor_text): es lo que escribe la app
   -- de Obsidian y lo que ya usa el vault. Resuelve igual que el slug.
-  local anchor = headings.anchor_text(decl.text, "wiki")
+  --
+  -- Y va con los padres que hagan falta para que el enlace sea inequívoco: si la
+  -- nota tiene dos headings con este nombre, copiar la hoja a secas produciría
+  -- un enlace ambiguo, que es justo lo que no se quiere de una copia
+  -- (headings.shortest_anchor decide cuántos).
+  local anchor = decl.section
+      and headings.shortest_anchor_text(decl.note, decl.section, "wiki")
+    or headings.anchor_text(decl.text, "wiki")
   if not anchor or anchor == "" then
     return nil
   end

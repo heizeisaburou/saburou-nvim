@@ -839,6 +839,14 @@ end
 
 ---@param context table
 ---@return string
+--- La clave de un renombrado lanzado sobre la declaración del heading, no
+--- sobre un enlace: no hay `ref`, así que basta el buffer y la fila.
+---@param row integer
+---@return string
+local function declaration_key(row)
+  return table.concat({ vim.api.nvim_get_current_buf(), "declaration", row }, ":")
+end
+
 local function context_key(context)
   return table.concat({
     vim.api.nvim_get_current_buf(),
@@ -934,12 +942,12 @@ local function patch_prepare_rename()
             notify(err, vim.log.levels.ERROR)
             return callback(nil, nil)
           end
-          choose_heading(candidates, function(candidate)
-            if not candidate then
+          choose_heading(candidates, function(targets)
+            if not targets then
               return callback(nil, nil)
             end
-            prepared_heading = { key = context_key(context), candidate = candidate }
-            prepare_result({ text = candidate.section.header, range = range }, callback)
+            prepared_heading = { key = context_key(context), targets = targets }
+            prepare_result({ text = targets[1].section.header, range = range }, callback)
           end)
         end)
       elseif component.text ~= "" then
@@ -957,32 +965,95 @@ local function patch_prepare_rename()
     local row = vim.api.nvim_win_get_cursor(0)[1] - 1
     local declaration = require("lzy.obsidian.headings").declaration_at(0, row)
     if declaration then
-      return prepare_result({ text = declaration.text, range = declaration.range }, callback)
+      -- Mismo alcance que desde un enlace: si el heading tiene gemelos, hay que
+      -- decidir aquí si se renombran todos, antes de escribir el nombre nuevo.
+      return choose_heading({ { note = declaration.note, section = declaration.section } }, function(targets)
+        if not targets then
+          return callback(nil, nil)
+        end
+        prepared_heading = { key = declaration_key(row), targets = targets }
+        prepare_result({ text = declaration.text, range = declaration.range }, callback)
+      end)
     end
     return original(params, callback, dispatchers)
   end
   handlers.__nyabsidian_prepare_rename = true
 end
 
----@param candidates table[]
----@param callback fun(candidate: table|?)
+---@param target { note: obsidian.Note, section: obsidian.Section }
+---@return string
+local function target_label(target)
+  return ("%s:%d  %s"):format(
+    tostring(target.note.path),
+    target.section.heading_range.start_row + 1,
+    target.section.header
+  )
+end
+
+--- Qué headings va a renombrar esta operación.
+---
+--- Un renombrado de heading tiene dos preguntas, no una, y antes sólo se hacía
+--- la primera:
+---
+---   1. **Cuál**, cuando el anchor del enlace resuelve a varias definiciones.
+---   2. **Cuántos**, cuando el elegido tiene gemelos: otros headings de la misma
+---      nota que se llaman exactamente igual. Dos headings con el mismo nombre
+---      suelen ser el mismo concepto escrito dos veces, y quien renombra uno
+---      normalmente quiere los dos. Antes esto no se preguntaba nunca: se
+---      renombraba uno en silencio y el otro se quedaba atrás.
+---
+--- Por eso el menú sale también cuando no hay ambigüedad pero sí gemelos, y por
+--- eso esto devuelve una lista y no un elemento.
+---@param candidates { note: obsidian.Note, section: obsidian.Section }[]
+---@param callback fun(targets: table[]|?)
 choose_heading = function(candidates, callback)
-  if #candidates == 1 then
-    return callback(candidates[1])
-  end
   if #candidates == 0 then
     return callback(nil)
   end
-  vim.ui.select(candidates, {
+
+  local headings = require "lzy.obsidian.headings"
+  if #candidates == 1 then
+    local only = candidates[1]
+    local twins = headings.twins(only.note, only.section)
+    if #twins == 0 then
+      return callback { only }
+    end
+    local all = vim.list_extend({ only }, twins)
+    return vim.ui.select({
+      { label = "Sólo éste — " .. target_label(only), targets = { only } },
+      {
+        label = ("Los %d que se llaman «%s» en esta nota"):format(#all, only.section.header),
+        targets = all,
+      },
+    }, {
+      prompt = ("Hay %d headings llamados «%s»: ¿cuáles renombras?"):format(
+        #all,
+        only.section.header
+      ),
+      format_item = function(option)
+        return option.label
+      end,
+    }, function(option)
+      callback(option and option.targets or nil)
+    end)
+  end
+
+  local options = {}
+  for _, candidate in ipairs(candidates) do
+    options[#options + 1] = { label = target_label(candidate), targets = { candidate } }
+  end
+  options[#options + 1] = {
+    label = ("Todos los %d"):format(#candidates),
+    targets = candidates,
+  }
+  vim.ui.select(options, {
     prompt = "Renombrar heading: elige la definición",
-    format_item = function(candidate)
-      return ("%s:%d  %s"):format(
-        tostring(candidate.note.path),
-        candidate.section.heading_range.start_row + 1,
-        candidate.section.header
-      )
+    format_item = function(option)
+      return option.label
     end,
-  }, callback)
+  }, function(option)
+    callback(option and option.targets or nil)
+  end)
 end
 
 ---@param context table
@@ -991,15 +1062,9 @@ end
 local function rename_link_heading(context, new_name, callback)
   local headings = require "lzy.obsidian.headings"
   if prepared_heading and prepared_heading.key == context_key(context) then
-    local candidate = prepared_heading.candidate
+    local targets = prepared_heading.targets
     prepared_heading = nil
-    return headings.rename(
-      candidate.note,
-      candidate.section,
-      new_name,
-      callback,
-      { notify = notify }
-    )
+    return headings.rename_many(targets, new_name, callback, { notify = notify })
   end
   prepared_heading = nil
 
@@ -1008,11 +1073,11 @@ local function rename_link_heading(context, new_name, callback)
       notify(err, vim.log.levels.ERROR)
       return callback(nil, {})
     end
-    choose_heading(candidates, function(candidate)
-      if not candidate then
+    choose_heading(candidates, function(targets)
+      if not targets then
         return callback(nil, {})
       end
-      headings.rename(candidate.note, candidate.section, new_name, callback, { notify = notify })
+      headings.rename_many(targets, new_name, callback, { notify = notify })
     end)
   end)
 end
@@ -1197,12 +1262,19 @@ local function patch_rename()
       return original(params, callback, dispatchers)
     end
 
+    -- Se consume aqui: lo dejo el prepare de esta misma operacion, y es donde
+    -- se eligio cuantos headings entran.
+    local prepared = prepared_heading
     prepared_heading = nil
     prepared_attachment = nil
     local row = vim.api.nvim_win_get_cursor(0)[1] - 1
     local declaration = require("lzy.obsidian.headings").declaration_at(0, row)
     if declaration then
-      return require("lzy.obsidian.headings").rename(
+      local headings = require "lzy.obsidian.headings"
+      if prepared and prepared.key == declaration_key(row) then
+        return headings.rename_many(prepared.targets, params.newName, callback, { notify = notify })
+      end
+      return headings.rename(
         declaration.note,
         declaration.section,
         params.newName,
