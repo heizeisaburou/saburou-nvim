@@ -275,6 +275,24 @@ Mientras exista la arquitectura actual aceptamos algunos comportamientos que no 
 
 Esta preferencia no toca `vim.o.shell`: `:!`, `:make` y los plugins siguen usando la shell de ejecución que configuró Neovim.
 
+## Usage
+
+`<leader>` es la barra espaciadora en esta configuración. Esta no pretende ser una lista completa de mappings, sino una guía breve de las operaciones que merece la pena recordar.
+
+- `<A-w>` alterna `wrap`/`nowrap` para el buffer actual. Markdown —incluidas las notas de Nyabsidian— empieza con `wrap` porque la prosa se conserva en líneas largas compatibles con Obsidian y es el editor quien la ajusta visualmente. Las tablas muy anchas no se ven bien así; este mapping permite desactivar el ajuste cuando haga falta sin modificar el archivo.
+- `<A-f>` formatea el archivo actual.
+- `<leader>rs` reinicia Neovim completamente y restaura la sesión.
+- `<leader>lr` reinicia normalmente los clientes LSP.
+- `<leader>lR` fuerza el reinicio de los clientes LSP. Si los archivos han cambiado mucho, algunas líneas virtuales pueden quedar latentes; en ese caso hay que cerrar y volver a abrir el archivo afectado o reiniciar Neovim completamente con `<leader>rs`.
+- `<leader>rr` restaura como copia activa el último yank explícito. Por ejemplo, después de copiar una línea con `yy`, cualquier cantidad de borrados con `dd` puede sobrescribir el registro sin nombre; este mapping recupera el yank conservado en el registro `0` para poder pegarlo otra vez.
+- `<leader>re` abre los registros de Neovim en un buffer editable; `:w` aplica los cambios y cierra la vista. Es útil cuando resulta incómodo construir el contenido exacto mediante un yank, por ejemplo para añadir o quitar un salto de línea (`^J`) en una macro.
+
+Como regla general, los prefijos agrupan operaciones relacionadas:
+
+- `<leader>l` contiene acciones del LSP.
+- `<leader>n` contiene las acciones de Markdown y Nyabsidian.
+- `<leader>c` contiene varias acciones de edición y las transferencias manuales del clipboard: `<leader>cs` copia de Neovim al sistema y `<leader>cn` copia del sistema a Neovim.
+
 ## Lenguajes soportados
 
 Esta matriz también aparece en [language-dependencies.md](/docs/_ordenar/language-dependencies.md#matriz-de-soporte), donde se documenta lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta. Las dos copias son canónicas, se actualizan juntas y un test comprueba que sean idénticas.
