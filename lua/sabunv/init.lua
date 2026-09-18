@@ -1,7 +1,7 @@
 local M = {}
 _G.sabunv = M
 
-M.VERSION = "v0.1.0-alpha.9"
+M.VERSION = "v0.1.0-alpha.10"
 M.NVIM_VERSION = "0.12+"
 
 M.ctx = require "sabunv.ctx"

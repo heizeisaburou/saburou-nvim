@@ -5,12 +5,13 @@ Notas del proyecto — [Neovim](/docs/_ordenar/neovim.md)
 ## Estado
 
 - Versión de Neovim: 0.12+.
-- Versión de saburou-nvim: 0.1.0-alpha.8.
-- Desarrollo funcional de la alpha: terminado.
+- Versión de saburou-nvim: 0.1.0-alpha.10.
+- Desarrollo funcional de la alpha: terminado; esta es la alpha final.
 - Validación pendiente: Windows 11.
 
-Esta configuración queda congelada salvo correcciones de errores o de seguridad. La siguiente etapa no continuará
-añadiendo capas sobre la arquitectura actual: volverá a partir de una base limpia, pequeña y explícita.
+La configuración ha alcanzado una fase estable. No queda congelada: puede recibir correcciones, actualizaciones y alguna
+funcionalidad aislada, pero será raro ampliar sustancialmente la arquitectura actual. La siguiente etapa volverá a partir
+de una base limpia, pequeña y explícita, y puede variar mucho respecto a esta alpha.
 
 ## Motivo de la reconstrucción
 

@@ -29,7 +29,7 @@ describe("Documentación de lenguajes", function()
   it("mantiene sincronizadas las matrices del README y la guía", function()
     local readme = table_after(vim.fs.joinpath(root, "README.md"), "## Lenguajes soportados")
     local guide = table_after(
-      vim.fs.joinpath(root, "docs", "_ordenar", "language-dependencies.md"),
+      vim.fs.joinpath(root, "docs", "language-dependencies.md"),
       "## Matriz de soporte"
     )
 

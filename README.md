@@ -4,7 +4,15 @@
 
 ![Vista previa](/docs/attachments/preview.png)
 
-`saburou-nvim` es mi configuración de _**Neovim**_. Es una configuración opinionada que ha alcanzado una fase en la que principalmente me ocupo de arreglar bugs o dar soporte a lenguajes de programación diversos.
+`saburou-nvim` es mi configuración de _**Neovim**_. Es una configuración opinionada que ha alcanzado una fase funcional estable en la que principalmente me ocupo de arreglar bugs o dar soporte a lenguajes de programación diversos.
+
+> [!NOTE] Alpha final de la arquitectura actual
+>
+> **`v0.1.0-alpha.10` es la alpha final.** Esta etapa ha servido para aprender cuánto puede ofrecer Neovim y qué decisiones funcionan en el uso diario. El próximo paso será un gran refactor, no una continuación conservadora: la arquitectura, las integraciones y parte del comportamiento podrán variar mucho respecto a la configuración actual.
+>
+> La filosofía de que la configuración debe ser fácil de usar se llevará todavía más lejos. Se intentará conservar capacidad de personalización, pero no será una prioridad desde el comienzo del refactor: primero se construirá un núcleo pequeño, coherente y sencillo de mantener, y después se expondrán opciones donde exista un caso de uso claro.
+>
+> Que sea la alpha final no congela el repositorio. Puede seguir habiendo correcciones, actualizaciones e incluso alguna funcionalidad nueva —por ejemplo, DAP apenas se ha explorado—, pero a partir de ahora será raro añadir grandes piezas sobre el diseño actual.
 
 - Si os gusta el proyecto y quereis implusarlo podéis donarme para un café en [![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?hosted_button_id=W9K3ZTUM2QNAC).
 
@@ -41,7 +49,7 @@
 
 > [!WARNING] Dependencias circunstanciales molestas
 >
-> - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración entonces instalalos o comenta los plugins. Una vez terminada la alpha, tras la limpieza, esto dejara de ser así. Y hay más casos así:
+> - Si no usas opencode o copilot.nvim y no quieres que se queje la configuración entonces instálalos o comenta los plugins. El gran refactor eliminará este tipo de exigencias accidentales. Y hay más casos así:
 >     - No instalar Python provoca que la instalación de muchos paquetes de Mason fallen.
 
 ## Lenguajes
@@ -295,7 +303,7 @@ Como regla general, los prefijos agrupan operaciones relacionadas:
 
 ## Lenguajes soportados
 
-Esta matriz también aparece en [language-dependencies.md](/docs/_ordenar/language-dependencies.md#matriz-de-soporte), donde se documenta lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta. Las dos copias son canónicas, se actualizan juntas y un test comprueba que sean idénticas.
+Esta matriz también aparece en [language-dependencies.md](/docs/language-dependencies.md#matriz-de-soporte), donde se documenta lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta. Las dos copias son canónicas, se actualizan juntas y un test comprueba que sean idénticas.
 
 Los nombres de la columna **LSP** son los identificadores que usa la configuración de Neovim; no siempre coinciden con el nombre del paquete de Mason.
 
@@ -309,7 +317,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Ansible | `yaml.ansible` | `ansiblels` | `yamlfmt` (vía `yaml`) | — | `yaml` (fallback) |
 | Assembly (GAS) | `asm` | `asm_lsp` | — (no existe) | — | `asm` |
 | Assembly (NASM) | `nasm` | `asm_lsp` | `nasmfmt` | — | `nasm` |
-| Bash | `bash` | `bashls` | `shfmt` | — | `bash` |
+| Bash | `sh` | `bashls` | `shfmt` | — | `bash` |
 | Batch | `dosbatch` | — | — | — | pendiente (`tree-sitter-batch` sin catalogar) |
 | C | `c` | `clangd` | `clang_format` | — | `c` |
 | C++ | `cpp` | `clangd` | `clang_format` | — | `cpp` |
@@ -372,7 +380,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | SCSS | `scss` | `cssls` | `prettier` | — | — |
 | Solidity | `solidity` | `solidity_ls_nomicfoundation` | `forge_fmt` | — | `solidity` |
 | SQL | `sql` | `postgres_lsp` / `sqls` | `sqlfluff` / `pg_format` | `sqlfluff` | `sql` |
-| Surface | `surface` | — | `mix` | — | — |
+| Surface | `surface` | `elixirls` | `mix` | — | — |
 | Suricata / Snort | `hog` | `suricata_language_server` | — | `suricata_check` | pendiente (resalta `syntax/hog.vim`) |
 | Svelte | `svelte` | `svelte` | `prettier_svelte` | — | `svelte` |
 | Swift | `swift` | `sourcekit` | `swiftformat` | — | `swift` |
@@ -381,7 +389,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | TypeScript / TSX | `typescript` / `typescriptreact` | `vtsls` | `prettier` | — | `typescript` / `tsx` |
 | Typst | `typst` | `tinymist` | `typstyle` | — | `typst` |
 | Vim | `vim` | — | — | — | `vim` |
-| Vimdoc | `vimdoc` | — | — | — | `vimdoc` |
+| Vimdoc | `help` | — | — | — | `vimdoc` |
 | Vue | `vue` | `vue_ls` | `prettier` | — | `vue` |
 | WebAssembly | `wat` | `wasm_language_tools` | vía LSP | — | pendiente (sin parser catalogado) |
 | XML | `xml` / `xsd` / `xslt` / `svg` | `lemminx` | vía LSP | — | `xml` + `dtd` |

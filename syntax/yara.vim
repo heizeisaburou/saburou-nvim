@@ -6,7 +6,7 @@
 " `ftplugin/yara.vim`, pero no publica ningún `syntax/yara.vim`: sin este
 " archivo las reglas se abren sin ningún resaltado. Tampoco hay parser de
 " Tree-sitter catalogado en `nvim-treesitter` (ver
-" docs/_ordenar/language-dependencies.md).
+" docs/language-dependencies.md).
 "
 " Es un resaltado deliberadamente conservador: cubre la gramática del lenguaje,
 " no el catálogo de módulos, que crece con cada versión de YARA. Cuando el

@@ -260,7 +260,7 @@ return {
   buf = "buf",
   buildifier = "buildifier",
   cbfmt = "cbfmt",
-  ["clang-format"] = "clang-format",
+  clang_format = "clang-format",
   -- cljstyle
   cmake_format = "cmakelang",
   codespell = "codespell",
