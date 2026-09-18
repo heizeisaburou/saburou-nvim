@@ -250,6 +250,14 @@ Si un proyecto concreto sí quiere prosa ajustada, lo pide en su propia configur
 
 Esto vale para todos los lenguajes, no solo markdown: los formatters de Prettier llevan `--config-precedence file-override`, así que un `.prettierrc` o un `.editorconfig` del repositorio manda sobre los valores de [lua/lzy/conform.lua](/lua/lzy/conform.lua). Sin ellos, mandan los nuestros.
 
+#### Markdown/Nyabsidian: deuda actual y dirección futura
+
+El soporte de Markdown ha crecido alrededor de varias piezas independientes: `render-markdown` se ocupa de la presentación, mientras Nyabsidian y Marksman resuelven por separado navegación, enlaces, renombrados, diagnósticos y otras operaciones sobre notas. Hacer que los dos motores compartan las mismas reglas ha exigido parches paralelos y ha convertido cambios aparentemente pequeños en una fuente desproporcionada de complejidad, errores y mantenimiento.
+
+No vamos a seguir ampliando ese diseño. La dirección futura es un único plugin propio para Markdown que reúna la parte visual que hoy proporciona `render-markdown` y un core común para las capacidades que actualmente reparten Nyabsidian y Marksman. Estos podrán conservar sus diferencias donde sean necesarias, pero resolución, edición y semántica de los enlaces partirán de una sola implementación.
+
+Mientras exista la arquitectura actual aceptamos algunos comportamientos que no nos gustan cuando corregirlos limpiamente obligaría a rediseñar el sistema o mantener monkeypatches frágiles. Un ejemplo es el renombrado en Nyabsidian: los archivos afectados se guardan automáticamente. No añadiremos otro parche para impedirlo. En el plugin futuro, un renombrado aplicará los cambios a los buffers y los dejará sin guardar, igual que los demás renombrados LSP; será el usuario quien decida cuándo escribirlos, por ejemplo con `:wa`.
+
 #### Terminal integrada
 
 `<A-i>` abre una terminal flotante. Qué shell arranca lo decide [lua/user/terminal.lua](/lua/user/terminal.lua):
