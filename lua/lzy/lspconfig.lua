@@ -40,6 +40,14 @@ local M = {}
 M.servers = {
   "lua_ls",
   "marksman", -- markdown
+  -- "ada_ls", -- Ada (necesita gcc-ada)
+  -- "cobol_ls", -- COBOL (necesita gnucobol de AUR; cmd parcheado mas abajo)
+  -- "dotls", -- DOT/Graphviz
+  -- "fortls", -- Fortran
+  -- "graphql", -- GraphQL (el proyecto necesita .graphqlrc)
+  -- "pasls", -- Pascal (se compila a mano, ver language-dependencies.md)
+  -- "perlnavigator", -- Perl
+  -- "prolog_ls", -- Prolog (usa swipl + pack lsp_server)
   -- "rust_analyzer", -- rust
   -- "air", -- R
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
@@ -111,6 +119,33 @@ M.disable = { "deno" }
 ---@alias lzy.lsp.ConfigFactory fun(name: string): vim.lsp.Config?
 ---@type table<string, vim.lsp.Config|lzy.lsp.ConfigFactory>
 M.config = {
+  -- pasls usa CodeTools de Lazarus, y necesita saber donde estan las fuentes de
+  -- FPC y de Lazarus. Lo lee de variables de entorno, no de settings, asi que se
+  -- le pasan en el propio proceso para no depender del entorno de la shell.
+  pasls = function()
+    local fpc = vim.fn.glob "/usr/lib/fpc/[0-9]*"
+    return {
+      cmd_env = {
+        FPCDIR = "/usr/lib/fpc/src",
+        LAZARUSDIR = "/usr/lib/lazarus",
+        PP = fpc ~= "" and (fpc .. "/ppcx64") or nil,
+      },
+    }
+  end,
+
+  -- El binario nativo de cobol_ls arranca escribiendo el log de logback por
+  -- STDOUT, que es por donde va el protocolo LSP: Neovim lee esa basura como
+  -- cabecera, falla con INVALID_SERVER_MESSAGE y no se adjunta ningun cliente.
+  -- La causa esta en su propio log: "Resource [logback.xml] occurs multiple
+  -- times on the classpath", que hace que logback saque su estado. Se calla con
+  -- la propiedad que desactiva ese volcado.
+  cobol_ls = {
+    cmd = {
+      "cobol-language-support",
+      "-Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener",
+    },
+  },
+
   ansiblels = {
     settings = {
       ansible = {

@@ -21,6 +21,11 @@ local frontmatter_format_state = {}
 --   - zsh: `shfmt` no funciona correctamente en este setup
 local formatters_by_ft = {
   lua = { "stylua" },
+  d2 = { "d2" }, -- binario del sistema, no esta en Mason
+  fortran = { "fprettify" }, -- externo: uv tool install fprettify
+  graphql = { "prettier" },
+  perl = { "perltidy" }, -- externo: Arch extra/perl-tidy
+  prolog = { "prolog" }, -- usa swipl
   markdown = {
     "markdown_callouts",
     "markdown_frontmatter_prepare",

@@ -47,6 +47,7 @@ return {
   clarity_lsp = "clarity-lsp",
   clojure_lsp = "clojure-lsp",
   cmake = "cmake-language-server",
+  ada_ls = "ada-language-server",
   cobol_ls = "cobol-language-support",
   codeqlls = "codeql",
   copilot_ls = "copilot-language-server",

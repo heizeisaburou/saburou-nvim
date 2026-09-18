@@ -196,6 +196,19 @@ Dependencias de sistema:
 - Para ensamblar de verdad: `binutils` (trae `as`, GAS/AT&T) o `nasm` (repo oficial `extra`, sin AUR ni
   Chaotic-AUR) para Intel.
 
+### Ada
+
+- Parser `ada`, `unstable`; trae resaltado y plegado, no indentación.
+- Filetype nativo: `.adb` y `.ads`.
+- `ada_ls` es `ada-language-server`, y **sí está en Mason**.
+- **No hay formatter.**
+
+El servidor necesita el toolchain GNAT del sistema para analizar de verdad. En Arch es `gcc-ada`,
+que está en `core`, así que no hay que salir de los repositorios oficiales.
+
+Proyecto mínimo: un `.adb` suelto. Con un `.gpr` (proyecto de GPRbuild) el servidor rinde más,
+porque ahí es donde se declaran las unidades y las rutas.
+
 ### Batch
 
 `.bat`/`.cmd` no tienen ninguna integración activa: ni LSP, ni formatter, ni Tree-sitter. No es un
@@ -252,6 +265,53 @@ Dos diferencias de comportamiento respecto a `csharp_ls` que conviene tener pres
 La primera apertura de una solución grande tarda: el servidor indexa todo el proyecto antes de dar
 diagnósticos, y avisa con un `Roslyn project initialization complete` cuando termina.
 
+### COBOL
+
+- **No hay parser de Tree-sitter.** El resaltado sale del `syntax/cobol.vim` del runtime de Neovim.
+- Filetype nativo: `.cob` y `.cbl`.
+- `cobol_ls` es `cobol-language-support`, y **sí está en Mason**.
+- **No hay formatter.**
+
+El servidor se apoya en GnuCOBOL para compilar y diagnosticar. **No está en los repositorios de
+Arch**, sólo en AUR, y se compila desde fuente:
+
+```sh
+paru -S --sudoloop --needed gnucobol
+```
+
+#### El servidor ensucia STDOUT y hay que callarlo
+
+Tal cual viene, **`cobol_ls` no llega a adjuntarse**. Neovim falla con
+`INVALID_SERVER_MESSAGE: Content-Length not found in header` y `:checkhealth vim.lsp` no enseña
+ningún cliente.
+
+El motivo es que el binario arranca volcando el log de configuración de logback **por la salida
+estándar**, que es justamente por donde viaja el protocolo. La causa aparece en ese mismo volcado:
+`Resource [logback.xml] occurs multiple times on the classpath`, un aviso que hace que logback
+imprima todo su estado. Es un binario nativo, así que no hay wrapper que parchear ni classpath que
+arreglar.
+
+La solución es desactivar ese volcado con una propiedad de sistema, que el binario sí acepta. En
+`M.config` de [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua):
+
+```lua
+cobol_ls = {
+  cmd = {
+    "cobol-language-support",
+    "-Dlogback.statusListenerClass=ch.qos.logback.core.status.NopStatusListener",
+  },
+},
+```
+
+Se comprueba a mano: sin la propiedad, `cobol-language-support </dev/null` escribe líneas
+`|-INFO in ch.qos.logback…` por STDOUT; con ella, no escribe nada.
+
+Otra cosa que despista: `cobol-language-support --help` anuncia una CLI de análisis
+(`list_sources`, `list_copybooks`, `analysis`, `cfast`) y **no menciona ningún modo servidor**. El
+servidor LSP es lo que hace cuando se le invoca sin ninguna orden.
+
+Proyecto mínimo: un `.cob` suelto. El `root_dir` se queda en `nil` y aun así diagnostica.
+
 ### Clojure
 
 Mason puede instalar `clojure-lsp`, pero el servidor necesita el CLI `clojure` para calcular el
@@ -278,6 +338,27 @@ dart format --help
 
 Neovim ejecuta el servidor a través de `dart language-server --protocol=lsp`; basta con que `dart`
 esté en `PATH`. Lo mismo aplica al SDK incluido con Flutter.
+
+### D2
+
+Es el peor soportado de los tres lenguajes de diagramas: **no hay parser de Tree-sitter**, así que no
+hay resaltado, y **no hay LSP**. Lo único que existe es el formatter.
+
+- Neovim **no detecta `.d2`**. La extensión se añade en [lua/user/opts.lua](/lua/user/opts.lua); sin ella el
+  fichero se queda sin filetype y Conform ni busca formatter.
+- El formatter `d2` de Conform ejecuta `d2 fmt`, así que necesita el binario. **No está en Mason**;
+  en Arch es `extra/d2`.
+
+Proyecto mínimo: un `.d2` suelto, sin nada alrededor.
+
+### DOT (Graphviz)
+
+- Filetype nativo, `.dot` y `.gv`. Parser `dot`, marcado `unstable`, con las cuatro capacidades.
+- `dotls` es `dot-language-server` (Mason, vía npm: necesita Node).
+- **No hay formatter.**
+
+`dotls` trae `root_markers = { '.git' }` y nada más. Un `.dot` fuera de un repositorio **no recibe LSP**,
+así que el proyecto mínimo es un directorio con `git init` y el fichero dentro.
 
 ### Erlang
 
@@ -387,6 +468,48 @@ gestionado por Mason para evitar duplicados.
 Los `.lhs` usan el filetype `lhaskell`: Conform aplica `fourmolu` y Tree-sitter reutiliza el parser
 `haskell` mediante alias.
 
+### Fortran
+
+- Parser `fortran`, `unstable`, con las cuatro capacidades.
+- `fortls` se instala por Mason (es un paquete de pip).
+- El formatter `fprettify` **no está empaquetado en Arch ni en Mason**. Se instala aparte:
+
+```sh
+uv tool install fprettify
+```
+
+Proyecto mínimo: un `.f90` suelto.
+
+### GraphQL
+
+El caso que más engaña de todos: **el cliente se adjunta al buffer y aun así no sale ni un
+diagnóstico** si el proyecto no está montado. `:checkhealth vim.lsp` lo enseña adjunto pero con
+`Root directory: nil`, que es la señal.
+
+El `root_dir` del servidor sólo resuelve si encuentra uno de estos ficheros: `.graphqlrc*`,
+`.graphql.config.*` o `graphql.config.*`. Y su documentación pide además el paquete `graphql`
+instalado **dentro del proyecto**, no global.
+
+Proyecto mínimo:
+
+```sh
+mkdir proyecto && cd proyecto
+npm init -y
+npm install graphql
+cat > .graphqlrc.yml <<'EOF'
+schema: schema.graphql
+documents: queries/**/*.graphql
+EOF
+```
+
+Con eso, el esquema va en `schema.graphql` y las consultas en `queries/`. Entonces sí valida las dos
+cosas: sintaxis (`Syntax Error: Expected Name, found <EOF>.`) y consultas contra el esquema
+(`Cannot query field "wallpaper" on type "Session".`).
+
+- LSP: `graphql-language-service-cli` en Mason, que deja el binario como `graphql-lsp`. Necesita Node.
+- Formatter: `prettier`, que ya está para markdown. No hay que instalar nada más.
+- Parser `graphql`, `unstable`; no trae plegado.
+
 ### Groovy
 
 Groovy casi nunca se escribe llamándose Groovy: el filetype `groovy` cubre también los `build.gradle`
@@ -493,6 +616,17 @@ export KOTLIN_LSP_JAVA_HOME="/ruta/al/jdk-21"
 En Windows puede definirse la misma variable de entorno apuntando al directorio del JDK. El
 resolver también contempla `extra_homes` y `extra_roots` desde la configuración.
 
+### Mermaid
+
+- Filetype nativo, `.mmd` y `.mermaid`. Parser `mermaid`, `unstable`, con las cuatro capacidades.
+- **No hay LSP ni formatter**: sólo resaltado, plegado y movimientos por sintaxis.
+
+Lo que más se aprovecha no es el fichero suelto sino el `injections.scm` del parser: con `mermaid`
+instalado, **los bloques ```` ```mermaid ```` dentro de un markdown se resaltan como Mermaid**, que es
+donde se escriben casi siempre.
+
+Proyecto mínimo: un `.mmd` suelto.
+
 ### Nix
 
 `nil_ls`, no `nixd`: la alternativa que sabe más de NixOS/Home Manager/flakes no está en el registro
@@ -548,6 +682,105 @@ opam exec -- dune build --watch
 
 El watcher pertenece al ciclo de vida del proyecto y no se inicia automáticamente desde Neovim.
 
+### Perl
+
+- Parser `perl`, `unstable`; trae resaltado y plegado, no indentación.
+- `perlnavigator` se instala por Mason, y **usa el `perl` del sistema** para analizar: los diagnósticos
+  son los del propio intérprete (`Global symbol "$nope" requires explicit package name…`). En Arch
+  `perl` es parte de `base`, así que ya está.
+- El formatter `perltidy` **no está en Mason**; en Arch es `extra/perl-tidy`, y deja el binario en
+  `/usr/bin/vendor_perl/`.
+
+Proyecto mínimo: un `.pl` suelto. No necesita raíz de proyecto.
+
+### Pascal
+
+- Parser `pascal`, `unstable`, con las cuatro capacidades más *locals*. Filetype nativo: `.pas`.
+- **No hay formatter.**
+- `pasls` **no está en Mason ni en AUR**: se compila desde fuente. `delphi_ls`, la otra opción de
+  lspconfig, es `DelphiLSP.exe` y sólo existe en Windows.
+
+**`pasls` no produce diagnósticos**: no anuncia `diagnosticProvider`, igual que `sqls`. No es un
+fallo de configuración, es lo que hace. Lo que sí trae es casi todo lo demás: completado, ir a
+declaración y definición, hover, ayuda de firma, referencias, renombrado y símbolos de documento y
+de proyecto.
+
+#### Compilarlo
+
+Los paquetes del sistema son tres, todos en repositorios oficiales de Arch: `fpc` (el compilador),
+`fpc-src` (sus fuentes) y `lazarus` (de donde sale CodeTools, el motor del servidor).
+
+```sh
+pacman -S fpc fpc-src lazarus
+
+git clone --recurse-submodules https://github.com/genericptr/pascal-language-server
+cd pascal-language-server
+
+# Los dos paquetes de Lazarus que usa el proyecto viven en el propio repositorio
+# y hay que registrarlos antes de compilar, o lazbuild no los encuentra.
+lazbuild --lazarusdir=/usr/lib/lazarus --add-package-link src/protocol/lspprotocol.lpk
+lazbuild --lazarusdir=/usr/lib/lazarus --add-package-link src/serverprotocol/lspserver.lpk
+
+lazbuild --lazarusdir=/usr/lib/lazarus --build-mode=Release src/standard/pasls.lpi
+install -Dm755 src/standard/lib/x86_64-linux/pasls ~/.local/bin/pasls
+```
+
+`--lazarusdir` hace falta en las tres llamadas: en una instalación recién hecha, `lazbuild` no
+tiene todavía configurado dónde está Lazarus y falla con `Invalid Lazarus directory ""`.
+
+#### Configurarlo
+
+El servidor lee dónde están las fuentes de **variables de entorno**, no de `settings`. La
+configuración se las pasa en el propio proceso con `cmd_env`, para no depender de lo que haya en la
+shell del usuario:
+
+```lua
+pasls = function()
+  local fpc = vim.fn.glob "/usr/lib/fpc/[0-9]*"
+  return {
+    cmd_env = {
+      FPCDIR = "/usr/lib/fpc/src",
+      LAZARUSDIR = "/usr/lib/lazarus",
+      PP = fpc ~= "" and (fpc .. "/ppcx64") or nil,
+    },
+  }
+end,
+```
+
+`FPCDIR` es la única obligatoria. `PP` se resuelve con un glob porque lleva el número de versión
+dentro de la ruta (`/usr/lib/fpc/3.2.2/ppcx64`).
+
+Proyecto mínimo: el `root_dir` busca `*.lpi`, `*.lpk` o `.git`, así que basta un directorio con
+`git init` y el `.pas` dentro.
+
+### Prolog
+
+Dos cosas lo hacen distinto de todos los demás.
+
+**No hay detección de filetype que sirva.** Neovim da `.pl` a Perl ―que es lo correcto teniendo Perl
+activado― y `.pro` a IDL. Un fuente de Prolog se queda sin filetype y el servidor no se adjunta.
+La configuración añade `.prolog` y `.plg` en [lua/user/opts.lua](/lua/user/opts.lua); ficheros `.pl` de Prolog hay
+que renombrarlos o forzarles el filetype a mano.
+
+**El LSP no va por Mason.** `prolog_ls` no es un binario: es el propio `swipl` arrancado con un
+módulo, como se ve en su `cmd`. Así que hacen falta dos cosas, y la segunda se instala **dentro** de
+SWI-Prolog, no en el sistema:
+
+```sh
+# 1. el interprete (Arch, repositorios oficiales)
+pacman -S swi-prolog
+# 2. el pack, que vive en el directorio de packs del usuario
+swipl -g 'pack_install(lsp_server, [interactive(false)])' -t halt
+```
+
+Se comprueba con `swipl -g 'use_module(library(lsp_server)), writeln(ok)' -t halt`.
+
+- **No hay parser de Tree-sitter**, así que el resaltado es el `syntax/prolog.vim` del runtime.
+- El formatter `prolog` de Conform también se apoya en `swipl`.
+
+El `root_markers` del servidor es `pack.pl`, así que fuera de un pack de SWI-Prolog puede no
+adjuntarse.
+
 ### Python
 
 La configuración separa responsabilidades:
@@ -593,6 +826,13 @@ Dos detalles propios de este stack:
 - No hay entrada en Conform para `ps1` a propósito: el formato lo hace el propio servidor con
   PSScriptAnalyzer, y el mapeo de formato cae a LSP cuando Conform no cubre el filetype. Un
   formateador propio duplicaría ese motor.
+
+### SurrealQL
+
+**Revisado: no hay absolutamente nada.** Ni parser de Tree-sitter, ni servidor en lspconfig, ni
+formatter en Conform. No es que esté pendiente de configurar; es que no existe la herramienta.
+
+Queda anotado para no volver a mirarlo cada vez que aparezca en una lista de lenguajes candidatos.
 
 ### SQL
 

@@ -279,6 +279,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 
 | Lenguaje / formato | Filetype | LSP | Formatter | Linter | Tree-sitter |
 | --- | --- | --- | --- | --- | --- |
+| Ada | `ada` | `ada_ls` | — (no existe) | — | `ada` |
 | Ansible | `yaml.ansible` | `ansiblels` | `yamlfmt` (vía `yaml`) | — | `yaml` (fallback) |
 | Assembly (GAS) | `asm` | `asm_lsp` | — (no existe) | — | `asm` |
 | Assembly (NASM) | `nasm` | `asm_lsp` | `nasmfmt` | — | `nasm` |
@@ -288,22 +289,27 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | C++ | `cpp` | `clangd` | `clang_format` | — | `cpp` |
 | CMake | `cmake` | `neocmake` | — | — | `cmake` |
 | C# | `cs` | `roslyn_ls` | `csharpier` | — | `c_sharp` |
+| COBOL | `cob` / `cbl` | `cobol_ls` (cmd parcheado) | — (no existe) | — | — (no existe) |
 | Clojure | `clojure` | `clojure_lsp` | `zprint` | — | `clojure` |
 | EDN | `edn` | — | `zprint` | — | `clojure` (alias) |
 | CSS | `css` | `cssls` | `prettier` | — | `css` |
 | Dart | `dart` | `dartls` | `dart_format` | — | `dart` |
 | Django templates | `htmldjango` | `djls` | `djlint` | — | `htmldjango` |
+| D2 | `d2` | — | `d2` (externo) | — | — (no existe) |
+| DOT / Graphviz | `dot` | `dotls` | — (no existe) | — | `dot` |
 | Elixir | `elixir` | `elixirls` | `mix` | — | `elixir` |
 | EEx | `eelixir` | `elixirls` | `mix` | — | — |
 | HEEx | `heex` | `elixirls` | `mix` | — | `heex` |
 | Erlang | `erlang` | `elp` | `erlfmt` | — | `erlang` |
 | F# | `fsharp` | `fsautocomplete` | `fantomas` | — | `fsharp` |
 | Fish | `fish` | `fish_lsp` | `fish_indent` | — | `fish` |
+| Fortran | `fortran` | `fortls` | `fprettify` (externo) | — | `fortran` |
 | Gleam | `gleam` | — | `gleam` | — | — |
 | GLSL | `glsl` | `glsl_analyzer` | vía LSP | — | `glsl` |
 | Go | `go` | `gopls` | `gofmt` | — | `go` |
 | Go modules | `gomod` / `gosum` / `gowork` | `gopls` | — | — | `gomod` / `gosum` / `gowork` |
 | Go templates | `gotmpl` | `gopls` | `prettier_gotmpl` | — | `gotmpl` |
+| GraphQL | `graphql` | `graphql` | `prettier` | — | `graphql` |
 | Groovy | `groovy` | `groovyls` | `npm-groovy-lint` | — | `groovy` |
 | Handlebars | `handlebars` | — | `prettier_handlebars` | — | — |
 | Haskell | `haskell` | `hls` | `fourmolu` | — | `haskell` |
@@ -321,11 +327,15 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Lua | `lua` | `lua_ls` | `stylua` | — | `lua` / `luadoc` |
 | Make | `make` | — | — | — | `make` |
 | Markdown | `markdown` | `marksman` | `prettier` + `markdown_tabs` | — | `markdown` + `markdown_inline` |
+| Mermaid | `mermaid` | — | — | — | `mermaid` |
 | Nix | `nix` | `nil_ls` | `nixfmt` | — | `nix` |
 | OCaml | `ocaml` | `ocamllsp` | `ocamlformat` | — | `ocaml` |
 | OCaml interface | `ocamlinterface` | `ocamllsp` | `ocamlformat` | — | `ocaml_interface` |
+| Perl | `perl` | `perlnavigator` | `perltidy` (externo) | — | `perl` |
+| Pascal | `pascal` | `pasls` (compilado) | — (no existe) | — | `pascal` |
 | PHP | `php` | `phpactor` | `php_cs_fixer` | — | `php` |
 | PowerShell | `ps1` | `powershell_es` | vía LSP | — | `powershell` |
+| Prolog | `prolog` | `prolog_ls` | `prolog` | — | — (no existe) |
 | Pug / Jade | `pug` | `pug` | `prettier_pug` | — | `pug` |
 | Python | `python` | `basedpyright` + `ruff` | `ruff_format` | — | `python` |
 | QML | `qml` | `qmlls` | `qmlformat` (externo) | — | `qmljs` |

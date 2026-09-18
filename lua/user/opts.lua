@@ -135,6 +135,13 @@ vim.filetype.add {
 vim.filetype.add {
   extension = {
     mdx = "markdown.mdx",
+    -- D2: Neovim no trae deteccion para `.d2`. Sin esto el fichero se queda
+    -- sin filetype y conform no encuentra el formateador `d2 fmt`.
+    d2 = "d2",
+    -- Prolog: Neovim da `.pl` a Perl y `.pro` a IDL, asi que sin esto un fuente
+    -- de Prolog no recibe filetype por ningun lado y prolog_ls no se adjunta.
+    prolog = "prolog",
+    plg = "prolog",
     -- PowerShell: nvim detecta `.ps1` y `.psm1`, pero no los manifiestos de
     -- módulo `.psd1`, que son PowerShell igual. Sin esto se quedan sin
     -- filetype y powershell_es no se adjunta (solo atiende `ps1`).
