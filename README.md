@@ -241,7 +241,7 @@ Sincroniza el clipboard del sistema con los registros de Neovim, para que copiar
 
 El formateador de markdown **no ajusta la prosa**: junta cada párrafo en una sola línea, por larga que sea, y el ajuste lo pone el editor.
 
-Qué lenguajes se ajustan se decide en [lua/user/wrap.lua](/lua/user/wrap.lua), con la misma forma que la indentación: un `default` y excepciones por filetype. De fábrica solo markdown. `<A-w>` lo alterna para el archivo que tengas delante, y lo que elijas manda sobre la tabla hasta que lo cierres.
+Qué lenguajes se ajustan se decide en [lua/user/wrap.lua](/lua/user/wrap.lua), con la misma forma que la indentación: un `default` y excepciones por filetype. De fábrica se ajustan Markdown —también MDX y Quarto— y el texto plano (`.txt`). `<A-w>` lo alterna para el archivo que tengas delante, y lo que elijas manda sobre la tabla hasta que lo cierres.
 
 La razón es que cortar a un ancho fijo solo tiene sentido en un terminal. En Obsidian, en VS Code o en cualquier editor gráfico, el editor vuelve a ajustar al ancho del panel **encima** de tus cortes, y el párrafo queda irregular: larga, corta, larga, corta. Y como en CommonMark un salto simple dentro de un párrafo se renderiza como un espacio, el resultado visible es idéntico se corte o no. Cortar solo tiene coste.
 
@@ -287,7 +287,7 @@ Esta preferencia no toca `vim.o.shell`: `:!`, `:make` y los plugins siguen usand
 
 `<leader>` es la barra espaciadora en esta configuración. Esta no pretende ser una lista completa de mappings, sino una guía breve de las operaciones que merece la pena recordar.
 
-- `<A-w>` alterna `wrap`/`nowrap` para el buffer actual. Markdown —incluidas las notas de Nyabsidian— empieza con `wrap` porque la prosa se conserva en líneas largas compatibles con Obsidian y es el editor quien la ajusta visualmente. Las tablas muy anchas no se ven bien así; este mapping permite desactivar el ajuste cuando haga falta sin modificar el archivo.
+- `<A-w>` alterna `wrap`/`nowrap` para el buffer actual. Markdown —incluidas las notas de Nyabsidian, MDX y Quarto— y el texto plano (`.txt`) empiezan con `wrap`, porque su contenido suele ser prosa en líneas largas y es el editor quien debe ajustarla visualmente. Las tablas Markdown muy anchas no se ven bien así; este mapping permite desactivar el ajuste cuando haga falta sin modificar el archivo.
 - `<A-f>` formatea el archivo actual.
 - `<leader>rs` reinicia Neovim completamente y restaura la sesión.
 - `<leader>lr` reinicia normalmente los clientes LSP.
