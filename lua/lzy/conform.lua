@@ -45,7 +45,6 @@ local formatters_by_ft = {
   typescript = { "prettier" },
   typescriptreact = { "prettier" },
   vue = { "prettier" }, -- Vue (framework de javascript)
-  -- rust = { "rustfmt" },
   -- bash = { "shfmt" },
   -- c = { "clang_format" },
   -- clojure = { "zprint" }, -- activa edn también
@@ -83,6 +82,7 @@ local formatters_by_ft = {
   -- python = { "ruff_format" },
   -- qml = { "qmlformat" }, -- externo
   -- r = { "air" },
+  -- rust = { "rustfmt" },
   -- ruby = { "rubocop", timeout_ms = 10000 },
   -- scala = { "scalafmt", timeout_ms = 10000 },
   -- solidity = { "forge_fmt" },
