@@ -2627,14 +2627,14 @@ describe("Nyabsidian structured links and attachments", function()
 
     it("writes the heading verbatim, not the markdown slug", function()
       local targets = written(complete "[[Nota con espacios#")
-      assert.is_true(vim.tbl_contains(targets, "Soy un Header"))
+      assert.is_true(vim.tbl_contains(targets, "Soy un Header]]"))
       assert.is_false(vim.tbl_contains(targets, "soy-un-header"))
     end)
 
     it("replaces only what follows the hash, keeping the hash in place", function()
       local line = "[[Nota con espacios#"
       local entry = vim.iter(complete(line).items):find(function(item)
-        return item.textEdit.newText == "Hola"
+        return item.textEdit.newText == "Hola]]"
       end)
       assert.is_not_nil(entry)
       -- El `#` esta en la columna 19: la edicion empieza en la siguiente.
@@ -2643,7 +2643,129 @@ describe("Nyabsidian structured links and attachments", function()
 
     it("offers the headings before the hash is even typed", function()
       local targets = written(complete "[[Nota con")
-      assert.is_true(vim.tbl_contains(targets, "Nota con espacios#Soy un Header"))
+      assert.is_true(vim.tbl_contains(targets, "Nota con espacios#Soy un Header]]"))
+    end)
+
+    it("shows the whole link in the menu and closes it on accept", function()
+      local entry = vim.iter(complete("[[Nota con espacios#").items):find(function(item)
+        return item.textEdit.newText:match "^Hola"
+      end)
+      assert.is_not_nil(entry)
+      -- Se ve el enlace entero, se escribe solo lo que falta, y cierra.
+      assert.are.equal("[[Nota con espacios#Hola]]", entry.label)
+      assert.are.equal("Hola]]", entry.textEdit.newText)
+      -- `filterText` se queda pelado: es contra lo que filtra el cliente.
+      assert.are.equal("Hola", entry.filterText)
+    end)
+
+    it("swallows a closing pair that autopairs already inserted", function()
+      write("Nota con espacios.md", { "# Hola", "", "## Soy un Header" })
+      write("wiki.md", { "[[Nota con]]" })
+      vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+      local result
+      require("lzy.obsidian.completion").custom_completion({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 0, character = 10 },
+      }, function(value)
+        result = value
+      end)
+      assert(vim.wait(2000, function()
+        return result ~= nil
+      end, 10), "completion did not finish")
+      local entry = result.items[1]
+      assert.is_not_nil(entry)
+      assert.are.equal("]]", entry.textEdit.newText:sub(-2))
+      -- El rango llega hasta el final del `]]` que ya estaba: 10 + 2.
+      assert.are.equal(12, entry.textEdit.range["end"].character)
+    end)
+
+    it("does not close once you are chaining anchors, nor on a folder", function()
+      write("anidado.md", { "# Padre", "## Hijo", "### Nieto" })
+      local function first(line)
+        write("wiki.md", { line })
+        vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+        local result
+        require("lzy.obsidian.completion").custom_completion({
+          textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+          position = { line = 0, character = #line },
+        }, function(value)
+          result = value
+        end)
+        assert(vim.wait(2000, function()
+          return result ~= nil
+        end, 10), "completion did not finish")
+        return result.items[1]
+      end
+
+      -- El primer anchor cierra: ahi es donde casi siempre se termina.
+      assert.are.equal("]]", first("[[anidado#").textEdit.newText:sub(-2))
+      -- Encadenando ya no, que lo normal es seguir bajando por la jerarquia.
+      assert.are_not.equal("]]", first("[[anidado#Padre#").textEdit.newText:sub(-2))
+
+      -- Y una carpeta tampoco: es el camino, no el destino.
+      write("docs/nota.md", { "# Nota" })
+      local folder = first "[[/"
+      assert.are.equal(vim.lsp.protocol.CompletionItemKind.Folder, folder.kind)
+      assert.are_not.equal("]]", folder.textEdit.newText:sub(-2))
+    end)
+
+    it("does not bracket or close a markdown target", function()
+      write("wiki.md", { "[Algo](Nota con" })
+      vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+      local result
+      require("lzy.obsidian.completion").custom_completion({
+        textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+        position = { line = 0, character = 15 },
+      }, function(value)
+        result = value
+      end)
+      assert(vim.wait(2000, function()
+        return result ~= nil
+      end, 10), "completion did not finish")
+      for _, item in ipairs(result.items) do
+        assert.is_nil(item.label:match "^%[%[")
+        assert.is_nil(item.textEdit.newText:match "%]%]$")
+      end
+    end)
+
+    it("only offers what hangs from the anchor already typed", function()
+      write("anidado.md", {
+        "# Padre A", "## Intermedio", "### Hijo A1", "### Hijo A2",
+        "# Padre B", "## Intermedio", "### Hijo B1",
+      })
+      local function targets(line)
+        write("wiki.md", { line })
+        vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
+        local result
+        require("lzy.obsidian.completion").custom_completion({
+          textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
+          position = { line = 0, character = #line },
+        }, function(value)
+          result = value
+        end)
+        assert(vim.wait(2000, function()
+          return result ~= nil
+        end, 10), "completion did not finish")
+        return vim.tbl_map(function(item)
+          return (item.textEdit.newText:gsub("%]%]$", ""))
+        end, result.items)
+      end
+
+      local under_a = targets "[[anidado#Padre A#"
+      assert.is_true(vim.tbl_contains(under_a, "Intermedio"))
+      assert.is_true(vim.tbl_contains(under_a, "Hijo A1"))
+      -- Ni padres, ni hermanos, ni la otra rama.
+      assert.is_false(vim.tbl_contains(under_a, "Padre A"))
+      assert.is_false(vim.tbl_contains(under_a, "Padre B"))
+      assert.is_false(vim.tbl_contains(under_a, "Hijo B1"))
+
+      -- Un prefijo ambiguo trae los hijos de todas sus coincidencias.
+      local under_both = targets "[[anidado#Intermedio#"
+      assert.is_true(vim.tbl_contains(under_both, "Hijo A1"))
+      assert.is_true(vim.tbl_contains(under_both, "Hijo B1"))
+
+      -- Una hoja no tiene nada debajo.
+      assert.are.same({}, targets "[[anidado#Padre A#Intermedio#Hijo A1#")
     end)
 
     it("does not treat a markdown link as a wiki anchor", function()
@@ -2723,9 +2845,11 @@ describe("Nyabsidian structured links and attachments", function()
       return result
     end
 
+    -- Un item de `[[` que termina el enlace lo cierra al aceptarse; aqui lo que
+    -- se comprueba es el destino, no el cierre, que tiene sus propios tests.
     local function item(result, target)
       return vim.iter(result.items):find(function(entry)
-        return entry.textEdit.newText == target
+        return (entry.textEdit.newText:gsub("%]%]$", "")) == target
       end)
     end
 

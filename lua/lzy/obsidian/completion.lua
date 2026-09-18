@@ -252,6 +252,41 @@ local function target_context(line, character)
     or inline_target_context(line, character)
 end
 
+--- Cuantos caracteres de cierre ya hay justo tras el cursor.
+---
+--- Al completar un wikilink se escribe tambien el `]]`, asi que si ya esta ahi
+--- --lo pone autopairs al teclear `[[`-- hay que tragarselo en vez de dejar
+--- `]]]]`.
+---@param line string
+---@param character integer 0-based
+---@return integer
+local function closing_ahead(line, character)
+  local rest = line:sub(character + 1)
+  if rest:sub(1, 2) == "]]" then
+    return 2
+  end
+  if rest:sub(1, 1) == "]" then
+    return 1
+  end
+  return 0
+end
+
+--- Como se ve un destino en el menu.
+---
+--- Dentro de `[[...]]` se enseña el enlace entero, corchetes incluidos: es lo
+--- que va a quedar escrito, y asi todos los items del menu tienen la misma
+--- forma --los de obsidian.nvim ya la tienen--. `filterText` se queda con el
+--- destino pelado, que es contra lo que el cliente compara lo tecleado.
+---@param kind string|nil
+---@param text string
+---@return string
+local function display(kind, text)
+  if kind == "wiki" then
+    return "[[" .. text .. "]]"
+  end
+  return text
+end
+
 ---@param path string
 ---@return string
 -- Codificador único del proyecto (ver lzy.link_target.encode).
@@ -384,12 +419,19 @@ local function complete_target(params, context, callback)
       items[#items + 1] = item
     end
   end
-  local function edit(target)
+  -- Un wikilink se completa entero, cierre incluido, pero solo cuando el item
+  -- termina el enlace. Una carpeta no lo termina: es el camino, y detras va a
+  -- seguir escribiendose. Las otras sintaxis no tienen nada que cerrar aqui.
+  local swallow = closing_ahead(context.line or "", context.end_col)
+  ---@param target string
+  ---@param closes boolean|nil si este item deja el enlace terminado
+  local function edit(target, closes)
+    closes = closes and context.kind == "wiki"
     return {
-      newText = target,
+      newText = closes and (target .. "]]") or target,
       range = {
         start = { line = params.position.line, character = context.start_col },
-        ["end"] = { line = params.position.line, character = context.end_col },
+        ["end"] = { line = params.position.line, character = context.end_col + (closes and swallow or 0) },
       },
     }
   end
@@ -399,14 +441,14 @@ local function complete_target(params, context, callback)
     local directory = entry.kind == "directory"
     local scope = entry.scope == "system" and "del sistema" or "del vault"
     add {
-      label = target,
+      label = display(context.kind, target),
       filterText = target,
       -- Las carpetas primero: son el camino, no el destino.
       sortText = (directory and "0" or "1") .. target:lower(),
       detail = (directory and "Carpeta " or "Nota ") .. scope,
       kind = directory and vim.lsp.protocol.CompletionItemKind.Folder
         or vim.lsp.protocol.CompletionItemKind.File,
-      textEdit = edit(target),
+      textEdit = edit(target, not directory),
     }
   end
 
@@ -425,14 +467,14 @@ local function complete_target(params, context, callback)
         for _, suggestion in ipairs(target and anchor_suggestions(note) or {}) do
           local written = target .. "#" .. anchor_written(suggestion.segments)
           add {
-            label = written,
+            label = display(context.kind, written),
             filterText = written,
             -- Detrás de la nota a secas: primero se elige nota, luego heading.
             sortText = "2" .. written:lower(),
             detail = #suggestion.parents > 0 and table.concat(suggestion.parents, " › ")
               or "Heading",
             kind = vim.lsp.protocol.CompletionItemKind.Reference,
-            textEdit = edit(written),
+            textEdit = edit(written, true),
           }
         end
       end
@@ -450,7 +492,7 @@ local function complete_target(params, context, callback)
       local target, root_relative = note_target(bufnr, query, note, root, context.kind)
       if target and root_relative then
         add {
-          label = target,
+          label = display(context.kind, target),
           filterText = coord.filter_text(query, target, root_relative),
           sortText = "1" .. target:lower(),
           detail = "Nota del vault",
@@ -459,7 +501,7 @@ local function complete_target(params, context, callback)
             kind = "markdown",
             value = note:display_info { label = target },
           },
-          textEdit = edit(target),
+          textEdit = edit(target, true),
         }
       end
     end
@@ -480,22 +522,40 @@ end
 ---@param context nyabsidian.AnchorContext
 ---@param callback fun(result: lsp.CompletionList)
 local function complete_anchor(params, context, callback)
+  local headings = require "lzy.obsidian.headings"
+  -- Lo que ya hay escrito entre `[[` y el ultimo `#`, para poder enseñar el
+  -- enlace entero en el menu.
+  local written_prefix = context.note
+    .. "#"
+    .. (#context.done > 0 and (table.concat(context.done, "#") .. "#") or "")
+  -- Con un `#Padre#` ya tecleado se esta bajando por la jerarquia, asi que
+  -- cerrar aqui estorbaria: lo normal es seguir metiendo headers. El cierre se
+  -- pone al completar el primer anchor, que es donde casi siempre se termina.
+  local closes = #context.done == 0
+  local swallow = closes and closing_ahead(context.line or "", context.end_col) or 0
   notes_named(context.note, true, function(notes)
     local items = {}
     for _, note in ipairs(notes) do
-      for _, suggestion in ipairs(anchor_suggestions(note)) do
+      -- Con un `#Padre#` ya tecleado, lo unico que tiene sentido ofrecer son
+      -- los descendientes de `Padre`: cualquier otro heading daria un anchor que
+      -- no resuelve.
+      local suggestions = #context.done > 0 and headings.anchors_under(note, context.done)
+        or anchor_suggestions(note)
+      for _, suggestion in ipairs(suggestions) do
         local written = anchor_written(suggestion.segments)
         items[#items + 1] = {
-          label = written,
+          -- La etiqueta enseña el enlace entero, no solo el trozo que se
+          -- sustituye: es lo que va a quedar escrito.
+          label = "[[" .. written_prefix .. written .. "]]",
           filterText = written,
           sortText = written:lower(),
           detail = #suggestion.parents > 0 and table.concat(suggestion.parents, " › ") or "Heading",
           kind = vim.lsp.protocol.CompletionItemKind.Reference,
           textEdit = {
-            newText = written,
+            newText = closes and (written .. "]]") or written,
             range = {
               start = { line = params.position.line, character = context.start_col },
-              ["end"] = { line = params.position.line, character = context.end_col },
+              ["end"] = { line = params.position.line, character = context.end_col + swallow },
             },
           },
         }
@@ -552,11 +612,13 @@ local function custom_completion(params, callback)
   )[1] or ""
   local target = target_context(line, params.position.character)
   if target then
+    target.line = line
     return complete_target(params, target, callback)
   end
 
   local anchor = wiki_anchor_context(line, params.position.character)
   if anchor then
+    anchor.line = line
     return complete_anchor(params, anchor, callback)
   end
 

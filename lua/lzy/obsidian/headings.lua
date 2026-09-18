@@ -727,6 +727,101 @@ function M.heading_chains(note)
   return out
 end
 
+--- Para cada cadena, la cola mas corta que no comparte con ninguna otra.
+---
+--- Es el nucleo de todo lo que escribe un anchor: se prueba la hoja, y si la
+--- comparte con otra se le va anadiendo padre por la izquierda hasta que sea
+--- unica. Si ni la cadena entera lo es, se devuelve la hoja: mas corta y
+--- exactamente igual de ambigua, asi que alargarla no gana nada.
+---@param chains string[][]
+---@return string[][]
+local function minimal_tails(chains)
+  local function tail(chain, depth)
+    return table.concat(vim.list_slice(chain, #chain - depth + 1, #chain), "#"):lower()
+  end
+
+  local counts = {}
+  for _, chain in ipairs(chains) do
+    for depth = 1, #chain do
+      local key = tail(chain, depth)
+      counts[key] = (counts[key] or 0) + 1
+    end
+  end
+
+  local out = {}
+  for _, chain in ipairs(chains) do
+    local chosen
+    for depth = 1, #chain do
+      if (counts[tail(chain, depth)] or 0) == 1 then
+        chosen = vim.list_slice(chain, #chain - depth + 1, #chain)
+        break
+      end
+    end
+    out[#out + 1] = chosen or { chain[#chain] }
+  end
+  return out
+end
+
+--- Los headings que cuelgan de `segments`, con su anchor relativo a el.
+---
+--- Es lo que hace falta al completar `[[Nota#Padre#`: a partir de ahi solo
+--- tienen sentido los descendientes de `Padre`. Ofrecer el resto --sus
+--- hermanos, sus padres, o headings de otra rama-- produce anchors que no
+--- resuelven a nada.
+---
+--- Si el prefijo es ambiguo y resuelve a varias secciones, entran los
+--- descendientes de todas.
+---@param note obsidian.Note
+---@param segments string[] los segmentos ya cerrados por un `#`
+---@return { segments: string[], header: string, parents: string[] }[]
+function M.anchors_under(note, segments)
+  local loaded = M.load_note(note)
+  if not loaded or #segments == 0 then
+    return {}
+  end
+
+  local roots = {}
+  for _, match in ipairs(M.resolve(loaded, table.concat(segments, "#"))) do
+    roots[match.section.heading_range.start_row] = true
+  end
+
+  local chains, entries = {}, {}
+  for _, entry in ipairs(M.heading_chains(loaded)) do
+    -- La posicion del ancestro que ya esta tecleado; lo que va detras es el
+    -- anchor relativo que hay que ofrecer.
+    local cut
+    for idx, ancestor in ipairs(entry.chain) do
+      if roots[ancestor.heading_range.start_row] then
+        cut = idx
+        break
+      end
+    end
+    if cut and cut < #entry.chain then
+      local relative = {}
+      for idx = cut + 1, #entry.chain do
+        relative[#relative + 1] = entry.chain[idx].header
+      end
+      chains[#chains + 1] = relative
+      entries[#entries + 1] = entry
+    end
+  end
+
+  local tails = minimal_tails(chains)
+  local out = {}
+  for idx, entry in ipairs(entries) do
+    local parents = {}
+    for i = 1, #entry.chain - 1 do
+      parents[#parents + 1] = entry.chain[i].header
+    end
+    out[#out + 1] = {
+      segments = tails[idx],
+      header = entry.section.header,
+      parents = parents,
+    }
+  end
+  return out
+end
+
 --- El anchor mas corto que identifica a `section` sin ambiguedad.
 ---
 --- Lo normal es que baste la hoja --`Soy un Header`--. Cuando dos headings de la
@@ -743,48 +838,22 @@ end
 ---@param section obsidian.Section
 ---@return string[] segments
 function M.shortest_anchor(note, section)
-  local chains = M.heading_chains(note)
-
-  ---@param chain table[]
-  ---@param depth integer
-  ---@return string
-  local function tail(chain, depth)
-    local parts = {}
-    for idx = #chain - depth + 1, #chain do
-      parts[#parts + 1] = chain[idx].header
+  local entries = M.heading_chains(note)
+  local chains, mine = {}, nil
+  for idx, entry in ipairs(entries) do
+    local headers = {}
+    for _, walk in ipairs(entry.chain) do
+      headers[#headers + 1] = walk.header
     end
-    return table.concat(parts, "#"):lower()
-  end
-
-  local counts = {}
-  for _, entry in ipairs(chains) do
-    for depth = 1, #entry.chain do
-      local key = tail(entry.chain, depth)
-      counts[key] = (counts[key] or 0) + 1
-    end
-  end
-
-  local mine
-  for _, entry in ipairs(chains) do
+    chains[idx] = headers
     if entry.section.heading_range.start_row == section.heading_range.start_row then
-      mine = entry.chain
-      break
+      mine = idx
     end
   end
-  if not mine or #mine == 0 then
+  if not mine then
     return { section.header }
   end
-
-  for depth = 1, #mine do
-    if (counts[tail(mine, depth)] or 0) == 1 then
-      local parts = {}
-      for idx = #mine - depth + 1, #mine do
-        parts[#parts + 1] = mine[idx].header
-      end
-      return parts
-    end
-  end
-  return { mine[#mine].header }
+  return minimal_tails(chains)[mine]
 end
 
 --- El anchor de `section` listo para escribir en una sintaxis concreta.
