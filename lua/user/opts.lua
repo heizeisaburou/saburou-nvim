@@ -138,6 +138,14 @@ vim.filetype.add {
     -- D2: Neovim no trae deteccion para `.d2`. Sin esto el fichero se queda
     -- sin filetype y conform no encuentra el formateador `d2 fmt`.
     d2 = "d2",
+    -- PlantUML: Neovim no detecta ninguna de sus extensiones. `plantuml` es el
+    -- filetype que espera plantuml_lsp y el que usa syntax/plantuml.vim. `.uml`
+    -- queda fuera a propósito: también es la extensión del XMI de Eclipse UML2.
+    puml = "plantuml",
+    plantuml = "plantuml",
+    pu = "plantuml",
+    iuml = "plantuml",
+    wsd = "plantuml",
     -- Prolog: Neovim da `.pl` a Perl y `.pro` a IDL, asi que sin esto un fuente
     -- de Prolog no recibe filetype por ningun lado y prolog_ls no se adjunta.
     prolog = "prolog",

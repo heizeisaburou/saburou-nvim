@@ -206,7 +206,7 @@ Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lengua
 
 Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_ soportado. El formateador y el linter son opcionales, y en muchos lenguajes el propio LSP ya formatea.
 
-Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA y JQL, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim) y [syntax/jql.vim](/syntax/jql.vim). No hay nada que descomentar, se cargan solos.
+Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA, JQL, D2 y PlantUML, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim), [syntax/jql.vim](/syntax/jql.vim), [syntax/d2.vim](/syntax/d2.vim) y [syntax/plantuml.vim](/syntax/plantuml.vim). No hay nada que descomentar, se cargan solos.
 
 Después de descomentar, dos comandos:
 
@@ -329,7 +329,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | CSS | `css` | `cssls` | `prettier` | — | `css` |
 | Dart | `dart` | `dartls` | `dart_format` | — | `dart` |
 | Django templates | `htmldjango` | `djls` | `djlint` | — | `htmldjango` |
-| D2 | `d2` | — | `d2` (externo) | — | — (no existe) |
+| D2 | `d2` | — | `d2` (externo) | — | no existe (resalta `syntax/d2.vim`) |
 | DOT / Graphviz | `dot` | `dotls` | — (no existe) | — | `dot` |
 | Elixir | `elixir` | `elixirls` | `mix` | — | `elixir` |
 | EEx | `eelixir` | `elixirls` | `mix` | — | — |
@@ -368,6 +368,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Perl | `perl` | `perlnavigator` | `perltidy` (externo) | — | `perl` |
 | Pascal | `pascal` | `pasls` (compilado) | — (no existe) | — | `pascal` |
 | PHP | `php` | `phpactor` | `php_cs_fixer` | — | `php` |
+| PlantUML | `plantuml` | `plantuml_lsp` (externo) | — (no existe) | — | pendiente (resalta `syntax/plantuml.vim`) |
 | PowerShell | `ps1` | `powershell_es` | vía LSP | — | `powershell` |
 | Prolog | `prolog` | `prolog_ls` | `prolog` | — | — (no existe) |
 | Pug / Jade | `pug` | `pug` | `prettier_pug` | — | `pug` |

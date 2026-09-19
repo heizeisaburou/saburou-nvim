@@ -2,14 +2,9 @@
 
 > [!WARNING] Archivo provisional
 >
-> Este archivo está sucio y puede contener errores. Se ha construido de forma
-> incremental, pasando por una IA tras otra, sin una revisión completa y
-> homogénea de todo su contenido. Está fuera de `_ordenar` porque, aun así,
-> puede resultar útil leerlo como referencia de trabajo.
+> Este archivo está sucio y puede contener errores. Se ha construido de forma incremental, pasando por una IA tras otra, sin una revisión completa y homogénea de todo su contenido. Está fuera de `_ordenar` porque, aun así, puede resultar útil leerlo como referencia de trabajo.
 >
-> En el futuro, la información válida se revisará y separará en documentación
-> específica para Windows, macOS y las distintas distribuciones de Linux. Esa
-> revisión multiplataforma no es posible en estos momentos.
+> En el futuro, la información válida se revisará y separará en documentación específica para Windows, macOS y las distintas distribuciones de Linux. Esa revisión multiplataforma no es posible en estos momentos.
 
 Esta guía documenta las integraciones de lenguaje disponibles en **saburou-nvim**: servidores LSP, formatters y parsers de Tree-sitter, además de las dependencias de sistema que algunas herramientas necesitan para funcionar correctamente.
 
@@ -55,7 +50,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | CSS | `css` | `cssls` | `prettier` | — | `css` |
 | Dart | `dart` | `dartls` | `dart_format` | — | `dart` |
 | Django templates | `htmldjango` | `djls` | `djlint` | — | `htmldjango` |
-| D2 | `d2` | — | `d2` (externo) | — | — (no existe) |
+| D2 | `d2` | — | `d2` (externo) | — | no existe (resalta `syntax/d2.vim`) |
 | DOT / Graphviz | `dot` | `dotls` | — (no existe) | — | `dot` |
 | Elixir | `elixir` | `elixirls` | `mix` | — | `elixir` |
 | EEx | `eelixir` | `elixirls` | `mix` | — | — |
@@ -94,6 +89,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Perl | `perl` | `perlnavigator` | `perltidy` (externo) | — | `perl` |
 | Pascal | `pascal` | `pasls` (compilado) | — (no existe) | — | `pascal` |
 | PHP | `php` | `phpactor` | `php_cs_fixer` | — | `php` |
+| PlantUML | `plantuml` | `plantuml_lsp` (externo) | — (no existe) | — | pendiente (resalta `syntax/plantuml.vim`) |
 | PowerShell | `ps1` | `powershell_es` | vía LSP | — | `powershell` |
 | Prolog | `prolog` | `prolog_ls` | `prolog` | — | — (no existe) |
 | Pug / Jade | `pug` | `pug` | `prettier_pug` | — | `pug` |
@@ -159,7 +155,7 @@ Resuelve el binario una vez por sesión (no una vez por formateo), lo busca prim
 
 `paths` no es un detalle: varias de estas herramientas se instalan fuera del `PATH`, y otras solo están en él porque el instalador editó el rc de la shell —lo que deja de cumplirse si Neovim arranca desde un lanzador de escritorio en vez de una terminal, como pasa con `forge`—.
 
-No es exclusivo de Conform: `suricata_language_server` usa el mismo helper para localizar su ejecutable dentro del virtualenv en el que se instala, porque tampoco está en Mason.
+No es exclusivo de Conform: `suricata_language_server` y `plantuml_lsp` usan el mismo helper para localizar su ejecutable (dentro de un virtualenv y en `~/go/bin`, respectivamente), porque tampoco están en Mason.
 
 | Herramienta | Lenguaje | Se instala con | Fuera del `PATH` en |
 | --- | --- | --- | --- |
@@ -167,6 +163,7 @@ No es exclusivo de Conform: `suricata_language_server` usa el mismo helper para 
 | `erlfmt` | Erlang | `rebar3 as release escriptize` | `~/.local/share/erlfmt/...` |
 | `forge_fmt` | Solidity | instalador de Foundry | `~/.config/.foundry/bin` |
 | `nasmfmt` | NASM | `go install` | `~/go/bin` |
+| `plantuml-lsp` | PlantUML | `go install` | `~/go/bin` |
 | `fish_indent` | Fish | paquete `fish` del sistema | — |
 | `suricata-language-server` | Suricata | `pip install` en un venv | `~/.venv/sls/bin` |
 | `suricata-check` | Suricata | `pip install` en un venv | `~/.venv/suricata-check/bin` |
@@ -179,10 +176,7 @@ Si una dependencia requiere Yay, comprobar antes si el mismo paquete está dispo
 
 ### Bash
 
-Neovim abre los scripts Bash y POSIX con filetype `sh`; `bash` es el nombre del
-parser de Tree-sitter, no el filetype habitual. Al activar este soporte hay que
-descomentar `bashls`, el parser `bash` y la entrada `sh = { "shfmt" }`. Usar
-`bash = ...` en Conform deja los `.sh` sin formatter.
+Neovim abre los scripts Bash y POSIX con filetype `sh`; `bash` es el nombre del parser de Tree-sitter, no el filetype habitual. Al activar este soporte hay que descomentar `bashls`, el parser `bash` y la entrada `sh = { "shfmt" }`. Usar `bash = ...` en Conform deja los `.sh` sin formatter.
 
 Dependencia de sistema para ejecutar y validar scripts:
 
@@ -190,56 +184,40 @@ Dependencia de sistema para ejecutar y validar scripts:
 sudo pacman -S --needed bash
 ```
 
-Mason instala `bash-language-server` y `shfmt`. El LSP usa `.git` como raíz, por
-lo que un script suelto tendrá resaltado y formato pero no servidor hasta que
-esté dentro de un repositorio. Comprobación mínima: `bash -n archivo.sh`.
+Mason instala `bash-language-server` y `shfmt`. El LSP usa `.git` como raíz, por lo que un script suelto tendrá resaltado y formato pero no servidor hasta que esté dentro de un repositorio. Comprobación mínima: `bash -n archivo.sh`.
 
 ### C y C++
 
-Activar `clangd`, `clang_format` y los parsers `c`/`cpp`. Mason cubre el LSP y
-`clang-format`; el compilador y el sistema de build pertenecen al sistema:
+Activar `clangd`, `clang_format` y los parsers `c`/`cpp`. Mason cubre el LSP y `clang-format`; el compilador y el sistema de build pertenecen al sistema:
 
 ```bash
 sudo pacman -S --needed gcc clang cmake
 ```
 
-Un `.git` basta para adjuntar `clangd`, pero el análisis correcto necesita los
-flags reales del proyecto. Con CMake se generan así:
+Un `.git` basta para adjuntar `clangd`, pero el análisis correcto necesita los flags reales del proyecto. Con CMake se generan así:
 
 ```bash
 cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build
 ```
 
-Si `clangd` no localiza `build/compile_commands.json`, enlazarlo o copiarlo a la
-raíz. La configuración de Conform pasa el ancho y la política de sangría a
-`clang-format`; un `.clang-format` del proyecto sigue siendo útil para otras
-herramientas, pero esos valores comunes se fijan desde Neovim.
+Si `clangd` no localiza `build/compile_commands.json`, enlazarlo o copiarlo a la raíz. La configuración de Conform pasa el ancho y la política de sangría a `clang-format`; un `.clang-format` del proyecto sigue siendo útil para otras herramientas, pero esos valores comunes se fijan desde Neovim.
 
 ### CMake
 
-`neocmake` es el identificador LSP y Mason instala `neocmakelsp`; no confundirlo
-con `cmake-language-server`. El parser se llama `cmake` y no hay formatter
-configurado. Para configurar o construir el proyecto hace falta CMake:
+`neocmake` es el identificador LSP y Mason instala `neocmakelsp`; no confundirlo con `cmake-language-server`. El parser se llama `cmake` y no hay formatter configurado. Para configurar o construir el proyecto hace falta CMake:
 
 ```bash
 sudo pacman -S --needed cmake
 ```
 
-Conviene tener `.git`: la configuración del servidor también reconoce
-`.neocmake.toml`, `build/` y `cmake/`, pero no usa por sí solo `CMakeLists.txt`
-como marcador de raíz. Validación: `cmake -S . -B build`.
+Conviene tener `.git`: la configuración del servidor también reconoce `.neocmake.toml`, `build/` y `cmake/`, pero no usa por sí solo `CMakeLists.txt` como marcador de raíz. Validación: `cmake -S . -B build`.
 
 ### CSS y SCSS
 
-`cssls` cubre ambos filetypes y Prettier ambos formatters. CSS tiene parser
-Tree-sitter; SCSS no tiene parser activado en esta configuración. `package.json`
-o `.git` fijan la raíz del servidor.
+`cssls` cubre ambos filetypes y Prettier ambos formatters. CSS tiene parser Tree-sitter; SCSS no tiene parser activado en esta configuración. `package.json` o `.git` fijan la raíz del servidor.
 
-No necesitan un SDK del lenguaje. Mason instala `vscode-css-language-server` y
-Prettier; Node.js sólo es necesario para ejecutar el proyecto o instalar sus
-dependencias fuera de Mason. En la configuración base el formatter ya está
-activo; el LSP y el parser CSS permanecen comentados.
+No necesitan un SDK del lenguaje. Mason instala `vscode-css-language-server` y Prettier; Node.js sólo es necesario para ejecutar el proyecto o instalar sus dependencias fuera de Mason. En la configuración base el formatter ya está activo; el LSP y el parser CSS permanecen comentados.
 
 ### Elixir, EEx, HEEx y Surface
 
@@ -250,21 +228,9 @@ sudo pacman -S --needed elixir
 mix new mi_proyecto
 ```
 
-`mix.exs` fija la raíz. Al activar `elixirls`, el servidor cubre `elixir`,
-`eelixir`, `heex` **y** `surface`; esto se verificó con buffers reales. Mason
-instala el launcher, pero la primera ejecución compila una versión compatible
-con el Elixir/Erlang del sistema y puede tardar. Los parsers disponibles aquí
-son `elixir` y `heex`.
+`mix.exs` fija la raíz. Al activar `elixirls`, el servidor cubre `elixir`, `eelixir`, `heex` **y** `surface`; esto se verificó con buffers reales. Mason instala el launcher, pero la primera ejecución compila una versión compatible con el Elixir/Erlang del sistema y puede tardar. Los parsers disponibles aquí son `elixir` y `heex`.
 
-El formatter requiere más cuidado. `mix` formatea `.ex`/`.exs`, pero sin un
-plugin de proyecto acepta EEx, HEEx y Surface por stdin y los devuelve intactos:
-no es un error, es un no-op. HEEx necesita `Phoenix.LiveView.HTMLFormatter` en
-`plugins` y sus patrones en `inputs`; Surface necesita
-`Surface.Formatter.Plugin` y la dependencia `surface`. Para `.eex` clásico no
-hay en esta configuración un formatter HTML real: la entrada `mix` sólo permite
-que el proyecto aporte uno. Por eso las líneas `eelixir`, `heex` y `surface` de
-Conform deben activarse únicamente en proyectos cuya `.formatter.exs` declare
-el plugin correspondiente.
+El formatter requiere más cuidado. `mix` formatea `.ex`/`.exs`, pero sin un plugin de proyecto acepta EEx, HEEx y Surface por stdin y los devuelve intactos: no es un error, es un no-op. HEEx necesita `Phoenix.LiveView.HTMLFormatter` en `plugins` y sus patrones en `inputs`; Surface necesita `Surface.Formatter.Plugin` y la dependencia `surface`. Para `.eex` clásico no hay en esta configuración un formatter HTML real: la entrada `mix` sólo permite que el proyecto aporte uno. Por eso las líneas `eelixir`, `heex` y `surface` de Conform deben activarse únicamente en proyectos cuya `.formatter.exs` declare el plugin correspondiente.
 
 ### Gleam
 
@@ -276,26 +242,15 @@ gleam new mi_proyecto
 gleam test
 ```
 
-`gleam.toml` identifica el proyecto y `gleam format --check src test` permite
-validar el formato. La matriz refleja el estado de esta configuración: sólo se
-puede activar `gleam` como formatter; no se ha añadido LSP ni parser. El binario
-moderno de Gleam sí incluye `gleam lsp` y nvim-lspconfig conoce un servidor
-`gleam`, de modo que esto es una decisión pendiente de configuración, no una
-limitación del lenguaje.
+`gleam.toml` identifica el proyecto y `gleam format --check src test` permite validar el formato. La matriz refleja el estado de esta configuración: sólo se puede activar `gleam` como formatter; no se ha añadido LSP ni parser. El binario moderno de Gleam sí incluye `gleam lsp` y nvim-lspconfig conoce un servidor `gleam`, de modo que esto es una decisión pendiente de configuración, no una limitación del lenguaje.
 
 ### HTML
 
-Activar el servidor `html` y el parser `html`; Prettier ya está activo. Mason
-instala `vscode-html-language-server` y Prettier, así que no hay dependencia de
-sistema para editar HTML. Un `package.json` o `.git` fija la raíz del LSP. Para
-una web real, Node.js y el gestor de paquetes son dependencias del proyecto, no
-de Neovim.
+Activar el servidor `html` y el parser `html`; Prettier ya está activo. Mason instala `vscode-html-language-server` y Prettier, así que no hay dependencia de sistema para editar HTML. Un `package.json` o `.git` fija la raíz del LSP. Para una web real, Node.js y el gestor de paquetes son dependencias del proyecto, no de Neovim.
 
 ### JavaScript, TypeScript y TSX
 
-Los tres filetypes comparten `vtsls` y Prettier. Activar `vtsls` y los parsers
-`javascript`, `typescript` y `tsx`; el formatter ya está activo. Un proyecto
-mínimo debería declarar su versión de TypeScript:
+Los tres filetypes comparten `vtsls` y Prettier. Activar `vtsls` y los parsers `javascript`, `typescript` y `tsx`; el formatter ya está activo. Un proyecto mínimo debería declarar su versión de TypeScript:
 
 ```bash
 sudo pacman -S --needed nodejs npm
@@ -303,24 +258,15 @@ npm install --save-dev typescript
 npx tsc --init
 ```
 
-`tsconfig.json`, `jsconfig.json`, `package.json` o `.git` dan contexto de
-proyecto. TSX necesita además `compilerOptions.jsx` y, en un proyecto real, los
-tipos del framework utilizado. Mason instala `vtsls`; la copia local de
-TypeScript evita que el análisis dependa de una versión global distinta.
+`tsconfig.json`, `jsconfig.json`, `package.json` o `.git` dan contexto de proyecto. TSX necesita además `compilerOptions.jsx` y, en un proyecto real, los tipos del framework utilizado. Mason instala `vtsls`; la copia local de TypeScript evita que el análisis dependa de una versión global distinta.
 
 ### JSON
 
-Activar `jsonls`, `biome` y los parsers `json`/`json5`. Mason instala las tres
-piezas y no hace falta runtime de sistema. En esta configuración `jsonls` usa
-`.git` como raíz, por lo que conviene inicializar el repositorio incluso para
-una prueba pequeña. Biome infiere JSON por el nombre de archivo que Conform le
-pasa mediante stdin.
+Activar `jsonls`, `biome` y los parsers `json`/`json5`. Mason instala las tres piezas y no hace falta runtime de sistema. En esta configuración `jsonls` usa `.git` como raíz, por lo que conviene inicializar el repositorio incluso para una prueba pequeña. Biome infiere JSON por el nombre de archivo que Conform le pasa mediante stdin.
 
 ### LaTeX, TeX y TikZ
 
-TikZ no es un lenguaje independiente para Neovim: es un paquete/macrolenguaje
-dentro de TeX. Los `.tikz` se detectan como `tex` y reciben el mismo `texlab` y
-`latexindent`; esta configuración no instala parser Tree-sitter para TeX.
+TikZ no es un lenguaje independiente para Neovim: es un paquete/macrolenguaje dentro de TeX. Los `.tikz` se detectan como `tex` y reciben el mismo `texlab` y `latexindent`; esta configuración no instala parser Tree-sitter para TeX.
 
 En Arch, un entorno mínimo reproducible para el ejemplo con LuaLaTeX y TikZ es:
 
@@ -329,69 +275,48 @@ sudo pacman -S --needed texlive-basic texlive-binextra texlive-pictures
 latexmk documento.tex
 ```
 
-`texlive-binextra` aporta `latexmk` y `texlive-pictures` aporta PGF/TikZ. Mason
-instala `texlab` y `latexindent`. Activar `texlab`, las entradas `tex` y
-`plaintex` del formatter, y usar `.git`, `.latexmkrc` o `Tectonic.toml` como
-raíz. TexLab puede analizar sin distribución TeX, pero no compilar el documento.
+`texlive-binextra` aporta `latexmk` y `texlive-pictures` aporta PGF/TikZ. Mason instala `texlab` y `latexindent`. Activar `texlab`, las entradas `tex` y `plaintex` del formatter, y usar `.git`, `.latexmkrc` o `Tectonic.toml` como raíz. TexLab puede analizar sin distribución TeX, pero no compilar el documento.
 
 ### Lua
 
-`lua_ls`, `stylua` y los parsers `lua`/`luadoc` ya forman parte de la base
-activa. Mason los instala; el paquete del sistema sólo hace falta para ejecutar
-programas Lua:
+`lua_ls`, `stylua` y los parsers `lua`/`luadoc` ya forman parte de la base activa. Mason los instala; el paquete del sistema sólo hace falta para ejecutar programas Lua:
 
 ```bash
 sudo pacman -S --needed lua
 ```
 
-Una `.luarc.json` da a `lua_ls` una raíz y ajustes explícitos; `.stylua.toml` o
-`.git` también sirven como marcadores. Sin ninguno, el servidor puede tratar el
-archivo como suelto con menos contexto.
+Una `.luarc.json` da a `lua_ls` una raíz y ajustes explícitos; `.stylua.toml` o `.git` también sirven como marcadores. Sin ninguno, el servidor puede tratar el archivo como suelto con menos contexto.
 
 ### Make
 
-Sólo hay resaltado mediante el parser `make`: no se declara LSP ni formatter.
-Para ejecutar un Makefile de C sencillo:
+Sólo hay resaltado mediante el parser `make`: no se declara LSP ni formatter. Para ejecutar un Makefile de C sencillo:
 
 ```bash
 sudo pacman -S --needed make gcc
 make
 ```
 
-No sustituir tabs por espacios a ciegas: las líneas de receta de Make usan tab
-por sintaxis salvo que el proyecto cambie `.RECIPEPREFIX`. `.git` no afecta a
-esta integración porque no hay servidor que necesite raíz.
+No sustituir tabs por espacios a ciegas: las líneas de receta de Make usan tab por sintaxis salvo que el proyecto cambie `.RECIPEPREFIX`. `.git` no afecta a esta integración porque no hay servidor que necesite raíz.
 
 ### Markdown
 
-`marksman`, `markdown` y `markdown_inline` ya están activos, igual que la cadena
-de formato propia basada en Prettier. No hay dependencia de sistema. Para que
-Marksman trate varias notas como un workspace, usar `.marksman.toml` o `.git`;
-un directorio de archivos sueltos pierde parte de la navegación entre notas.
+`marksman`, `markdown` y `markdown_inline` ya están activos, igual que la cadena de formato propia basada en Prettier. No hay dependencia de sistema. Para que Marksman trate varias notas como un workspace, usar `.marksman.toml` o `.git`; un directorio de archivos sueltos pierde parte de la navegación entre notas.
 
-El formatter no es Prettier sin más: protege callouts, frontmatter y spoilers,
-restaura esas estructuras, normaliza referencias, respeta la política de wrap
-del proyecto y termina con `markdown_tabs`. Por eso la comprobación correcta es
-formatear desde Neovim, no comparar únicamente `prettier --check`.
+El formatter no es Prettier sin más: protege callouts, frontmatter y spoilers, restaura esas estructuras, normaliza referencias, respeta la política de wrap del proyecto y termina con `markdown_tabs`. Por eso la comprobación correcta es formatear desde Neovim, no comparar únicamente `prettier --check`.
 
 ### PHP
 
-Activar `phpactor`, `php_cs_fixer` y el parser `php`. Mason instala PHPactor y
-PHP-CS-Fixer, pero ambos necesitan un PHP ejecutable:
+Activar `phpactor`, `php_cs_fixer` y el parser `php`. Mason instala PHPactor y PHP-CS-Fixer, pero ambos necesitan un PHP ejecutable:
 
 ```bash
 sudo pacman -S --needed php composer
 ```
 
-Composer sólo es imprescindible cuando el proyecto tiene dependencias, pero un
-`composer.json` mínimo es un buen marcador de raíz y aporta a PHPactor el
-autoload y la versión objetivo. `.git`, `.phpactor.json` y `.phpactor.yml`
-también sirven. Validación rápida: `php -l archivo.php`.
+Composer sólo es imprescindible cuando el proyecto tiene dependencias, pero un `composer.json` mínimo es un buen marcador de raíz y aporta a PHPactor el autoload y la versión objetivo. `.git`, `.phpactor.json` y `.phpactor.yml` también sirven. Validación rápida: `php -l archivo.php`.
 
 ### Rust
 
-Activar `rust_analyzer`, `rustfmt` y el parser `rust`. Mason instala el servidor;
-`cargo` y `rustfmt` pertenecen al toolchain:
+Activar `rust_analyzer`, `rustfmt` y el parser `rust`. Mason instala el servidor; `cargo` y `rustfmt` pertenecen al toolchain:
 
 ```bash
 sudo pacman -S --needed rust
@@ -400,37 +325,23 @@ cargo check
 cargo fmt --check
 ```
 
-`Cargo.toml` fija la raíz y permite que rust-analyzer cargue el workspace. En
-Windows y macOS puede preferirse rustup, asegurando que el componente `rustfmt`
-esté instalado. La configuración pasa a rustfmt el ancho y la sangría comunes.
+`Cargo.toml` fija la raíz y permite que rust-analyzer cargue el workspace. En Windows y macOS puede preferirse rustup, asegurando que el componente `rustfmt` esté instalado. La configuración pasa a rustfmt el ancho y la sangría comunes.
 
 ### TOML
 
-Taplo proporciona a la vez LSP y formatter y Mason lo instala; activar `taplo`
-en ambas listas y el parser `toml`. No hay dependencia de sistema. Un
-`taplo.toml`, `.taplo.toml` o `.git` fija la raíz. Comprobaciones de CLI útiles:
-`taplo check` y `taplo format --check`.
+Taplo proporciona a la vez LSP y formatter y Mason lo instala; activar `taplo` en ambas listas y el parser `toml`. No hay dependencia de sistema. Un `taplo.toml`, `.taplo.toml` o `.git` fija la raíz. Comprobaciones de CLI útiles: `taplo check` y `taplo format --check`.
 
 ### Vim y Vimdoc
 
-No tienen LSP ni formatter configurados y no necesitan paquetes externos. Sólo
-hay que activar los parsers `vim` y `vimdoc`. El matiz importante es el nombre:
-los scripts usan filetype `vim`, pero los helpfiles que viven bajo `doc/` usan
-filetype `help`; `vimdoc` es el nombre del parser. Un `.txt` cualquiera fuera de
-ese contexto seguirá siendo texto normal.
+No tienen LSP ni formatter configurados y no necesitan paquetes externos. Sólo hay que activar los parsers `vim` y `vimdoc`. El matiz importante es el nombre: los scripts usan filetype `vim`, pero los helpfiles que viven bajo `doc/` usan filetype `help`; `vimdoc` es el nombre del parser. Un `.txt` cualquiera fuera de ese contexto seguirá siendo texto normal.
 
 ### YAML
 
-Activar `yamlls`, `yamlfmt` y el parser `yaml`. Mason instala todo y no hace
-falta runtime de sistema. `yamlls` usa `.git` como raíz. La adaptación de
-Conform ejecuta yamlfmt por stdin —la invocación builtin basada sólo en
-`-in $FILENAME` puede ser un no-op— y conserva el marcador `---`. Los proyectos
-Ansible se reclasifican aparte como `yaml.ansible` y reutilizan este formatter.
+Activar `yamlls`, `yamlfmt` y el parser `yaml`. Mason instala todo y no hace falta runtime de sistema. `yamlls` usa `.git` como raíz. La adaptación de Conform ejecuta yamlfmt por stdin —la invocación builtin basada sólo en `-in $FILENAME` puede ser un no-op— y conserva el marcador `---`. Los proyectos Ansible se reclasifican aparte como `yaml.ansible` y reutilizan este formatter.
 
 ### Zig
 
-Activar `zls`, `zigfmt` y el parser `zig`. Mason instala ZLS, mientras que el
-compilador y el formatter vienen juntos en el toolchain:
+Activar `zls`, `zigfmt` y el parser `zig`. Mason instala ZLS, mientras que el compilador y el formatter vienen juntos en el toolchain:
 
 ```bash
 sudo pacman -S --needed zig
@@ -440,10 +351,7 @@ zig build test
 zig fmt --check build.zig src/*.zig
 ```
 
-`build.zig`, `zls.json` o `.git` fijan la raíz. ZLS debe ser compatible con la
-versión de Zig utilizada por el proyecto; si tras una actualización rolling
-aparecen errores de protocolo o AST, comprobar esa pareja antes de depurar
-Neovim.
+`build.zig`, `zls.json` o `.git` fijan la raíz. ZLS debe ser compatible con la versión de Zig utilizada por el proyecto; si tras una actualización rolling aparecen errores de protocolo o AST, comprobar esa pareja antes de depurar Neovim.
 
 ### Ansible
 
@@ -609,10 +517,30 @@ Neovim ejecuta el servidor a través de `dart language-server --protocol=lsp`; b
 
 ### D2
 
-Es el peor soportado de los tres lenguajes de diagramas: **no hay parser de Tree-sitter**, así que no hay resaltado, y **no hay LSP**. Lo único que existe es el formatter.
+Lo primero es el propio D2, que es el que convierte el `.d2` en imagen. Sin él no hay diagrama, se use el editor que se use. También es el formatter:
 
-- Neovim **no detecta `.d2`**. La extensión se añade en [lua/user/opts.lua](/lua/user/opts.lua); sin ella el fichero se queda sin filetype y Conform ni busca formatter.
-- El formatter `d2` de Conform ejecuta `d2 fmt`, así que necesita el binario. **No está en Mason**; en Arch es `extra/d2`.
+```bash
+sudo pacman -S --needed d2   # repo oficial extra; no está en Mason
+d2 diagrama.d2 diagrama.svg  # renderizar
+```
+
+En Neovim, D2 tiene resaltado y formatter, pero **no tiene LSP**: no hay ningún servidor de D2, así que los errores no se ven hasta que se formatea o se renderiza. **Tampoco hay parser de Tree-sitter** catalogado. Todo sale de esta configuración:
+
+| Pieza | Dónde | Sin ella |
+| --- | --- | --- |
+| Filetype `d2` | [lua/user/opts.lua](/lua/user/opts.lua) | Neovim **no detecta `.d2`**: el fichero no tiene filetype y no se carga nada de lo demás |
+| Resaltado | [syntax/d2.vim](/syntax/d2.vim) | sin resaltado |
+| `commentstring` | [after/ftplugin/d2.lua](/after/ftplugin/d2.lua) | `gc` falla con `commentstring is empty` |
+| Formatter `d2` | [lua/lzy/conform.lua](/lua/lzy/conform.lua) | sin formato; Conform ejecuta `d2 fmt` y necesita el binario |
+
+El resaltado es un `syntax/*.vim` propio, como los de YARA, JQL y PlantUML. Las palabras reservadas, las formas y la sintaxis de flechas y de bloques de texto salen del parser de D2 (`d2ast/keywords.go` y `d2parser/parse.go`). Las palabras reservadas (`shape`, `style`, `fill`, `target-arrowhead`...) solo se resaltan en posición de clave, así que no se colorean dentro del texto de una etiqueta.
+
+Dos detalles de D2 que conviene saber, porque el resaltado los refleja:
+
+- **`#` abre un comentario** al principio de línea o tras un espacio. Por eso los colores van entre comillas: `style.fill: "#f4a261"`. Sin comillas, el color es un comentario.
+- **Un `|` suelto cierra un bloque `|md ... |`.** Para escribir tuberías dentro, el bloque se abre con `||md` y se cierra con `||`.
+
+`d2 fmt` también sirve de validación mínima: si el fichero no parsea, el formateo falla con la línea del error. `d2 validate diagrama.d2` hace lo mismo sin tocar el fichero.
 
 Proyecto mínimo: un `.d2` suelto, sin nada alrededor.
 
@@ -902,6 +830,70 @@ end,
 `FPCDIR` es la única obligatoria. `PP` se resuelve con un glob porque lleva el número de versión dentro de la ruta (`/usr/lib/fpc/3.2.2/ppcx64`).
 
 Proyecto mínimo: el `root_dir` busca `*.lpi`, `*.lpk` o `.git`, así que basta un directorio con `git init` y el `.pas` dentro.
+
+### PlantUML
+
+Lo primero es el propio PlantUML, que es el que convierte el `.puml` en imagen. Sin él no hay diagrama, se use el editor que se use. Además, en Neovim lo usa el LSP para los diagnósticos:
+
+```bash
+sudo pacman -S --needed plantuml   # repo oficial extra; depende de java-runtime>=8
+plantuml -tsvg diagrama.puml       # renderizar (-tpng para PNG)
+```
+
+Y el servidor de lenguaje, `plantuml-lsp`. No está en Mason, y en Arch tampoco hay paquete: ni en los repositorios oficiales, ni en AUR, ni en Chaotic-AUR. Se compila con Go (1.22 o superior), que sí está en el repositorio oficial `extra`:
+
+```bash
+# Arch
+sudo pacman -S --needed go
+go install github.com/ptdewey/plantuml-lsp@latest   # deja el binario en ~/go/bin
+
+# Cualquier otro sistema con Go instalado
+go install github.com/ptdewey/plantuml-lsp@latest
+```
+
+`go install` deja el binario en `$(go env GOPATH)/bin`, que por defecto es `~/go/bin` y no siempre está en el `PATH`. La configuración lo busca también ahí, así que no hace falta añadirlo.
+
+Neovim no trae nada de PlantUML: ni detección de filetype, ni `syntax/plantuml.vim`, ni ftplugin. Tampoco hay parser en nvim-treesitter ni servidor en nvim-lspconfig o en Mason. Todo lo que hay sale de esta configuración, repartido en cuatro sitios:
+
+| Pieza | Dónde | Sin ella |
+| --- | --- | --- |
+| Filetype `plantuml` | [lua/user/opts.lua](/lua/user/opts.lua) | el fichero no tiene filetype y no se carga nada de lo demás |
+| Resaltado | [syntax/plantuml.vim](/syntax/plantuml.vim) | sin resaltado |
+| `commentstring` | [after/ftplugin/plantuml.lua](/after/ftplugin/plantuml.lua) | `gc` falla con `commentstring is empty` |
+| LSP `plantuml_lsp` | [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) | sin diagnósticos, completado ni hover |
+
+Extensiones mapeadas: `.puml`, `.plantuml`, `.pu`, `.iuml` (la convención para ficheros que se incluyen con `!include`) y `.wsd`. `.uml` queda fuera a propósito: también es la extensión del XMI de Eclipse UML2, que es XML, y mandarla a PlantUML estropearía esos ficheros.
+
+El resaltado es un `syntax/*.vim` propio, como los de YARA, JQL y D2, porque no hay parser catalogado. Gramáticas de Tree-sitter de terceros sí existen (la más completa es `derivasoftware/tree-sitter-plantuml`), pero ninguna está en nvim-treesitter. Es un resaltado gramatical: etiquetas `@start…`/`@end…`, preprocesador (`!include`, `!procedure`, `$variables`, `%funciones()`), comentarios, flechas con estilo y dirección (`-[#red]->`, `-up->`), notas multilínea, estereotipos, colores y palabras clave. No valida el diagrama: eso lo hace el LSP. Tampoco hay inyección en bloques ` ```plantuml ` de markdown, porque la inyección necesita un parser.
+
+**No hay formatter.**
+
+#### El servidor: `plantuml-lsp`
+
+Es [`ptdewey/plantuml-lsp`](https://github.com/ptdewey/plantuml-lsp), en Go. No está en Mason ni en nvim-lspconfig, así que la definición completa (`cmd`, `filetypes`, raíz) está en `M.config`, igual que la de `suricata_language_server`. Como el resto de lenguajes opcionales, está comentado en `M.servers`: se activa descomentando `"plantuml_lsp"`. La configuración busca el binario en el `PATH` y, si no está, en `~/go/bin`. Si no lo encuentra, avisa una vez con el comando de instalación.
+
+Da completado (palabras clave, directivas, colores y parámetros de `skinparam`, casi un millar de entradas), hover de palabras clave y diagnósticos. La raíz es el repositorio git o, si no hay, el directorio del fichero, así que funciona con un `.puml` suelto (al contrario que `dotls`).
+
+#### Los diagnósticos necesitan `plantuml`
+
+El servidor no analiza el diagrama por sí mismo: en cada cambio pasa el buffer entero por `plantuml -syntax` (el mismo `plantuml` de arriba) y convierte la respuesta en un diagnóstico.
+
+El servidor lo recibe con `--exec-path`, y ahí hay dos trampas que la configuración esquiva:
+
+- **Sin `--exec-path` no diagnostica y no avisa**: el cliente se adjunta y el diagrama roto no marca nada.
+- **Con una ruta absoluta que no existe, el servidor revienta al arrancar** (hace `panic`).
+
+Por eso la configuración resuelve `plantuml` en el `PATH` y solo pasa `--exec-path` si lo encuentra. Si no está, avisa una vez por sesión y el servidor arranca igualmente, con completado y hover pero sin diagnósticos.
+
+Limitaciones del diseño, que vienen del servidor y no de la configuración:
+
+- **Solo se ve el primer error.** `plantuml -syntax` se detiene en el primero; al arreglarlo aparece el siguiente.
+- **Cada cambio arranca una JVM.** Una comprobación tarda del orden de medio segundo, y el servidor procesa los mensajes de uno en uno, así que un completado pedido justo después de escribir espera a que termine. Neovim agrupa los cambios (`debounce_text_changes`, 150 ms), lo que evita una JVM por pulsación, pero no una por pausa.
+- **Un `!include` relativo se resuelve contra el directorio de trabajo de Neovim, no contra el del fichero.** El buffer llega a `plantuml` por stdin, sin ruta, así que PlantUML busca el include en el directorio del proceso. Y el servidor hereda el de Neovim, no la raíz: `cmd_cwd` no depende de `root_dir`. Con Neovim abierto en la raíz, un `sub/a.puml` con `!include b.iuml` da `cannot include b.iuml` aunque `sub/b.iuml` exista. Abierto desde `sub/`, no da error. Los includes de la biblioteca estándar (`!include <C4/C4_Container>`) no tienen este problema, porque van dentro de PlantUML.
+
+`--stdlib-path` no se pasa. Solo añade completado, hover y definiciones de la biblioteca C4, y exige tener clonada `plantuml/plantuml-stdlib` en disco. Los `!include <...>` de la biblioteca estándar funcionan sin él, porque los resuelve PlantUML, no el servidor.
+
+Proyecto mínimo: un `.puml` suelto y, para ver diagnósticos, `plantuml` en el `PATH`. Para renderizar, fuera de Neovim: `plantuml -tsvg diagrama.puml`.
 
 ### Prolog
 
@@ -1334,6 +1326,8 @@ Hay varias extensiones que se normalizan deliberadamente para que LSP, formatter
 - `lhaskell` → parser Tree-sitter `haskell`.
 - `.yar`, `.yara` → `yara`, de serie en Neovim; sin parser Tree-sitter, resalta con [syntax/yara.vim](/syntax/yara.vim) porque el runtime no trae ninguno.
 - `.rules` → `hog` (Snort/Suricata), también de serie y ya con las excepciones de udev, polkit y ufw resueltas; no hay que añadir ningún mapeo propio.
+- `.d2` → `d2`, mapeo propio: el runtime no conoce la extensión. Sin parser Tree-sitter, resalta con [syntax/d2.vim](/syntax/d2.vim).
+- `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` → `plantuml`, mapeo propio: el runtime no conoce ninguna. Sin parser Tree-sitter, resalta con [syntax/plantuml.vim](/syntax/plantuml.vim). `.uml` no se mapea (es también XMI de Eclipse UML2).
 - `.jql` → `jql`, mapeo propio: el runtime no conoce la extensión. Sin parser Tree-sitter ni LSP, resalta con [syntax/jql.vim](/syntax/jql.vim).
 
 Antes de depurar un LSP, comprobar `:set filetype?`; un filetype incorrecto suele explicar tanto que el servidor no se adjunte como que se active el servidor equivocado.
@@ -1360,7 +1354,7 @@ Al añadir o quitar soporte de un lenguaje, revisar como mínimo:
 1. Identificador de LSP y, si aplica, mapeo de paquete de Mason.
 2. `formatters_by_ft` y cualquier resolver de ejecutables/plugins externos.
 3. Parser de Tree-sitter y aliases de filetype.
-4. Si no hay parser, comprobar que el runtime de Neovim trae `syntax/<lenguaje>.vim`; si no lo trae, el lenguaje se abre sin ningún resaltado (caso de YARA y JQL).
+4. Si no hay parser, comprobar que el runtime de Neovim trae `syntax/<lenguaje>.vim`; si no lo trae, el lenguaje se abre sin ningún resaltado (caso de YARA, JQL, D2 y PlantUML).
 5. Detección de extensiones/filetypes no estándar.
 6. Dependencias del SDK/toolchain que Mason no instala.
 7. README y esta guía, sin introducir rutas personales, versiones locales ni estados de pruebas temporales.
@@ -1398,6 +1392,9 @@ Las versiones concretas observadas durante pruebas locales sólo deberían entra
 - [pug-lsp](https://github.com/opa-oz/pug-lsp)
 - [`asm-lsp`](https://github.com/bergercookie/asm-lsp)
 - [`tree-sitter-batch`](https://github.com/wharflab/tree-sitter-batch)
+- [PlantUML](https://plantuml.com/)
+- [`plantuml-lsp`](https://github.com/ptdewey/plantuml-lsp)
+- [`tree-sitter-plantuml`](https://github.com/derivasoftware/tree-sitter-plantuml)
 - [`glsl_analyzer`](https://github.com/nolanderc/glsl_analyzer)
 - [`wasm-language-tools`](https://github.com/g-plane/wasm-language-tools)
 - [Gleam en Neovim](https://gleam.run/install/linux/editor/nvim/)

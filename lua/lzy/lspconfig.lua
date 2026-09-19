@@ -46,6 +46,7 @@ M.servers = {
   -- "fortls", -- Fortran
   -- "graphql", -- GraphQL (el proyecto necesita .graphqlrc)
   -- "pasls", -- Pascal (se compila a mano, ver language-dependencies.md)
+  -- "plantuml_lsp", -- PlantUML
   -- "perlnavigator", -- Perl
   -- "prolog_ls", -- Prolog (usa swipl + pack lsp_server)
   -- "rust_analyzer", -- rust
@@ -402,6 +403,48 @@ M.config = {
   metals = {},
 
   neocmake = {},
+
+  plantuml_lsp = function()
+    -- Ni nvim-lspconfig ni Mason lo conocen, así que la definición completa
+    -- sale de aquí. Se instala con `go install`, que lo deja en `~/go/bin`.
+    local executable = require "hzsr.sys.executable"
+    local server = executable.external {
+      bin = "plantuml-lsp",
+      paths = { "~/go/bin" },
+      why = "los diagramas PlantUML se quedan sin diagnósticos ni autocompletado",
+      how = "Instálalo con `go install github.com/ptdewey/plantuml-lsp@latest`.",
+    }
+    server.available()
+
+    local cmd = { server.command() }
+
+    -- Los diagnósticos no son del servidor: pasa el buffer entero por
+    -- `plantuml -syntax` en cada cambio. Sin `--exec-path` no diagnostica y
+    -- no dice nada, y con una ruta absoluta que no existe revienta al
+    -- arrancar; por eso se pasa solo la ruta resuelta, y si no hay se avisa.
+    local plantuml = executable.find "plantuml"
+    if plantuml then
+      cmd[#cmd + 1] = "--exec-path=" .. plantuml
+    else
+      vim.notify_once(
+        "plantuml-lsp necesita el binario `plantuml` para dar diagnósticos, y no "
+          .. "está en el PATH: sin él solo completa y documenta. "
+          .. "En Arch: `sudo pacman -S plantuml`.",
+        vim.log.levels.WARN
+      )
+    end
+
+    return {
+      cmd = cmd,
+      filetypes = { "plantuml" },
+      -- Un `.puml` suele ir suelto; sin repositorio la raíz es su directorio.
+      root_dir = function(bufnr, on_dir)
+        on_dir(
+          vim.fs.root(bufnr, { ".git" }) or vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr))
+        )
+      end,
+    }
+  end,
 
   powershell_es = function()
     -- PowerShell Editor Services no es un binario: es un ZIP con scripts que
