@@ -152,7 +152,8 @@ nuestro— pero ya **con la misma forma**, porque los dos siguen el estilo del p
    títulos se mantienen como componentes independientes, igual que en `obsidian-ls`.
 5. Los destinos de referencia tienen hover de la nota; los adjuntos no fabrican preview propia.
 6. Después de resolver un adjunto, su contenido decide la apertura: texto dentro de Neovim y
-   binario mediante `vim.ui.open()`. La extensión no participa en esa decisión.
+   binario mediante `vim.ui.open()`. La extensión no participa en esa decisión; sí lo hace el tipo
+   MIME, que manda al visor del sistema lo que es texto pero se mira en vez de editarse (SVG, EPS).
 
 ## Implementación
 
@@ -184,7 +185,9 @@ nuestro— pero ya **con la misma forma**, porque los dos siguen el estilo del p
   reconoce headings ATX y Setext, Unicode y anchors duplicados.
 - `gx` comparte con Nyabsidian un opener portable. Usa `file` cuando existe y un detector propio
   de firmas, BOM, NUL y bytes de control como fallback; por eso un `.mp4` textual se edita en
-  Neovim y un PNG llamado `.txt` conserva la aplicación del sistema.
+  Neovim y un PNG llamado `.txt` conserva la aplicación del sistema. De la misma llamada a `file`
+  sale el tipo MIME: `image/*`, `audio/*`, `video/*` y `application/postscript` van al visor aunque
+  su contenido sea texto, que es lo que manda un SVG fuera de Neovim.
 
 ## Fuentes
 

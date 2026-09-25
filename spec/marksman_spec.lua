@@ -1597,6 +1597,40 @@ describe("Marksman adapter", function()
 		end
 	end)
 
+	it("opens text media like SVG with the system viewer", function()
+		local svg = write("assets/diagrama.svg", {
+			'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>',
+		})
+		local note = write("assets/nota.md", { "# Nota" })
+		local source = write("source.md", { "# Source" })
+		local opener = require("sabunv.nvim.file_opener")
+
+		-- Un SVG es texto por codificación e imagen por tipo MIME: su enlace se
+		-- sigue para verlo, no para editar su fuente.
+		assert.is_true(opener.is_text(svg))
+		assert.is_true(opener.is_media(svg))
+		assert.is_false(opener.is_media(note))
+		-- Sin el ejecutable `file` (Windows) decide la extensión.
+		assert.is_true(opener.is_media(svg, { file_command = false }))
+		assert.is_false(opener.is_media(note, { file_command = false }))
+
+		vim.cmd.edit(source)
+		local original_open, opened = vim.ui.open, {}
+		vim.ui.open = function(path)
+			opened[#opened + 1] = path
+		end
+		assert.is_true(opener.open_path(svg, { schedule = false }))
+		vim.ui.open = original_open
+		assert.are.same({ svg }, opened)
+		assert.are.equal(source, vim.api.nvim_buf_get_name(0))
+
+		for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.startswith(vim.api.nvim_buf_get_name(bufnr), root .. "/") then
+				vim.api.nvim_buf_delete(bufnr, { force = true })
+			end
+		end
+	end)
+
 	it("routes gd on attachments through the same content-aware opener", function()
 		local custom = write("assets/text.custom", { "plain text" })
 		local binary = write_binary("assets/binary.weird", "\137PNG\r\n\26\n\0binary")

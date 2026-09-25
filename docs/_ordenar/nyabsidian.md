@@ -225,9 +225,14 @@ mismo significado de revisión con cero, uno o varios resultados.
 de Neovim; imágenes, PDF, audio, vídeo y demás binarios se abren con la aplicación del sistema.
 La decisión se toma por el contenido, no mediante una lista cerrada de extensiones: un `.mp4`
 textual entra en Neovim y cualquier formato no textual se delega al opener/MIME del sistema.
+El tipo MIME cuenta tanto como la codificación: un SVG es texto, pero `file` lo reporta como
+`image/svg+xml`, así que se abre en el visor y no como XML. Vale para todo `image/*`, `audio/*`,
+`video/*` y `application/postscript`; el resto del texto (Markdown, XML, JSON, HTML…) sigue
+editándose en Neovim.
 Marksman usa el mismo clasificador y opener. En sistemas sin el ejecutable `file`, como una
 instalación normal de Windows, el fallback inspecciona firmas binarias, BOM, NUL y bytes de
-control; la delegación final sigue siendo `vim.ui.open()` para conservar `xdg-open`, `open` o la
+control, y reconoce `.svg`, `.svgz`, `.eps` y `.ps` como media por extensión al no haber MIME que
+consultar; la delegación final sigue siendo `vim.ui.open()` para conservar `xdg-open`, `open` o la
 asociación de Windows según la plataforma.
 `attachments.folder` solo decide dónde se añaden o pegan archivos nuevos: nunca altera la
 resolución de un enlace existente.

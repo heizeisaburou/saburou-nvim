@@ -1,6 +1,11 @@
 -- Apertura portable de archivos resueltos por los backends Markdown.
 -- La extensión nunca decide: el contenido textual se edita en Neovim y el
 -- binario se delega a la asociación del sistema mediante `vim.ui.open()`.
+--
+-- Con una excepción que también sale del contenido, no de la extensión: hay
+-- formatos que son texto por codificación pero media por tipo (SVG, EPS). Su
+-- enlace se sigue para verlos, no para editar su fuente, así que el tipo MIME
+-- que reporta `file` los manda a la aplicación del sistema igual que un PNG.
 
 local M = {}
 local uv = vim.uv or vim.loop
@@ -24,6 +29,14 @@ local TEXT_BOMS = {
 	"\255\254\000\000", -- UTF-32 LE
 	"\000\000\254\255", -- UTF-32 BE
 }
+
+-- Tipos MIME cuyo destino natural es un visor aunque su contenido sea texto.
+local MEDIA_MIME_PREFIXES = { "image/", "audio/", "video/" }
+local MEDIA_MIME_TYPES = { ["application/postscript"] = true }
+
+-- Fallback para sistemas sin el ejecutable `file` (Windows por defecto): ahí no
+-- hay tipo MIME que consultar y la extensión es el único dato disponible.
+local MEDIA_EXTENSIONS = { svg = true, svgz = true, eps = true, ps = true }
 
 local function starts_with_any(value, prefixes)
 	for _, prefix in ipairs(prefixes) do
@@ -65,28 +78,80 @@ local function read_sample(path)
 	return sample
 end
 
+--- Tipo y codificación en una sola llamada: `image/svg+xml; charset=us-ascii`.
+---@param path string
+---@return string|? mime, string|? charset
+local function file_mime(path)
+	if vim.fn.executable("file") ~= 1 then
+		return nil, nil
+	end
+	local result = vim.system({ "file", "--brief", "--mime", "--", path }, { text = true }):wait(1500)
+	if result.code ~= 0 then
+		return nil, nil
+	end
+	local output = vim.trim(result.stdout or "")
+	local mime = output:match("^([%w%-%+%./]+)")
+	local charset = output:match("charset=([%w%-%.]+)")
+	return mime, charset
+end
+
+---@param mime string
+---@return boolean
+local function is_media_mime(mime)
+	mime = mime:lower()
+	return MEDIA_MIME_TYPES[mime] == true or starts_with_any(mime, MEDIA_MIME_PREFIXES)
+end
+
+---@param path string
+---@return boolean
+local function has_media_extension(path)
+	local ext = path:match("%.([^./\\]+)$")
+	return ext ~= nil and MEDIA_EXTENSIONS[ext:lower()] == true
+end
+
+---@param path string
+---@param opts { file_command?: boolean }|nil
+---@return { text: boolean, media: boolean }
+local function classify(path, opts)
+	opts = opts or {}
+	local stat = uv.fs_stat(path)
+	if not stat or stat.type ~= "file" then
+		return { text = false, media = false }
+	end
+
+	local mime, charset
+	if opts.file_command ~= false then
+		mime, charset = file_mime(path)
+	end
+	-- Si `file` ha hablado, su tipo manda y la extensión no vuelve a entrar.
+	local media = mime ~= nil and is_media_mime(mime) or mime == nil and has_media_extension(path)
+
+	local text
+	if stat.size == 0 then
+		text = true
+	elseif charset and charset ~= "" then
+		text = charset ~= "binary"
+	else
+		local sample = read_sample(path)
+		text = sample ~= nil and sample_is_text(sample)
+	end
+	return { text = text, media = media }
+end
+
 ---@param path string
 ---@param opts { file_command?: boolean }|nil
 ---@return boolean
 function M.is_text(path, opts)
-	opts = opts or {}
-	local stat = uv.fs_stat(path)
-	if not stat or stat.type ~= "file" then
-		return false
-	elseif stat.size == 0 then
-		return true
-	end
+	return classify(path, opts).text
+end
 
-	if opts.file_command ~= false and vim.fn.executable("file") == 1 then
-		local result = vim.system({ "file", "--brief", "--mime-encoding", "--", path }, { text = true }):wait(1500)
-		local encoding = result.code == 0 and vim.trim(result.stdout or "") or ""
-		if encoding ~= "" then
-			return encoding ~= "binary"
-		end
-	end
-
-	local sample = read_sample(path)
-	return sample ~= nil and sample_is_text(sample) or false
+--- Texto o no, el archivo se ve mejor con su visor: SVG, EPS y cualquier tipo
+--- MIME de imagen, audio o vídeo.
+---@param path string
+---@param opts { file_command?: boolean }|nil
+---@return boolean
+function M.is_media(path, opts)
+	return classify(path, opts).media
 end
 
 local function default_notify(message, level, title)
@@ -112,13 +177,14 @@ function M.open_external(target, opts)
 end
 
 ---@param path string
----@param opts { schedule?: boolean, notify?: function, title?: string }|nil
+---@param opts { schedule?: boolean, notify?: function, title?: string, file_command?: boolean }|nil
 ---@return boolean
 function M.open_path(path, opts)
 	opts = opts or {}
 	local handled = true
 	local function open()
-		if M.is_text(path) then
+		local kind = classify(path, opts)
+		if kind.text and not kind.media then
 			local ok, err = pcall(vim.cmd.edit, vim.fn.fnameescape(path))
 			if not ok then
 				local notify = opts.notify or default_notify
