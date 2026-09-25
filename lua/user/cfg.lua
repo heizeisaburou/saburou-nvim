@@ -122,6 +122,26 @@ end, { desc = "Telescope: Find config files" })
 -- Editor
 -- =============================================================================
 
+local function exit_insert_preserving_indent()
+  local line = vim.api.nvim_get_current_line()
+  local column = vim.api.nvim_win_get_cursor(0)[2]
+
+  -- Neovim descarta la autoindentación provisional al salir de una línea vacía.
+  -- Insertar y borrar un espacio hace que la considere escrita y la conserve.
+  if column > 0 and line:match "^%s*$" then
+    return " <BS><Esc>"
+  end
+
+  return "<Esc>"
+end
+
+local insert_exit_opts = {
+  expr = true,
+  desc = "Editor: Exit insert preserving indent",
+}
+map("i", "<Esc>", exit_insert_preserving_indent, insert_exit_opts)
+map("i", "<C-c>", exit_insert_preserving_indent, insert_exit_opts)
+
 -- Save, close and previous buffer
 sabunv.edt.mappings.setup()
 
