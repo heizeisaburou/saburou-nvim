@@ -45,7 +45,7 @@ M.languages = {
   -- "go",
   -- "gomod",
   -- "gosum",
-  -- "gotmpl",
+  -- "gotmpl", -- requiere html y yaml (inyecciones de after/queries/gotmpl)
   -- "gowork",
   -- "haskell",
   -- "heex",
@@ -440,6 +440,11 @@ local function start_for_buffer(bufnr)
 end
 
 function M.setup()
+  -- Antes de cualquier resaltado: `after/queries/gotmpl/injections.scm` usa un
+  -- predicado y dos directivas propias, y una query con nombres sin registrar no
+  -- compila.
+  require("hzsr.ts.gotmpl").register()
+
   for filetype, language in pairs(M.language_aliases) do
     vim.treesitter.language.register(language, filetype)
   end
