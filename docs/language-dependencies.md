@@ -38,6 +38,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Ansible | `yaml.ansible` | `ansiblels` | `yamlfmt` (vía `yaml`) | — | `yaml` (fallback) |
 | Assembly (GAS) | `asm` | `asm_lsp` | — (no existe) | — | `asm` |
 | Assembly (NASM) | `nasm` | `asm_lsp` | `nasmfmt` | — | `nasm` |
+| Astro | `astro` | `astro` | `prettier_astro` | — | `astro` |
 | Bash | `sh` | `bashls` | `shfmt` | — | `bash` |
 | Batch | `dosbatch` | — | — | — | pendiente (`tree-sitter-batch` sin catalogar) |
 | C | `c` | `clangd` | `clang_format` | — | `c` |
@@ -419,6 +420,42 @@ Dependencias de sistema:
 El servidor necesita el toolchain GNAT del sistema para analizar de verdad. En Arch es `gcc-ada`, que está en `core`, así que no hay que salir de los repositorios oficiales.
 
 Proyecto mínimo: un `.adb` suelto. Con un `.gpr` (proyecto de GPRbuild) el servidor rinde más, porque ahí es donde se declaran las unidades y las rutas.
+
+### Astro
+
+Activar el servidor `astro`, el parser `astro` y el formatter `prettier_astro`. El filetype **lo detecta Neovim de serie**, así que no hace falta tocar [lua/user/opts.lua](/lua/user/opts.lua). `package.json`, `tsconfig.json`, `jsconfig.json` o `.git` fijan la raíz del LSP.
+
+Mason instala `astro-language-server`, y ese paquete se trae su propio `typescript` y su propio `prettier` dentro. Eso significa que **el LSP no necesita ningún `npm install` por tu parte**.
+
+**No hace falta activar `vtsls`.** Es la duda razonable, porque en otros editores el servidor de Astro delega TypeScript en el servidor de TS del proyecto; aquí no, porque el paquete de Mason ya lleva el suyo. Con `vtsls` comentado y `astro` como único cliente enganchado al buffer, los errores de tipos salen tanto en el frontmatter como dentro de un `<script>` de cliente.
+
+**El formatter es la excepción y conviene entender por qué.** El servidor anuncia `documentFormattingProvider`, pero al pedirle que formatee responde:
+
+```
+Couldn't load `prettier` or `prettier-plugin-astro`. Formatting will not work.
+Please make sure those two packages are installed into your project
+```
+
+Los quiere **dentro del proyecto**, de modo que apoyarse en el formateo del LSP obligaría a cada proyecto Astro a declarar dos devDependencies sólo para poder formatear desde el editor. Por eso el formateo va por Conform con el plugin global, como el resto de plugins de Prettier que Mason no distribuye (el registro de Mason sólo tiene `prettier` y `prettierd`, ningún plugin):
+
+```bash
+sudo npm install -g prettier-plugin-astro
+```
+
+Sin ese paquete, Conform aborta con el mensaje que lo dice; el resto de Astro (diagnósticos, hover, ir a definición, resaltado) sigue funcionando.
+
+Proyecto mínimo, creado sin nada interactivo:
+
+```bash
+npm create astro@latest mi-proyecto -- --template minimal --install --no-git --skip-houston --typescript strict
+```
+
+Un detalle que despista: **`astro build` no comprueba tipos.** Compila un `.astro` con un error de tipos sin rechistar; los errores sólo salen en el editor, vía LSP, o en línea de comandos con `astro check`, que a su vez necesita dos dependencias que la plantilla no trae:
+
+```bash
+npm install --save-dev @astrojs/check typescript
+npx astro check
+```
 
 ### Batch
 

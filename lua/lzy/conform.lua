@@ -89,6 +89,7 @@ local formatters_by_ft = {
   -- sql = { "sqlfluff", "pg_format", stop_after_first = true },
   -- surface = { "mix" }, -- Elixir/Phoenix
   -- svelte = { "prettier_svelte" },
+  -- astro = { "prettier_astro" }, -- Astro (framework web)
   -- swift = { "swiftformat" },
   -- tex = { "latexindent" }, -- latex
   -- toml = { "taplo" }, -- toml
@@ -527,6 +528,8 @@ local prettier_twig_plugin =
   global_prettier_plugin(vim.fs.joinpath("@zackad", "prettier-plugin-twig", "src", "index.js"))
 local prettier_pug_plugin =
   global_prettier_plugin(vim.fs.joinpath("@prettier", "plugin-pug", "dist", "index.js"))
+local prettier_astro_plugin =
+  global_prettier_plugin(vim.fs.joinpath("prettier-plugin-astro", "dist", "index.js"))
 
 --- Escribe configuraciones pequeñas y deterministas para CLIs que sólo
 --- permiten recibir las opciones de indentación mediante un archivo.
@@ -865,6 +868,36 @@ local formatters = {
       return {
         "--plugin",
         prettier_gotmpl_plugin,
+        "--print-width=" .. tostring(line_length),
+        "--config-precedence",
+        "file-override",
+        "--tab-width=" .. tostring(config.width),
+        config.style == "tabs" and "--use-tabs" or "--no-use-tabs",
+        "--stdin-filepath",
+        "$FILENAME",
+      }
+    end,
+  },
+
+  -- El LSP de Astro anuncia `documentFormattingProvider`, pero sólo formatea si
+  -- encuentra `prettier` y `prettier-plugin-astro` **dentro del proyecto**. Eso
+  -- obligaría a cada proyecto Astro a declarar dos devDependencies para poder
+  -- formatear desde el editor, así que el formateo va por aquí con el plugin
+  -- global, como el resto de plugins de Prettier que Mason no distribuye.
+  prettier_astro = {
+    command = function()
+      return hzsr.sys.executable.resolve "prettier"
+    end,
+    args = function(_, ctx)
+      local config = indent_for(ctx)
+
+      if not prettier_astro_plugin then
+        error "prettier-plugin-astro no está instalado; ejecuta: npm install -g prettier-plugin-astro"
+      end
+
+      return {
+        "--plugin",
+        prettier_astro_plugin,
         "--print-width=" .. tostring(line_length),
         "--config-precedence",
         "file-override",

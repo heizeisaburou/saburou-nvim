@@ -31,6 +31,7 @@ M.languages = {
   -- "r",
   -- "solidity",
   -- "sql",
+  -- "astro",
   -- "bash",
   -- "c_sharp",
   -- "c",

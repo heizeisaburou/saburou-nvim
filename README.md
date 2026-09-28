@@ -318,6 +318,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Ansible | `yaml.ansible` | `ansiblels` | `yamlfmt` (vía `yaml`) | — | `yaml` (fallback) |
 | Assembly (GAS) | `asm` | `asm_lsp` | — (no existe) | — | `asm` |
 | Assembly (NASM) | `nasm` | `asm_lsp` | `nasmfmt` | — | `nasm` |
+| Astro | `astro` | `astro` | `prettier_astro` | — | `astro` |
 | Bash | `sh` | `bashls` | `shfmt` | — | `bash` |
 | Batch | `dosbatch` | — | — | — | pendiente (`tree-sitter-batch` sin catalogar) |
 | C | `c` | `clangd` | `clang_format` | — | `c` |

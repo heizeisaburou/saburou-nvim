@@ -53,6 +53,7 @@ M.servers = {
   -- "air", -- R
   -- "ansiblels", -- Ansible (yaml.ansible; detectado en opts.lua)
   -- "asm_lsp", -- Assembly (NASM/GAS/Go asm)
+  -- "astro", -- Astro (framework web); trae su propio TypeScript, no necesita vtsls
   -- "basedpyright", -- python (no olvides activar ruff también)
   -- "bashls",
   -- "clangd", -- C, C++
