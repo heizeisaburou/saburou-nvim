@@ -121,6 +121,99 @@ M.disable = { "deno" }
 ---@alias lzy.lsp.ConfigFactory fun(name: string): vim.lsp.Config?
 ---@type table<string, vim.lsp.Config|lzy.lsp.ConfigFactory>
 M.config = {
+  -- El servidor de Astro exige `typescript.tsdk` en las init options: sin él
+  -- rechaza inicializar con «The `typescript.tsdk` init option is required».
+  -- El `before_init` de nvim-lspconfig sólo mira el TypeScript del proyecto, de
+  -- modo que al abrir un repositorio recién clonado, todavía sin
+  -- `node_modules`, devuelve "" y el LSP no arranca. Aquí se le dan respaldos.
+  --
+  -- El orden importa: manda el TypeScript del proyecto, porque es el que va a
+  -- usar su build. Los otros dos sólo evitan que el editor se quede inútil
+  -- mientras no estén instaladas las dependencias.
+  --
+  -- Aviso: TypeScript 7.x dejó de publicar `tsserverlibrary.js`. Un TS 7 sigue
+  -- teniendo `typescript.js`, así que la comprobación de abajo lo acepta, pero
+  -- si alguna versión del servidor pasa a exigir el otro fichero habrá que fijar
+  -- el respaldo en TS <= 6.
+  astro = function()
+    --- ¿Es `dir` un tsdk servible?
+    ---@param dir string|nil
+    ---@return boolean
+    local function usable(dir)
+      if not dir or dir == "" then
+        return false
+      end
+      return vim.uv.fs_stat(vim.fs.joinpath(dir, "typescript.js")) ~= nil
+        or vim.uv.fs_stat(vim.fs.joinpath(dir, "tsserverlibrary.js")) ~= nil
+    end
+
+    --- El TypeScript que Mason instala dentro del propio astro-language-server.
+    ---@return string
+    local function mason_tsdk()
+      return vim.fs.joinpath(
+        vim.fn.stdpath "data",
+        "mason",
+        "packages",
+        "astro-language-server",
+        "node_modules",
+        "typescript",
+        "lib"
+      )
+    end
+
+    --- Un TypeScript instalado global con npm. Se consulta el último porque
+    --- `npm root -g` cuesta un proceso.
+    ---@return string|nil
+    local function global_tsdk()
+      local root = vim.fn.systemlist "npm root -g"
+      if vim.v.shell_error ~= 0 or not root[1] or root[1] == "" then
+        return nil
+      end
+      return vim.fs.joinpath(vim.trim(root[1]), "typescript", "lib")
+    end
+
+    return {
+      before_init = function(_, config)
+        -- Cada respaldo se consulta sólo si falla el anterior: `global_tsdk`
+        -- lanza un proceso, y no hay que pagarlo cuando ya hay candidato.
+        local function resolve()
+          local ok, project = pcall(function()
+            return require("lspconfig.util").get_typescript_server_path(config.root_dir)
+          end)
+          if ok and usable(project) then
+            return project
+          end
+
+          local mason = mason_tsdk()
+          if usable(mason) then
+            return mason
+          end
+
+          local global = global_tsdk()
+          if usable(global) then
+            return global
+          end
+        end
+
+        local tsdk = resolve()
+
+        if not tsdk then
+          vim.notify(
+            "astro: no hay ningún TypeScript utilizable como `tsdk`. Instala las "
+              .. "dependencias del proyecto, o reinstala astro-language-server "
+              .. "con :MasonInstallAll.",
+            vim.log.levels.WARN
+          )
+          return
+        end
+
+        config.init_options = config.init_options or {}
+        config.init_options.typescript = config.init_options.typescript or {}
+        config.init_options.typescript.tsdk = tsdk
+      end,
+    }
+  end,
+
   -- pasls usa CodeTools de Lazarus, y necesita saber donde estan las fuentes de
   -- FPC y de Lazarus. Lo lee de variables de entorno, no de settings, asi que se
   -- le pasan en el propio proceso para no depender del entorno de la shell.
