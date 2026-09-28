@@ -344,7 +344,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | GLSL | `glsl` | `glsl_analyzer` | vía LSP | — | `glsl` |
 | Go | `go` | `gopls` | `gofmt` | — | `go` |
 | Go modules | `gomod` / `gosum` / `gowork` | `gopls` | — | — | `gomod` / `gosum` / `gowork` |
-| Go templates | `gotmpl` | `gopls` | `prettier_gotmpl` | — | `gotmpl` |
+| Go templates | `gotmpl` | `gopls` | `prettier_gotmpl` | — | `gotmpl` + `html` / `yaml` (inyección) |
 | GraphQL | `graphql` | `graphql` | `prettier` | — | `graphql` |
 | Groovy | `groovy` | `groovyls` | `npm-groovy-lint` | — | `groovy` |
 | Handlebars | `handlebars` | — | `prettier_handlebars` | — | — |

@@ -64,7 +64,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | GLSL | `glsl` | `glsl_analyzer` | vía LSP | — | `glsl` |
 | Go | `go` | `gopls` | `gofmt` | — | `go` |
 | Go modules | `gomod` / `gosum` / `gowork` | `gopls` | — | — | `gomod` / `gosum` / `gowork` |
-| Go templates | `gotmpl` | `gopls` | `prettier_gotmpl` | — | `gotmpl` |
+| Go templates | `gotmpl` | `gopls` | `prettier_gotmpl` | — | `gotmpl` + `html` / `yaml` (inyección) |
 | GraphQL | `graphql` | `graphql` | `prettier` | — | `graphql` |
 | Groovy | `groovy` | `groovyls` | `npm-groovy-lint` | — | `groovy` |
 | Handlebars | `handlebars` | — | `prettier_handlebars` | — | — |
@@ -1097,7 +1097,16 @@ El formatter es `djlint`, con perfil Django desde Conform.
 
 `gofmt` pertenece al toolchain de Go; `gopls` es el LSP. Para plantillas, `.tmpl`, `.gotmpl` y `.gohtml` se normalizan al filetype `gotmpl`, que es el languageId que `gopls` entiende para este caso.
 
-El parser de Tree-sitter también es `gotmpl`. El formatter de plantillas usa Prettier con un plugin externo:
+El parser de Tree-sitter también es `gotmpl`, pero por sí solo deja la plantilla casi sin color: la gramática sólo parsea las acciones (`{{ … }}`) y mete todo lo demás en nodos `text` opacos. Ni el marcado ni el frontmatter tienen nodo propio. Las dos cosas se resaltan por inyección desde [after/queries/gotmpl/injections.scm](/after/queries/gotmpl/injections.scm), así que `gotmpl` **también necesita los parsers `html` y `yaml`** instalados:
+
+- El cuerpo va al parser `html` con `injection.combined`, para que las etiquetas partidas por una acción (`<a href="{{ .URL }}">`) sigan formando un único documento.
+- El frontmatter `---` va al parser `yaml`, delimitadores incluidos, igual que la inyección de frontmatter de Markdown.
+
+El recorte de las dos regiones no se puede expresar con `#offset!`, porque el frontmatter no mide siempre lo mismo. Lo hacen un predicado y dos directivas propias, `hzsr-gotmpl-*`, que registra [lua/hzsr/ts/gotmpl.lua](/lua/hzsr/ts/gotmpl.lua) desde `lzy.treesitter.setup`; tiene que ser antes del primer resaltado, porque una query con nombres sin registrar no compila. Sólo se reconoce `---` como delimitador: TOML (`+++`) queda fuera a propósito, no hay parser de TOML garantizado.
+
+Las acciones no pierden su resaltado en ningún caso: el `highlights.scm` de `gotmpl` fija `priority 110`, por encima del 100 de las inyecciones.
+
+El formatter de plantillas usa Prettier con un plugin externo:
 
 ```bash
 sudo npm install -g prettier-plugin-go-template
@@ -1357,7 +1366,7 @@ Hay varias extensiones que se normalizan deliberadamente para que LSP, formatter
 - `.jinja2`, `.j2` → `jinja`.
 - `.jade` → `pug`.
 - `.handlebars` → `handlebars`.
-- `.tmpl`, `.gotmpl`, `.gohtml` → `gotmpl`.
+- `.tmpl`, `.gotmpl`, `.gohtml` → `gotmpl`, con `html` inyectado en el cuerpo y `yaml` en el frontmatter (ver [Go y plantillas Go](#go-y-plantillas-go)).
 - YAML con estructura de Ansible → `yaml.ansible`.
 - `edn` → parser Tree-sitter `clojure`.
 - `lhaskell` → parser Tree-sitter `haskell`.

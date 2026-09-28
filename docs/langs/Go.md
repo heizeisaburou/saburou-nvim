@@ -76,4 +76,9 @@ El resto de la configuración es igual que en Linux y Windows.
 	- `"gotmpl"`
 	- `"gowork"`
 
+	`"gotmpl"` necesita además `"html"` y `"yaml"`: la gramática de `gotmpl` sólo
+	parsea lo que va entre `{{` y `}}`, así que el cuerpo de la plantilla y su
+	frontmatter se resaltan por inyección desde
+	[after/queries/gotmpl/injections.scm](/after/queries/gotmpl/injections.scm).
+
 - [lua/lzy/lspconfig.lua](/lua/lzy/lspconfig.lua) ― descomenta `gopls`.
