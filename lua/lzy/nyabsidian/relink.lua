@@ -16,7 +16,7 @@
 --
 -- Lo que NUNCA se toca: enlaces que no resuelven, o que resuelven a más de una
 -- cosa. En una pasada masiva, no saber es razón para no tocar. Los enlaces
--- rotos son cosa de lzy.obsidian.diagnostics.
+-- rotos son cosa de lzy.nyabsidian.diagnostics.
 
 local M = {}
 
@@ -79,7 +79,7 @@ end
 ---@param exclude string|nil ruta a ignorar al resolver
 ---@return string|nil path
 local function resolve_one(target, source_path, root, index, exclude)
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
   if attachments.is_target(target, { source_path = source_path, root = root, index = index }) then
     local resolved = attachments.resolve(target, {
       source_path = source_path,
@@ -92,7 +92,7 @@ local function resolve_one(target, source_path, root, index, exclude)
     return normalize(resolved.path) ~= exclude and resolved.path or nil
   end
 
-  local paths = require("lzy.obsidian.notes").resolve_sync(target, root)
+  local paths = require("lzy.nyabsidian.notes").resolve_sync(target, root)
   if exclude then
     paths = vim.tbl_filter(function(candidate)
       return normalize(candidate) ~= exclude
@@ -117,13 +117,13 @@ function M.plan(opts)
     return nil, "no hay ningún vault activo"
   end
 
-  local attachments = require "lzy.obsidian.attachments"
-  local coordinate = require "lzy.obsidian.coordinate"
-  local notes = require "lzy.obsidian.notes"
+  local attachments = require "lzy.nyabsidian.attachments"
+  local coordinate = require "lzy.nyabsidian.coordinate"
+  local notes = require "lzy.nyabsidian.notes"
 
   -- Un índice para toda la pasada, no uno por enlace. Se invalida una vez aquí
   -- justo porque después NO se va a volver a mirar el disco (ver `fresh` en
-  -- lzy.obsidian.coordinate).
+  -- lzy.nyabsidian.coordinate).
   pcall(notes.invalidate_index, root)
   local index = attachments.build_index(root)
 
@@ -271,7 +271,7 @@ function M.on_note_added(path, opts)
     return 0
   end
 
-  local coordinate = require "lzy.obsidian.coordinate"
+  local coordinate = require "lzy.nyabsidian.coordinate"
   path = normalize(path)
   if not coordinate.is_ambiguous(path, { root = root, fresh = true }) then
     return 0

@@ -26,7 +26,15 @@ local function resolved_paths(ref, bufnr)
 	if not root or source_path == "" then
 		return {}, nil, nil
 	end
-	return workspace.resolve(declared.path, { source_path = source_path, root = root }), declared, root
+	-- Con carpetas: `[D2](d2/)` se sigue abriendo la carpeta en el explorador
+	-- del sistema (open_resolved -> file_opener), en vez de ofrecer crear una
+	-- nota que se llame como ella.
+	local paths = workspace.resolve(declared.path, {
+		source_path = source_path,
+		root = root,
+		directories = true,
+	})
+	return paths, declared, root
 end
 
 local function choose(paths, prompt, callback)
@@ -361,9 +369,9 @@ function M.backlinks()
 end
 
 ---Copia según lo que haya bajo el cursor. Misma implementación que en el vault:
----ver lzy.obsidian.smart_copy, que distingue el motor por su cuenta.
+---ver lzy.nyabsidian.smart_copy, que distingue el motor por su cuenta.
 function M.smart_copy()
-	require("lzy.obsidian.smart_copy").smart_copy()
+	require("lzy.nyabsidian.smart_copy").smart_copy()
 end
 
 function M.rename()

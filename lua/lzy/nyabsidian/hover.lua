@@ -121,7 +121,7 @@ function M.setup()
   local original = handlers["textDocument/hover"]
   handlers["textDocument/hover"] = function(params, callback, dispatchers)
     local bufnr = vim.uri_to_bufnr(params.textDocument.uri)
-    local ref = require("lzy.obsidian.links").ref_at(
+    local ref = require("lzy.nyabsidian.links").ref_at(
       bufnr,
       params.position.line,
       params.position.character
@@ -131,12 +131,12 @@ function M.setup()
     end
 
     local util = require "obsidian.util"
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     if util.is_uri(ref.target) or attachments.is_target(ref.target, { bufnr = bufnr }) then
       return fallback(original, params, callback, dispatchers)
     end
 
-    require("lzy.obsidian.notes").resolve_async(ref.target, function(notes)
+    require("lzy.nyabsidian.notes").resolve_async(ref.target, function(notes)
       if #notes == 0 then
         return fallback(original, params, callback, dispatchers)
       end

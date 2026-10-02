@@ -1,6 +1,6 @@
 -- Crear la nota que un enlace pide y todavía no existe, fuera de un vault.
 --
--- El equivalente de lzy.obsidian.new_note para proyectos Markdown normales. No
+-- El equivalente de lzy.nyabsidian.new_note para proyectos Markdown normales. No
 -- puede reutilizarlo: aquél va por `obsidian.note.Note.create`, que necesita el
 -- estado global de obsidian.nvim y aquí no hay ninguno.
 --

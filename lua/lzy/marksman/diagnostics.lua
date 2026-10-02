@@ -59,9 +59,11 @@ local function collect(bufnr)
           and not is_external(target)
           and not target:match "^#"
         then
+          -- Un enlace a carpeta (`[D2](d2/)`) existe: se sigue abriéndola.
           local ok, matches = pcall(workspace.resolve, target, {
             source_path = source_path,
             root = root,
+            directories = true,
           })
           -- La ambigüedad también es nuestra: la del servidor se filtra entera
           -- (ver lzy.marksman.superseded) porque él la mide contra los títulos y
@@ -99,9 +101,9 @@ local function refresh(bufnr)
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
-  -- Dentro de un vault manda lzy.obsidian.diagnostics; aquí sólo markdown
+  -- Dentro de un vault manda lzy.nyabsidian.diagnostics; aquí sólo markdown
   -- suelto, que es donde vive marksman.
-  local ok_vault, attachments = pcall(require, "lzy.obsidian.attachments")
+  local ok_vault, attachments = pcall(require, "lzy.nyabsidian.attachments")
   if ok_vault and attachments.in_vault(bufnr) then
     return vim.diagnostic.set(NS, bufnr, {})
   end

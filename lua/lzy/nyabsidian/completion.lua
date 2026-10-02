@@ -190,7 +190,7 @@ end
 ---@param note obsidian.Note
 ---@return { segments: string[], header: string, parents: string[] }[]
 local function anchor_suggestions(note)
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   local out = {}
   for _, entry in ipairs(headings.heading_chains(note)) do
     local parents = {}
@@ -210,7 +210,7 @@ end
 ---@param segments string[]
 ---@return string
 local function anchor_written(segments)
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   return table.concat(
     vim.tbl_map(function(segment)
       return headings.anchor_text(segment, "wiki")
@@ -522,7 +522,7 @@ end
 ---@param context nyabsidian.AnchorContext
 ---@param callback fun(result: lsp.CompletionList)
 local function complete_anchor(params, context, callback)
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   -- Lo que ya hay escrito entre `[[` y el ultimo `#`, para poder enseñar el
   -- enlace entero en el menu.
   local written_prefix = context.note
@@ -570,7 +570,7 @@ end
 local function definitions(bufnr)
   local found, result = {}, {}
   for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    for _, ref in ipairs(require("lzy.obsidian.attachments").parse_refs(line, row - 1)) do
+    for _, ref in ipairs(require("lzy.nyabsidian.attachments").parse_refs(line, row - 1)) do
       if ref.kind == "reference" then
         local key = vim.trim(ref.label):gsub("%s+", " "):lower()
         if not found[key] then

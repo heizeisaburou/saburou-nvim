@@ -163,6 +163,13 @@ end
 ---@return boolean
 function M.open_external(target, opts)
 	opts = opts or {}
+	-- En Windows, `vim.ui.open` pasa por `cmd.exe /c start`, y nuestras rutas
+	-- salen de `vim.fs.normalize` con `/`. Una ruta local que existe (un
+	-- adjunto, o una carpeta que se abre en el Explorador) va con los
+	-- separadores del sistema; una URI no se toca.
+	if vim.fn.has("win32") == 1 and uv.fs_stat(target) then
+		target = target:gsub("/", "\\")
+	end
 	local _, err = vim.ui.open(target)
 	if err then
 		local notify = opts.notify or default_notify

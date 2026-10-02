@@ -658,7 +658,7 @@ describe("Marksman adapter", function()
 		local function copy_at(row, col)
 			vim.api.nvim_win_set_cursor(0, { row, col })
 			local got
-			require("lzy.obsidian.smart_copy").smart_copy({
+			require("lzy.nyabsidian.smart_copy").smart_copy({
 				copy = function(text)
 					got = text
 				end,
@@ -978,7 +978,7 @@ describe("Marksman adapter", function()
 		-- `[![alt](img)](url)`, el patrón de los badges. El enlace de fuera contiene
 		-- al de dentro, así que quedarse con él y no bajar dejaba la imagen
 		-- invisible: no se podía ir a ella ni renombrarla. El lado Obsidian ya veía
-		-- los dos (ver lzy.obsidian.attachments); éste no.
+		-- los dos (ver lzy.nyabsidian.attachments); éste no.
 		local parser = require("lzy.marksman.parser")
 		local line = "[![Logo](./img/logo.png)](/docs/nota.md)"
 		local refs = parser.links(line, 0)
@@ -1673,5 +1673,111 @@ describe("Marksman adapter", function()
 		vim.api.nvim_buf_delete(bufnr, { force = true })
 		assert.are.same({ custom, binary, custom, custom }, opened)
 		assert.is_true(native)
+	end)
+end)
+
+describe("Marksman links to folders", function()
+	local root
+
+	local function write(relative, lines)
+		local path = vim.fs.joinpath(root, relative)
+		vim.fn.mkdir(vim.fs.dirname(path), "p")
+		vim.fn.writefile(lines, path)
+		return path
+	end
+
+	before_each(function()
+		root = vim.fs.normalize(vim.fn.tempname())
+		vim.fn.mkdir(root, "p")
+		write(".marksman.toml", { "[core]", "title_from_heading = true" })
+		write("d2/clases.d2", { "a -> b" })
+		require("lzy.marksman.workspace").invalidate_files()
+	end)
+
+	after_each(function()
+		vim.fn.delete(root, "rf")
+	end)
+
+	it("does not diagnose a link to a folder that exists", function()
+		-- Como en GitHub, que enseña la carpeta como listado.
+		local source = write("source.md", {
+			"[D2](d2/)", -- relativa a la nota
+			"[D2](/d2)", -- relativa a la raíz, sin barra final
+			"[Nada](nada/)", -- no existe: éste sí
+		})
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+
+		local found = require("lzy.marksman.diagnostics").collect(0)
+		assert.are.equal(1, #found)
+		assert.are.equal(2, found[1].lnum)
+	end)
+
+	it("opens the folder with the system instead of creating a note", function()
+		local source = write("source.md", { "[D2](d2/)" })
+		vim.cmd("edit! " .. vim.fn.fnameescape(source))
+		vim.api.nvim_win_set_cursor(0, { 1, 7 })
+
+		local new_note = require("lzy.marksman.new_note")
+		local original_create, original_open = new_note.create, vim.ui.open
+		local created, opened
+		new_note.create = function(target)
+			created = target
+		end
+		vim.ui.open = function(path)
+			opened = path
+			return {}, nil
+		end
+		local ok, err = pcall(require("lzy.marksman").follow)
+		-- El opener abre en el siguiente ciclo (vim.schedule).
+		vim.wait(1000, function()
+			return opened ~= nil
+		end, 10)
+		new_note.create, vim.ui.open = original_create, original_open
+
+		assert.is_true(ok, err)
+		assert.is_nil(created, "no ofrece crear una nota que se llame como la carpeta")
+		assert.are.equal(vim.fs.joinpath(root, "d2"), opened)
+	end)
+
+	it("keeps a bare target a note even when a folder has that name", function()
+		-- Crear la nota de una carpeta es un uso normal: `[[Proyectos]]` no se
+		-- puede quedar tapado por `Proyectos/`.
+		write("Proyectos/plan.md", { "# Plan" })
+		local source = write("source.md", { "[[Proyectos]]" })
+		local paths = require("lzy.marksman.workspace").resolve("Proyectos", {
+			source_path = source,
+			root = root,
+			directories = true,
+		})
+		assert.are.same({}, paths)
+	end)
+
+	it("only resolves folders when asked, so renames keep working with notes", function()
+		local source = write("source.md", { "[D2](d2/)" })
+		local paths = require("lzy.marksman.workspace").resolve("d2/", {
+			source_path = source,
+			root = root,
+		})
+		assert.are.same({}, paths)
+	end)
+
+	it("hands Windows a local path with its own separators", function()
+		local opener = require("sabunv.nvim.file_opener")
+		local original_has, original_open = vim.fn.has, vim.ui.open
+		local opened = {}
+		vim.fn.has = function(feature)
+			return feature == "win32" and 1 or original_has(feature)
+		end
+		vim.ui.open = function(path)
+			opened[#opened + 1] = path
+			return {}, nil
+		end
+		local folder = vim.fs.joinpath(root, "d2")
+		opener.open_external(folder)
+		opener.open_external("https://example.com/a/b")
+		vim.fn.has, vim.ui.open = original_has, original_open
+
+		assert.are.equal((folder:gsub("/", "\\")), opened[1])
+		assert.are.equal("https://example.com/a/b", opened[2], "una URI no se toca")
 	end)
 end)

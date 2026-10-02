@@ -9,7 +9,7 @@
 --
 -- Antes de caer a esa vía cara, probamos un índice construido con un solo
 -- recorrido síncrono del vault (mismo walker que usa
--- lzy.obsidian.attachments para adjuntos: vim.fs.dir puro, sin
+-- lzy.nyabsidian.attachments para adjuntos: vim.fs.dir puro, sin
 -- subprocesos).
 --
 -- HISTORIA (medida en uso real):
@@ -188,7 +188,7 @@ end
 ---@param root string
 ---@return nyabsidian.NoteIndex
 local function build_note_index(root)
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
 
   ---@type nyabsidian.NoteIndex
   local index = { by_reference_id = {}, by_basename = {}, notes = {} }
@@ -299,7 +299,7 @@ end
 local function comparable(value)
   local decoded = vim.uri_decode(value) or value
   -- `vim.fn.tolower` sí entiende UTF-8, a diferencia de `:lower()`.
-  return require("lzy.obsidian.headings").anchor_segment(vim.fn.tolower(decoded))
+  return require("lzy.nyabsidian.headings").anchor_segment(vim.fn.tolower(decoded))
 end
 
 --- Busca `target` de forma indulgente: escapes deshechos, caja real (también
@@ -383,7 +383,7 @@ end
 --- Rutas de las notas que responden a `name` como nombre, título o alias.
 ---
 --- Es el lookup sobre el que se calcula la ambigüedad (ver
---- lzy.obsidian.coordinate). Saber si un nombre pelado colisiona tiene que ser
+--- lzy.nyabsidian.coordinate). Saber si un nombre pelado colisiona tiene que ser
 --- barato: se pregunta por cada enlace que se escribe, y antes eso costaba un
 --- recorrido completo del vault leyendo cada nota de disco.
 ---@param name string
@@ -402,7 +402,7 @@ end
 
 --- Resolución sincrónica contra el índice, sin caer al resolutor completo.
 ---
---- Para reescrituras masivas (`lzy.obsidian.relink`), que tienen que mirar
+--- Para reescrituras masivas (`lzy.nyabsidian.relink`), que tienen que mirar
 --- miles de enlaces y no pueden encadenar un callback por cada uno. Si el
 --- índice no lo resuelve, devuelve vacío y quien llama **deja el enlace como
 --- está**: en una pasada que reescribe ficheros, no saber es razón para no
@@ -634,7 +634,7 @@ function M.debug_index(target)
 end
 
 vim.api.nvim_create_user_command("NyabsidianNotesIndexDebug", function(cmd_opts)
-  require("lzy.obsidian.notes").debug_index(cmd_opts.args ~= "" and cmd_opts.args or nil)
+  require("lzy.nyabsidian.notes").debug_index(cmd_opts.args ~= "" and cmd_opts.args or nil)
 end, { nargs = "?", desc = "Nyabsidian: estadísticas/lookup del índice rápido de notes.lua" })
 
 return M

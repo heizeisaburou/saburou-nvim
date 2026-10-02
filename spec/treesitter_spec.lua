@@ -184,12 +184,14 @@ describe("TSInstallAll Windows TLS preflight", function()
   end)
 end)
 
-describe("External tree-sitter parsers", function()
+describe("Tree-sitter languages", function()
   local original_parsers
 
   before_each(function()
     original_parsers = package.loaded["nvim-treesitter.parsers"]
-    package.loaded["nvim-treesitter.parsers"] = {}
+    package.loaded["nvim-treesitter.parsers"] = {
+      xml = { requires = { "dtd" } },
+    }
     package.loaded["lzy.treesitter"] = nil
   end)
 
@@ -198,9 +200,9 @@ describe("External tree-sitter parsers", function()
     package.loaded["lzy.treesitter"] = nil
   end)
 
-  it("pins every external parser to a full commit", function()
+  it("pins every custom parser to a full commit", function()
     local treesitter = require "lzy.treesitter"
-    for language, parser in pairs(treesitter.external_parsers) do
+    for language, parser in pairs(treesitter.custom_parsers) do
       local revision = parser.install_info.revision
       assert.is_string(revision, language)
       assert.are.equal(40, #revision, language)
@@ -208,14 +210,29 @@ describe("External tree-sitter parsers", function()
     end
   end)
 
-  it("registers them on setup and again after nvim-treesitter reloads its parsers", function()
+  it("registers a custom parser only while it is active in M.languages", function()
     local treesitter = require "lzy.treesitter"
+    treesitter.languages = { "lua" }
     treesitter.setup()
-    assert.are.same(treesitter.external_parsers.d2, package.loaded["nvim-treesitter.parsers"].d2)
+    assert.is_nil(package.loaded["nvim-treesitter.parsers"].d2)
 
+    treesitter.languages = { "lua", "d2" }
     -- Así recarga nvim-treesitter su tabla en cada instalación.
     package.loaded["nvim-treesitter.parsers"] = {}
     vim.api.nvim_exec_autocmds("User", { pattern = "TSUpdate" })
-    assert.are.same(treesitter.external_parsers.d2, package.loaded["nvim-treesitter.parsers"].d2)
+    assert.are.same(treesitter.custom_parsers.d2, package.loaded["nvim-treesitter.parsers"].d2)
+  end)
+
+  it("highlights a filetype exactly when its parser is active", function()
+    local treesitter = require "lzy.treesitter"
+    treesitter.languages = { "lua", "xml", "clojure" }
+    treesitter.setup()
+
+    assert.is_true(treesitter.highlights "lua")
+    assert.is_true(treesitter.highlights "svg", "alias de xml")
+    assert.is_true(treesitter.highlights "dtd", "dependencia de xml")
+    assert.is_true(treesitter.highlights "edn", "alias de clojure")
+    assert.is_false(treesitter.highlights "python")
+    assert.is_false(treesitter.highlights "lhaskell", "haskell no está activo")
   end)
 end)

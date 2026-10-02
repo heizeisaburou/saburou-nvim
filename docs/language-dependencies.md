@@ -566,12 +566,12 @@ En Neovim, D2 tiene resaltado y formatter, pero **no tiene LSP**: no hay ningún
 | Pieza | Dónde | Sin ella |
 | --- | --- | --- |
 | Filetype `d2` | [lua/user/opts.lua](/lua/user/opts.lua) | Neovim **no detecta `.d2`**: el fichero no tiene filetype y no se carga nada de lo demás |
-| Parser `d2` | `M.external_parsers` en [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) | resalta `syntax/d2.vim`, y los bloques ` ```d2 ` de un markdown salen sin color |
+| Parser `d2` | `"d2"` en `M.languages`, con su origen en `M.custom_parsers` ([lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua)) | resalta `syntax/d2.vim`, y los bloques ` ```d2 ` de un markdown salen sin color |
 | Resaltado de respaldo | [syntax/d2.vim](/syntax/d2.vim) | sin resaltado mientras el parser no esté instalado |
 | `commentstring` | [after/ftplugin/d2.lua](/after/ftplugin/d2.lua) | `gc` falla con `commentstring is empty` |
 | Formatter `d2` | [lua/lzy/conform.lua](/lua/lzy/conform.lua) | sin formato; Conform ejecuta `d2 fmt` y necesita el binario |
 
-El parser es [ravsii/tree-sitter-d2](https://github.com/ravsii/tree-sitter-d2) (MIT). Se activa como cualquier otro, descomentando `"d2"` en `M.languages`, y `:TSInstallAll` lo descarga y lo compila junto con sus queries. Va fijado a un commit (`revision` en `M.external_parsers`): al no estar en el catálogo, nvim-treesitter no lo prueba con sus versiones, así que se actualiza a mano, cambiando el commit después de comprobarlo. Con él instalado, los bloques ` ```d2 ` de un markdown también se colorean, porque el markdown inyecta el parser que corresponde a cada bloque.
+El parser es [ravsii/tree-sitter-d2](https://github.com/ravsii/tree-sitter-d2). Se activa como cualquier otro, descomentando `"d2"` en `M.languages`, donde va marcado `-- custom`, y `:TSInstallAll` lo descarga y lo compila junto con sus queries. Va fijado a un commit (`revision` en `M.custom_parsers`): al no estar en el catálogo, nvim-treesitter no lo prueba con sus versiones, así que se actualiza a mano, cambiando el commit después de comprobarlo. Con él instalado, los bloques ` ```d2 ` de un markdown también se colorean, porque el markdown inyecta el parser que corresponde a cada bloque.
 
 El resaltado de respaldo es un `syntax/*.vim` propio, como los de YARA, JQL y PlantUML. Las palabras reservadas, las formas y la sintaxis de flechas y de bloques de texto salen del parser de D2 (`d2ast/keywords.go` y `d2parser/parse.go`). Las palabras reservadas (`shape`, `style`, `fill`, `target-arrowhead`...) solo se resaltan en posición de clave, así que no se colorean dentro del texto de una etiqueta.
 
@@ -629,7 +629,7 @@ Después, reiniciar el LSP. En F# la lista y el orden de archivos del `.fsproj` 
 
 ### Fish
 
-`fish_lsp` es mecánico: su `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason ya existía en el catálogo pre-`next-languages` (`fish = true` en `M.enabled_highlights`), solo faltaba activarlo en `M.languages` y `M.servers`.
+`fish_lsp` es mecánico: su `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason ya existía en el catálogo pre-`next-languages` , solo faltaba activarlo en `M.languages` y `M.servers`.
 
 `fish_indent` viene con la propia shell Fish (paquete `fish` del sistema), no con Mason: sin la shell instalada no hay binario que resolver, aunque el LSP siga funcionando igual. En Arch, `pacman -S fish`. Entra por el mecanismo compartido de binarios ausentes, que avisa una vez si falta; es el único de los cinco que no necesita `paths`, porque un paquete del sistema sí queda en el `PATH`. Ver "Herramientas que Mason no instala" más arriba.
 

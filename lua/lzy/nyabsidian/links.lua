@@ -144,7 +144,7 @@ end
 local function reference_definition(id, bufnr)
   local wanted = normalize_reference_id(id)
   for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    for _, ref in ipairs(require("lzy.obsidian.attachments").parse_refs(line, row - 1)) do
+    for _, ref in ipairs(require("lzy.nyabsidian.attachments").parse_refs(line, row - 1)) do
       if ref.kind == "reference" and normalize_reference_id(ref.label) == wanted then
         return ref
       end
@@ -183,7 +183,7 @@ local function ref_at(bufnr, row, col)
   end
   local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""
   local parsed_refs = require("obsidian.parse.refs").extract(line, { row = row })
-  local ranged_refs = require("lzy.obsidian.attachments").parse_refs(line, row)
+  local ranged_refs = require("lzy.nyabsidian.attachments").parse_refs(line, row)
   for _, usage in ipairs(reference_usages(line, row)) do
     if usage.range.start_col <= col and col < usage.range.end_col then
       local definition = reference_definition(usage.reference_id, bufnr)
@@ -289,7 +289,7 @@ local function cursor_context()
     return nil
   end
   local _, col = unpack(vim.api.nvim_win_get_cursor(0))
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
   local label = label_component(ref)
   if label and label.start_col <= col and col < label.end_col then
     return { ref = ref, component = label, label = label }
@@ -366,11 +366,11 @@ local function cursor_context()
   return {
     ref = ref,
     label = label,
-    component = require("lzy.obsidian.headings").component_at(ref, col),
+    component = require("lzy.nyabsidian.headings").component_at(ref, col),
   }
 end
 
--- Expuesto para lzy.obsidian.smart_copy: ya separa qué parte de un enlace
+-- Expuesto para lzy.nyabsidian.smart_copy: ya separa qué parte de un enlace
 -- (label, target/nota, url, descripción...) está bajo el cursor, sin
 -- llaves/paréntesis alrededor -- justo lo que necesita "copia inteligente".
 M.cursor_context = cursor_context
@@ -385,7 +385,7 @@ end
 ---@param bufnr integer
 ---@param callback fun(notes: obsidian.Note[])
 local function resolve_notes(location, bufnr, callback)
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   if location == "" then
     local note = require("obsidian.api").current_note(bufnr, {
       collect_sections = true,
@@ -395,7 +395,7 @@ local function resolve_notes(location, bufnr, callback)
     return callback(note and { headings.load_note(note) } or {})
   end
 
-  require("lzy.obsidian.notes").resolve_async(location, function(notes)
+  require("lzy.nyabsidian.notes").resolve_async(location, function(notes)
     callback(vim.tbl_map(function(note)
       return headings.load_note(note)
     end, notes))
@@ -410,8 +410,8 @@ end
 local function follow_structured(link, callback, opts, original)
   opts = opts or {}
   local util = require "obsidian.util"
-  local attachments = require "lzy.obsidian.attachments"
-  local headings = require "lzy.obsidian.headings"
+  local attachments = require "lzy.nyabsidian.attachments"
+  local headings = require "lzy.nyabsidian.headings"
   local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
 
   -- El parser upstream incluye títulos Markdown dentro de `target`. Nuestro
@@ -543,7 +543,7 @@ local function reference_id_edit(old_id, new_id, bufnr)
   end
 
   for row, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
-    for _, ref in ipairs(require("lzy.obsidian.attachments").parse_refs(line, row - 1)) do
+    for _, ref in ipairs(require("lzy.nyabsidian.attachments").parse_refs(line, row - 1)) do
       if ref.kind == "reference" and normalize_reference_id(ref.label) == wanted then
         add(row - 1, ref.label_range)
       end
@@ -569,7 +569,7 @@ end
 --- Intercepta la creación de nota cuando `[[NAME]]`/`[label](NAME)` no
 --- resuelve a ninguna nota. Sustituye los modos "Yes"/"Yes as Unique Note"
 --- del upstream (ids generados + rename parcial del enlace, ver
---- lzy.obsidian.new_note) por el modo único de Nyabsidian. Deja pasar
+--- lzy.nyabsidian.new_note) por el modo único de Nyabsidian. Deja pasar
 --- attachments, URIs externas, anchors/blocks y referencias vacías: esos
 --- casos no crean nota nueva y el upstream ya los resuelve bien.
 ---@param link string
@@ -580,7 +580,7 @@ end
 local function try_create_note(link, callback, opts, original)
   opts = opts or {}
   local util = require "obsidian.util"
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
   local bufnr = opts.bufnr or vim.api.nvim_get_current_buf()
 
   local location, _, link_type = util.parse_link(link)
@@ -612,7 +612,7 @@ local function try_create_note(link, callback, opts, original)
       return original(link, callback, opts)
     end
 
-    require("lzy.obsidian.new_note").create(note_target, { notify = notify }, function(note)
+    require("lzy.nyabsidian.new_note").create(note_target, { notify = notify }, function(note)
       if note then
         callback(nil, { note:_location() })
       end
@@ -686,7 +686,7 @@ local function patch_action_follow()
   local original = actions.follow_link
 
   actions.follow_link = function(link, opts)
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local bufnr = vim.api.nvim_get_current_buf()
     local ref, badge
     if link then
@@ -714,7 +714,7 @@ end
 
 --- Crear una nota puede volver ambiguos enlaces que ya existían: si aparece una
 --- segunda `Setup`, todos los `[[Setup]]` del vault dejan de apuntar a la que
---- apuntaban. `lzy.obsidian.new_note.create` ya lo repara, pero ésa es sólo una
+--- apuntaban. `lzy.nyabsidian.new_note.create` ya lo repara, pero ésa es sólo una
 --- de las puertas -- `:Obsidian new` y `new_from_template` crean la nota por su
 --- cuenta y no pasan por ahí, así que la corrección no llegaba a ocurrir y
 --- creabas una nota sin que nada avisara.
@@ -733,8 +733,8 @@ local function patch_note_creation()
       return
     end
     pcall(function()
-      require("lzy.obsidian.notes").invalidate_index()
-      require("lzy.obsidian.relink").on_note_added(tostring(note.path), { notify = notify })
+      require("lzy.nyabsidian.notes").invalidate_index()
+      require("lzy.nyabsidian.relink").on_note_added(tostring(note.path), { notify = notify })
     end)
   end
 
@@ -798,7 +798,7 @@ local function patch_smart_action()
     -- parcheado y pierde la prioridad del enlace exterior sobre la imagen.
     -- Despachar directo a la versión parcheada evita ambos problemas.
     if
-      require("lzy.obsidian.attachments").cursor_linked_image(vim.api.nvim_get_current_buf())
+      require("lzy.nyabsidian.attachments").cursor_linked_image(vim.api.nvim_get_current_buf())
     then
       return "<cmd>lua require('obsidian.actions').follow_link()<CR>"
     end
@@ -861,7 +861,7 @@ end
 ---@param context table
 ---@param callback fun(candidates: table[], err: string|?)
 local function heading_candidates(context, callback)
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   local ref = context.ref
   local target = vim.uri_decode(ref.target or "") or ref.target or ""
   resolve_notes(target, vim.api.nvim_get_current_buf(), function(notes)
@@ -911,7 +911,7 @@ local function patch_prepare_rename()
     if context then
       local component = context.component
       if component.kind == "attachment" then
-        local attachments = require "lzy.obsidian.attachments"
+        local attachments = require "lzy.nyabsidian.attachments"
         local attachment_target = context.ref.raw_target or context.ref.target
         local result = attachments.resolve(attachment_target, {
           bufnr = vim.api.nvim_get_current_buf(),
@@ -963,7 +963,7 @@ local function patch_prepare_rename()
     end
 
     local row = vim.api.nvim_win_get_cursor(0)[1] - 1
-    local declaration = require("lzy.obsidian.headings").declaration_at(0, row)
+    local declaration = require("lzy.nyabsidian.headings").declaration_at(0, row)
     if declaration then
       -- Mismo alcance que desde un enlace: si el heading tiene gemelos, hay que
       -- decidir aquí si se renombran todos, antes de escribir el nombre nuevo.
@@ -1011,7 +1011,7 @@ choose_heading = function(candidates, callback)
     return callback(nil)
   end
 
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   if #candidates == 1 then
     local only = candidates[1]
     local twins = headings.twins(only.note, only.section)
@@ -1060,7 +1060,7 @@ end
 ---@param new_name string
 ---@param callback function
 local function rename_link_heading(context, new_name, callback)
-  local headings = require "lzy.obsidian.headings"
+  local headings = require "lzy.nyabsidian.headings"
   if prepared_heading and prepared_heading.key == context_key(context) then
     local targets = prepared_heading.targets
     prepared_heading = nil
@@ -1164,7 +1164,7 @@ local function patch_rename()
 
     local context = cursor_context()
     if context then
-      local attachments = require "lzy.obsidian.attachments"
+      local attachments = require "lzy.nyabsidian.attachments"
       if context.component.kind == "reference_id" then
         prepared_heading = nil
         prepared_attachment = nil
@@ -1268,9 +1268,9 @@ local function patch_rename()
     prepared_heading = nil
     prepared_attachment = nil
     local row = vim.api.nvim_win_get_cursor(0)[1] - 1
-    local declaration = require("lzy.obsidian.headings").declaration_at(0, row)
+    local declaration = require("lzy.nyabsidian.headings").declaration_at(0, row)
     if declaration then
-      local headings = require "lzy.obsidian.headings"
+      local headings = require "lzy.nyabsidian.headings"
       if prepared and prepared.key == declaration_key(row) then
         return headings.rename_many(prepared.targets, params.newName, callback, { notify = notify })
       end
@@ -1309,8 +1309,8 @@ function M.setup(opts)
   patch_smart_action()
   patch_prepare_rename()
   patch_rename()
-  require("lzy.obsidian.completion").setup()
-  require("lzy.obsidian.hover").setup()
+  require("lzy.nyabsidian.completion").setup()
+  require("lzy.nyabsidian.hover").setup()
   installed = true
 end
 

@@ -22,6 +22,11 @@ local function is_file(path)
 	return stat and stat.type == "file"
 end
 
+local function is_directory(path)
+	local stat = vim.uv.fs_stat(path)
+	return stat and stat.type == "directory"
+end
+
 local function extension(path)
 	return path:match("%.([^./\\]+)$")
 end
@@ -129,10 +134,69 @@ local function add_existing(result, seen, path, allow_extension)
 	end
 end
 
+---Una carpeta en las coordenadas explícitas del enlace, sin búsqueda de
+---workspace: `[D2](d2/)` apunta a la carpeta `d2` junto a la nota, como en
+---GitHub, que la enseña como listado. Sólo se consulta cuando ningún fichero
+---responde al destino, así que una nota con el mismo nombre sigue mandando.
+---
+---Tiene que decirlo el enlace: con barra final, o con forma de ruta (`./`,
+---`../`, `/`, absoluta). Un destino desnudo como `[[Proyectos]]` sigue siendo
+---una nota aunque al lado haya una carpeta `Proyectos/`: crear la nota de una
+---carpeta es un uso normal y no se puede quedar tapado.
+---
+---Misma regla en los vaults: ver lzy.nyabsidian.attachments.
+---@param target string ya sin fragmento y sin escapes
+---@param root string
+---@param source_dir string
+---@return string|nil
+local function explicit_directory(target, root, source_dir)
+	local candidates
+	if target:match("^%a:[/\\]") then
+		candidates = { target }
+	elseif vim.startswith(target, "/") then
+		candidates = { vim.fs.joinpath(root, target:sub(2)), target }
+	elseif vim.startswith(target, "./") or vim.startswith(target, "../") then
+		candidates = { vim.fs.joinpath(source_dir, target) }
+	elseif vim.endswith(target, "/") then
+		candidates = { vim.fs.joinpath(source_dir, target), vim.fs.joinpath(root, target) }
+	else
+		return nil
+	end
+	for _, candidate in ipairs(candidates) do
+		if is_directory(candidate) then
+			return normalize(candidate)
+		end
+	end
+end
+
+---Con `directories`, un destino que no es ningún fichero pero sí una carpeta
+---resuelve a esa carpeta (ver `explicit_directory`). Lo piden quienes deciden
+---si un enlace existe y lo siguen; el renombrado y el relink trabajan con
+---notas y no lo activan.
+---@param target string
+---@param opts { source_path: string, root: string, markdown?: boolean, all_files?: boolean, directories?: boolean }
+---@return string[]
+function M.resolve(target, opts)
+	local result = M.resolve_files(target, opts)
+	if #result == 0 and opts.directories then
+		local decoded = vim.trim(target or ""):gsub("#.*$", "")
+		decoded = vim.uri_decode(decoded) or decoded
+		local external = decoded:match("^[%a][%w+.-]*:") and not decoded:match("^%a:[/\\]")
+		if decoded ~= "" and not external then
+			local source_dir = vim.fs.dirname(normalize(opts.source_path))
+			local directory = explicit_directory(decoded, normalize(opts.root), source_dir)
+			if directory then
+				return { directory }
+			end
+		end
+	end
+	return result
+end
+
 ---@param target string
 ---@param opts { source_path: string, root: string, markdown?: boolean, all_files?: boolean }
 ---@return string[]
-function M.resolve(target, opts)
+function M.resolve_files(target, opts)
 	target = vim.trim(target or "")
 	if target:match("^[%a][%w+.-]*:") and not target:match("^%a:[/\\]") then
 		return {}

@@ -28,7 +28,6 @@ Partes de esta configuración vienen de otros proyectos y conservan su licencia:
 | Proyecto | Licencia | Cómo entra | Dónde |
 | --- | --- | --- | --- |
 | [NvChad/ui](https://github.com/NvChad/ui) | GPL-3.0 | Copiado y modificado: el adaptador de Mason | [lua/hzsr/mason/nvchad/](/lua/hzsr/mason/nvchad/), con su `LICENSE` y su `NOTICE.md` |
-| [ravsii/tree-sitter-d2](https://github.com/ravsii/tree-sitter-d2) | MIT | No se copia: `:TSInstallAll` descarga el parser de D2 y sus queries en un commit fijado | `M.external_parsers` en [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) |
 
 ## Installation
 

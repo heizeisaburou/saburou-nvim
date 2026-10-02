@@ -112,7 +112,7 @@ local function safe_replacement_path(raw_path, old_path, new_path, root, kind, a
 		-- Un `[[wiki]]` lo resuelve un motor que busca, así que le vale el sufijo
 		-- MÍNIMO que separe: `c/nota` donde antes salía `a/b/c/nota`. Misma
 		-- primitiva que el lado Obsidian, para que los dos desambigüen igual.
-		relative = require("lzy.obsidian.coordinate").minimal(new_path, {
+		relative = require("lzy.nyabsidian.coordinate").minimal(new_path, {
 			root = root,
 			homonyms = homonyms_of(new_path, old_path, root),
 		})

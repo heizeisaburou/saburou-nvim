@@ -97,7 +97,7 @@ end
 local function cursor_ref(bufnr)
   local row, col = unpack(vim.api.nvim_win_get_cursor(0))
   local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1] or ""
-  for _, ref in ipairs(require("lzy.obsidian.attachments").parse_refs(line, row - 1)) do
+  for _, ref in ipairs(require("lzy.nyabsidian.attachments").parse_refs(line, row - 1)) do
     if ref.range.start_col <= col and col < ref.range.end_col then
       return ref
     end
@@ -188,7 +188,7 @@ local function resolve_note(target, ctx, opts, callback)
     -- `/docs/Nota` significa `<vault>/docs/Nota`, exactamente igual que
     -- `docs/Nota`. Resolverla contra la raíz del disco (lo que hacía
     -- `isabsolutepath` aquí) no encontraba nunca nada y dejaba a este
-    -- resolutor discrepando de lzy.obsidian.notes, que sí la lee como raíz.
+    -- resolutor discrepando de lzy.nyabsidian.notes, que sí la lee como raíz.
     -- Como ruta del sistema sólo se prueba si bajo el vault no hay nada, que
     -- es como se enlaza una nota de fuera.
     local from_root = vim.fs.joinpath(ctx.root, target:sub(2))
@@ -238,7 +238,7 @@ local function resolve_cursor(opts, callback)
     return callback(nil, "no hay un enlace bajo el cursor")
   end
 
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
   local target = attachments.strip_fragments(ref.target)
   if attachments.is_target(ref.target, { bufnr = bufnr }) then
     local resolved = attachments.resolve(ref.target, { bufnr = bufnr })
@@ -273,7 +273,7 @@ end
 ---@param path string
 ---@param root string
 ---@return string
---- Delegado en lzy.obsidian.coordinate: ahí vive el criterio único de
+--- Delegado en lzy.nyabsidian.coordinate: ahí vive el criterio único de
 --- «coordenada más corta que sigue siendo inequívoca», compartido por notas y
 --- adjuntos.
 ---
@@ -288,10 +288,10 @@ local function shortest_note_target(path, root)
   -- `fresh`: esto lo dispara una acción suelta del usuario (convertir enlace,
   -- copia inteligente), así que se paga una reconstrucción del índice antes que
   -- arriesgarse a escribir una coordenada ambigua con datos rancios.
-  return require("lzy.obsidian.coordinate").minimal(path, { root = root, fresh = true })
+  return require("lzy.nyabsidian.coordinate").minimal(path, { root = root, fresh = true })
 end
 
--- Expuesto para lzy.obsidian.smart_copy.
+-- Expuesto para lzy.nyabsidian.smart_copy.
 M.shortest_note_target = shortest_note_target
 
 ---@param target string
@@ -338,7 +338,7 @@ local function format_choices(resolved)
 
   if resolved.kind == "attachment" then
     if resolved.internal then
-      local shortest = require("lzy.obsidian.attachments").format_target(path, {
+      local shortest = require("lzy.nyabsidian.attachments").format_target(path, {
         source_path = ctx.source_path,
         root = ctx.root,
         old_path = path,
@@ -482,7 +482,7 @@ function M.fetch_web_title(opts)
   opts = opts or {}
   local notify_user = opts.notify or notify
   local request = opts.request or request_url
-  local ctx = require("lzy.obsidian.links").cursor_context()
+  local ctx = require("lzy.nyabsidian.links").cursor_context()
   local ref = ctx and ctx.ref or nil
   local url = ref and (ref.raw_target or ref.target) or nil
   if
@@ -543,7 +543,7 @@ function M.fetch_web_title(opts)
         { ("[%s](%s)"):format(title, url) }
       )
     else
-      local links = require "lzy.obsidian.links"
+      local links = require "lzy.nyabsidian.links"
       local label = links.label_component(ref)
       if not label then
         return notify_user(

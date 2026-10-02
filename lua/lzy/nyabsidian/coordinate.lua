@@ -66,7 +66,7 @@ end
 
 --- Ficheros del vault que responden al mismo nombre pelado que `path`.
 ---
---- Para una nota se pregunta al índice de `lzy.obsidian.notes`, que indexa por
+--- Para una nota se pregunta al índice de `lzy.nyabsidian.notes`, que indexa por
 --- nombre, título y **alias** — una nota con alias `Mi Nota` colisiona con otra
 --- que se llame así aunque el fichero se llame distinto. Para un adjunto se
 --- compara por basename, que es su única identidad.
@@ -105,7 +105,7 @@ function M.homonyms(path, opts)
   end
 
   if is_note(path) then
-    local notes = require "lzy.obsidian.notes"
+    local notes = require "lzy.nyabsidian.notes"
     if opts.fresh then
       pcall(notes.invalidate_index, opts.root)
     end
@@ -114,7 +114,7 @@ function M.homonyms(path, opts)
       add(candidate)
     end
   else
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local index = opts.index
     if index then
       for _, candidate in ipairs(index.by_basename[basename:lower()] or {}) do
@@ -248,7 +248,7 @@ end
 --- Un espacio crudo **corta el destino** en CommonMark: `[x](/a/b c.md)` se
 --- parsea como `/a/b` y el resto se pierde, en GitHub, pandoc, mdBook y
 --- marksman por igual. `%20` es la forma válida, y es la que ya usan los
---- anchors (ver lzy.obsidian.headings.anchor_text).
+--- anchors (ver lzy.nyabsidian.headings.anchor_text).
 ---@param value string
 ---@return string
 function M.encode(value)

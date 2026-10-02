@@ -59,7 +59,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.fn.mkdir(root, "p")
     vim.fn.chdir(root)
     if not initialized then
-      require("lzy.obsidian.links").setup {
+      require("lzy.nyabsidian.links").setup {
         notify = function(msg, level)
           notifications[#notifications + 1] = { msg = msg, level = level }
         end,
@@ -76,7 +76,7 @@ describe("Nyabsidian structured links and attachments", function()
       }
       initialized = true
     end
-    assert(require("lzy.obsidian.attachments").configure(root, nil))
+    assert(require("lzy.nyabsidian.attachments").configure(root, nil))
     reset_fixture()
   end)
 
@@ -87,7 +87,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.fn.delete(root .. "-external", "rf")
     -- Algunos tests sustituyen el prompt de creación de nota; que no se
     -- filtre a los siguientes.
-    local new_note = require "lzy.obsidian.new_note"
+    local new_note = require "lzy.nyabsidian.new_note"
     new_note.confirm = new_note.default_confirm
     new_note.notify = new_note.default_notify
   end)
@@ -200,7 +200,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.ui.open = function(path)
       opened = vim.fs.normalize(tostring(path))
     end
-    assert.is_true(require("lzy.obsidian.attachments").open_under_cursor(0))
+    assert.is_true(require("lzy.nyabsidian.attachments").open_under_cursor(0))
     vim.wait(1000, function()
       return opened ~= nil
     end, 10)
@@ -227,7 +227,7 @@ describe("Nyabsidian structured links and attachments", function()
       if follow then
         require("obsidian.actions").follow_link()
       else
-        assert.is_true(require("lzy.obsidian.attachments").open_under_cursor(0))
+        assert.is_true(require("lzy.nyabsidian.attachments").open_under_cursor(0))
       end
       vim.wait(1000, function()
         return opened ~= nil
@@ -260,7 +260,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.ui.open = function(target)
       opened = target
     end
-    assert.is_true(require("lzy.obsidian.attachments").open_under_cursor(0))
+    assert.is_true(require("lzy.nyabsidian.attachments").open_under_cursor(0))
     vim.ui.open = original_open
 
     assert.are.equal("https://example.com/path", opened)
@@ -271,7 +271,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("two/a.png", { "two" })
     write("elsewhere/unique.pdf", { "pdf" })
     write("one/note.md", { "![[a.png]]" })
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
 
     local local_result = attachments.resolve("a.png", {
       source_path = root .. "/one/note.md",
@@ -308,7 +308,7 @@ describe("Nyabsidian structured links and attachments", function()
     local original = Obsidian.opts.attachments.folder
     Obsidian.opts.attachments.folder = "wrong-folder"
 
-    local result = require("lzy.obsidian.attachments").resolve("location.png", {
+    local result = require("lzy.nyabsidian.attachments").resolve("location.png", {
       source_path = root .. "/source.md",
       root = root,
     })
@@ -322,7 +322,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("short/a.png", { "short" })
     write("notes/deep/a.png", { "near source" })
     write("elsewhere/very/deep/a.png", { "far" })
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local opts = { source_path = root .. "/notes/source.md", root = root }
 
     -- Los descendientes de la carpeta origen ganan incluso si otro path es
@@ -338,12 +338,52 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal(root .. "/short/a.png", attachments.resolve("a.png", root_opts).path)
   end)
 
+  it("resolves a folder only when the link names it as one", function()
+    write("d2/clases.d2", { "a -> b" })
+    write("Proyectos/plan.md", { "# Plan" })
+    local attachments = require "lzy.nyabsidian.attachments"
+    local opts = { source_path = root .. "/source.md", root = root }
+
+    -- Con barra final o con forma de ruta: es la carpeta, como en GitHub.
+    for _, target in ipairs { "d2/", "./d2", "/d2" } do
+      local result = attachments.resolve(target, opts)
+      assert.are.equal("resolved", result.status, target)
+      assert.are.equal(root .. "/d2", result.path, target)
+    end
+    assert.is_true(attachments.is_target("d2/", opts))
+    assert.are.equal("missing", attachments.resolve("nada/", opts).status)
+
+    -- Desnudo sigue siendo una nota, aunque al lado haya una carpeta con ese
+    -- nombre: crear la nota de una carpeta es un uso normal.
+    assert.is_false(attachments.is_target("Proyectos", opts))
+    assert.are.equal("missing", attachments.resolve("Proyectos", opts).status)
+  end)
+
+  it("opens a linked folder with the system instead of creating a note", function()
+    write("d2/clases.d2", { "a -> b" })
+    write("source.md", { "[D2](d2/)" })
+    vim.cmd.edit(root .. "/source.md")
+    local original_open, opened = vim.ui.open, nil
+    vim.ui.open = function(path)
+      opened = path
+      return {}, nil
+    end
+    local handled = require("lzy.nyabsidian.attachments").follow("d2/", { bufnr = 0 })
+    vim.wait(1000, function()
+      return opened ~= nil
+    end, 10)
+    vim.ui.open = original_open
+
+    assert.is_true(handled)
+    assert.are.equal(root .. "/d2", opened)
+  end)
+
   it("allows an explicit attachment outside the vault", function()
     local external = root .. "-external.bin"
     vim.fn.writefile({ "external" }, external)
     local target = "../" .. vim.fs.basename(external)
 
-    local result = require("lzy.obsidian.attachments").resolve(target, {
+    local result = require("lzy.nyabsidian.attachments").resolve(target, {
       source_path = root .. "/source.md",
       root = root,
     })
@@ -351,7 +391,7 @@ describe("Nyabsidian structured links and attachments", function()
     assert.are.equal("resolved", result.status)
     assert.is_true(result.external)
     assert.are.equal(external, result.path)
-    assert.is_false(require("lzy.obsidian.attachments").is_target("image.png", {
+    assert.is_false(require("lzy.nyabsidian.attachments").is_target("image.png", {
       source_path = root .. "-different/source.md",
       root = root,
     }))
@@ -362,7 +402,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("plugin-data", { "plugin" })
     write("same", { "attachment" })
     write("same.md", { "# Note" })
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local opts = { source_path = root .. "/source.md", root = root }
 
     assert.is_true(attachments.is_target("plugin-data", opts))
@@ -373,7 +413,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("nested/.nyabsidian", { "return {}" })
     write("nested/a.png", { "nested" })
 
-    local result = require("lzy.obsidian.attachments").resolve("a.png", {
+    local result = require("lzy.nyabsidian.attachments").resolve("a.png", {
       source_path = root .. "/source.md",
       root = root,
     })
@@ -460,7 +500,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("source.md", { "![[nyaruko-taquilla.gif]]" })
     vim.cmd.edit(root .. "/source.md")
 
-    local destination = require("lzy.obsidian.attachments").destination(
+    local destination = require("lzy.nyabsidian.attachments").destination(
       root .. "/attachments/nyaruko-taquilla.gif",
       "nyaruko-taquilla_otro.gif",
       { bufnr = 0 }
@@ -961,7 +1001,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 10 })
 
-    require("lzy.obsidian.link_actions").fetch_web_title({
+    require("lzy.nyabsidian.link_actions").fetch_web_title({
       notify = function() end,
       request = function(url, callback)
         assert.are.equal("https://github.com", url)
@@ -980,7 +1020,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 10 })
 
-    require("lzy.obsidian.link_actions").fetch_web_title({
+    require("lzy.nyabsidian.link_actions").fetch_web_title({
       notify = function() end,
       request = function(_, callback)
         callback "<TITLE> GitHub \n Home </TITLE>"
@@ -995,7 +1035,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 12 })
 
-    require("lzy.obsidian.link_actions").fetch_web_title({
+    require("lzy.nyabsidian.link_actions").fetch_web_title({
       notify = function() end,
       request = function(url, callback)
         assert.are.equal("https://github.com", url)
@@ -1019,7 +1059,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.ui.open = function(target)
       opened = target
     end
-    assert.is_true(require("lzy.obsidian.attachments").open_under_cursor(0))
+    assert.is_true(require("lzy.nyabsidian.attachments").open_under_cursor(0))
     vim.ui.open = original_open
 
     assert.are.equal("https://github.com", opened)
@@ -1030,7 +1070,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 2, 3 })
 
-    require("lzy.obsidian.link_actions").fetch_web_title({
+    require("lzy.nyabsidian.link_actions").fetch_web_title({
       notify = function() end,
       request = function(_, callback)
         callback "<title>GitHub</title>"
@@ -1044,7 +1084,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("rejects names that cannot preserve a literal heading and a valid anchor", function()
-    local headings = require "lzy.obsidian.headings"
+    local headings = require "lzy.nyabsidian.headings"
     assert.is_nil(headings.validate_name "My Father A")
     assert.matches("empezar ni terminar", headings.validate_name " My Father A")
     assert.matches("empezar ni terminar", headings.validate_name "My Father A ")
@@ -1054,7 +1094,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("writes anchors verbatim in a wikilink and as the shared slug in Markdown", function()
-    local headings = require "lzy.obsidian.headings"
+    local headings = require "lzy.nyabsidian.headings"
     -- Un `[[wiki]]` admite espacios y mayúsculas: es lo que escribe la app de
     -- Obsidian y lo que ya usa el vault.
     assert.are.equal("My Father A", headings.anchor_text("My Father A", "wiki"))
@@ -1075,7 +1115,7 @@ describe("Nyabsidian structured links and attachments", function()
   it("keeps resolving the slug anchors written before, so nothing needs migrating", function()
     write("Ankama.md", { "# Installation on Linux", "", "cuerpo" })
     vim.cmd.edit(root .. "/Ankama.md")
-    local headings = require "lzy.obsidian.headings"
+    local headings = require "lzy.nyabsidian.headings"
     local note = require("obsidian.api").current_note(0, {
       collect_sections = true,
       collect_anchor_links = true,
@@ -1096,7 +1136,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- acepta las dos: si no, escribir con el slug habría roto la resolución.
     write("Sluggy.md", { "# Guía_rápida  y más", "", "cuerpo" })
     vim.cmd.edit(root .. "/Sluggy.md")
-    local headings = require "lzy.obsidian.headings"
+    local headings = require "lzy.nyabsidian.headings"
     local note = require("obsidian.api").current_note(0, {
       collect_sections = true,
       collect_anchor_links = true,
@@ -1110,7 +1150,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("names a new note after its title instead of a slug of it", function()
-    local new_note = require "lzy.obsidian.new_note"
+    local new_note = require "lzy.nyabsidian.new_note"
     assert.are.equal("Mi Nota Chula", new_note.verbatim_id "Mi Nota Chula")
     -- Lo que rompería un `[[enlace]]` o fabricaría carpetas sí se va.
     assert.are.equal("Nota rara", new_note.verbatim_id "Nota #[rara]|")
@@ -1535,7 +1575,7 @@ describe("Nyabsidian structured links and attachments", function()
   it("rejects unsafe names and existing destinations without moving anything", function()
     write("assets/a.png", { "a" })
     write("assets/taken.png", { "taken" })
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local opts = { source_path = root .. "/source.md", root = root }
 
     local _, reserved = attachments.destination(root .. "/assets/a.png", "bad#name", opts)
@@ -1550,7 +1590,7 @@ describe("Nyabsidian structured links and attachments", function()
 
   it("preserves absolute, URI, note-relative, vault-relative and basename targets", function()
     write("assets/a.png", { "a" })
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local source = root .. "/notes/source.md"
     local old_path = root .. "/assets/a.png"
     local new_path = root .. "/archive/b.png"
@@ -1571,7 +1611,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("preserves relative external targets and can explicitly make them absolute", function()
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local source = root .. "/notes/source.md"
     local old_path = root .. "-external/a.bin"
     local new_path = root .. "-external/b.bin"
@@ -1597,7 +1637,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("renames an external attachment without relativizing absolute or file URI links", function()
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local external_dir = root .. "-external"
     local old_path = external_dir .. "/a.bin"
     local new_path = external_dir .. "/b.bin"
@@ -1633,7 +1673,7 @@ describe("Nyabsidian structured links and attachments", function()
   it("classifies text by content and leaves every non-text format to the system", function()
     write("recording.mp4", { "plain text despite the extension" })
     write_binary "archive.tar"
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
 
     assert.is_true(attachments.is_text(root .. "/recording.mp4"))
     assert.is_false(attachments.is_text(root .. "/archive.tar"))
@@ -1642,7 +1682,7 @@ describe("Nyabsidian structured links and attachments", function()
   it("supports the optional Nyabsidian simplify policy", function()
     write("assets/a.png", { "a" })
     write("notes/source.md", { "![[../assets/a.png]]" })
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local source = root .. "/notes/source.md"
     local asset = root .. "/assets/a.png"
 
@@ -1681,7 +1721,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("validates Nyabsidian's own attachment policies and falls back to preserve", function()
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local ok, err = attachments.configure(root, {
       attachment_paths = { external = "relative" },
     })
@@ -1692,7 +1732,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("accepts obsidian.Path roots during live workspace refresh", function()
-    local attachments = require "lzy.obsidian.attachments"
+    local attachments = require "lzy.nyabsidian.attachments"
     local path_root = require("obsidian.path").new(root)
 
     assert(attachments.configure(path_root, {
@@ -1711,7 +1751,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 10 })
 
     local seen
-    require("lzy.obsidian.link_actions").convert_link({
+    require("lzy.nyabsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         seen = vim.tbl_map(function(item)
@@ -1735,7 +1775,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local seen
-    require("lzy.obsidian.link_actions").convert_link({
+    require("lzy.nyabsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         seen = vim.tbl_map(function(item)
@@ -1755,7 +1795,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("warns about markdown destinations that resolve here but break on GitHub", function()
-    local diagnostics = require "lzy.obsidian.diagnostics"
+    local diagnostics = require "lzy.nyabsidian.diagnostics"
     write("docs/Software wrapper.md", { "# SW" })
     write("docs/nota.md", { "# Nota" })
     write("docs/vecina.md", { "# Vecina" })
@@ -1805,8 +1845,8 @@ describe("Nyabsidian structured links and attachments", function()
     })
     vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/accion.md"))
     local actions = require "obsidian.actions"
-    local attachments = require "lzy.obsidian.attachments"
-    local links = require "lzy.obsidian.links"
+    local attachments = require "lzy.nyabsidian.attachments"
+    local links = require "lzy.nyabsidian.links"
 
     -- Dentro del bloque: Enter hace lo de siempre y no hay enlace que ver.
     vim.api.nvim_win_set_cursor(0, { 2, 30 })
@@ -1834,16 +1874,16 @@ describe("Nyabsidian structured links and attachments", function()
     })
     local source = root .. "/doc.md"
     vim.cmd("edit! " .. vim.fn.fnameescape(source))
-    require("lzy.obsidian.notes").invalidate_index()
+    require("lzy.nyabsidian.notes").invalidate_index()
 
     -- Sólo se ve el enlace de fuera del bloque.
-    local refs = require("lzy.obsidian.diagnostics").note_refs(0)
+    local refs = require("lzy.nyabsidian.diagnostics").note_refs(0)
     assert.are.equal(1, #refs, "el del fence no cuenta")
     assert.are.equal(4, refs[1].range.start_row, "la última línea")
     assert.are.equal("Fantasma Inventado", refs[1].target)
 
     -- Y el `[[docs/Mi Nota]]` del ejemplo no se acorta a `[[Mi Nota]]`.
-    local plan = assert(require("lzy.obsidian.relink").plan { root = root })
+    local plan = assert(require("lzy.nyabsidian.relink").plan { root = root })
     for path in pairs(plan.changes) do
       assert.are_not.equal(source, path, "no se reescribe dentro de un bloque de código")
     end
@@ -1854,7 +1894,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- tramo: `[texto](destino)` es sintaxis explicada, no un enlace. El
     -- `[[wiki]]` entre backticks ya se saltaba y el markdown no, y la
     -- asimetría se veía en las tablas de esta documentación.
-    local parse_refs = require("lzy.obsidian.attachments").parse_refs
+    local parse_refs = require("lzy.nyabsidian.attachments").parse_refs
 
     assert.are.equal(0, #parse_refs("| `[texto](/docs/Mi%20nota.md)` |", 0))
     assert.are.equal(0, #parse_refs("``[texto](/docs/nota.md)`` con dobles", 0))
@@ -1879,10 +1919,10 @@ describe("Nyabsidian structured links and attachments", function()
       "- [ ] repasar `[texto](/docs/Fantasma.md)`",
     })
     vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/tabla.md"))
-    require("lzy.obsidian.notes").invalidate_index()
+    require("lzy.nyabsidian.notes").invalidate_index()
 
     -- El ejemplo apunta a una nota que no existe, y aun así no se diagnostica.
-    local refs = require("lzy.obsidian.diagnostics").note_refs(0)
+    local refs = require("lzy.nyabsidian.diagnostics").note_refs(0)
     assert.are.equal(1, #refs, "sólo el enlace de fuera de los backticks")
     assert.are.equal(4, refs[1].range.start_row)
 
@@ -1890,7 +1930,7 @@ describe("Nyabsidian structured links and attachments", function()
     local actions = require "obsidian.actions"
     vim.api.nvim_win_set_cursor(0, { 3, 20 })
     assert.are_not.equal("<cmd>Obsidian follow_link<cr>", actions.smart_action())
-    assert.is_nil(require("lzy.obsidian.attachments").cursor_ref(0))
+    assert.is_nil(require("lzy.nyabsidian.attachments").cursor_ref(0))
 
     -- Se le tapa la rama del enlace, no la fila entera: la casilla de una
     -- tarea que además lleva código en línea se sigue marcando.
@@ -1906,11 +1946,11 @@ describe("Nyabsidian structured links and attachments", function()
     -- El vault no escribe ninguna de estas formas, pero llegan igual: pegadas
     -- de otra herramienta, de un export o de marksman. Se aceptan al LEER.
     write("Espacios y mayús.md", { "# Espacios y mayús" })
-    require("lzy.obsidian.notes").invalidate_index()
+    require("lzy.nyabsidian.notes").invalidate_index()
 
     local function resolves(target)
       local got
-      require("lzy.obsidian.notes").resolve_async(target, function(found)
+      require("lzy.nyabsidian.notes").resolve_async(target, function(found)
         got = found
       end)
       vim.wait(3000, function()
@@ -1933,7 +1973,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("x/deep/nested/a.md", { "# A" })
     write("y/other/nested/a.md", { "# B" })
     write("solitaria.md", { "# Sola" })
-    local coordinate = require "lzy.obsidian.coordinate"
+    local coordinate = require "lzy.nyabsidian.coordinate"
     local opts = { root = root, fresh = true }
 
     -- Sin homónimos, el nombre pelado.
@@ -1966,9 +2006,9 @@ describe("Nyabsidian structured links and attachments", function()
       -- Recargar: otros tests dejan un buffer con este mismo nombre cargado.
       vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
 
-      local plan = assert(require("lzy.obsidian.relink").plan { root = root })
+      local plan = assert(require("lzy.nyabsidian.relink").plan { root = root })
       vim.lsp.util.apply_workspace_edit(
-        require("lzy.obsidian.relink").workspace_edit(plan),
+        require("lzy.nyabsidian.relink").workspace_edit(plan),
         "utf-8"
       )
 
@@ -1990,7 +2030,7 @@ describe("Nyabsidian structured links and attachments", function()
       })
       vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
 
-      local relink = require "lzy.obsidian.relink"
+      local relink = require "lzy.nyabsidian.relink"
       local plan = assert(relink.plan { root = root })
       vim.lsp.util.apply_workspace_edit(relink.workspace_edit(plan), "utf-8")
 
@@ -2011,7 +2051,7 @@ describe("Nyabsidian structured links and attachments", function()
       })
       vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
 
-      local relink = require "lzy.obsidian.relink"
+      local relink = require "lzy.nyabsidian.relink"
       local plan = assert(relink.plan { root = root })
       vim.lsp.util.apply_workspace_edit(relink.workspace_edit(plan), "utf-8")
 
@@ -2025,11 +2065,11 @@ describe("Nyabsidian structured links and attachments", function()
       write("carpeta/Duplicada.md", { "# La de siempre" })
       write("source.md", { "Mira [[Duplicada]] y [[Duplicada|con alias]]." })
       vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
-      require("lzy.obsidian.notes").invalidate_index()
+      require("lzy.nyabsidian.notes").invalidate_index()
 
       -- Aparece una homónima: los enlaces de arriba dejan de ser inequívocos.
       write("otra/Duplicada.md", { "# La nueva" })
-      local rewritten = require("lzy.obsidian.relink").on_note_added(
+      local rewritten = require("lzy.nyabsidian.relink").on_note_added(
         root .. "/otra/Duplicada.md",
         { root = root, notify = function() end }
       )
@@ -2045,11 +2085,11 @@ describe("Nyabsidian structured links and attachments", function()
       write("carpeta/Sola.md", { "# Sola" })
       write("source.md", { "Mira [[Sola]]." })
       vim.cmd("edit! " .. vim.fn.fnameescape(root .. "/source.md"))
-      require("lzy.obsidian.notes").invalidate_index()
+      require("lzy.nyabsidian.notes").invalidate_index()
 
       assert.are.equal(
         0,
-        require("lzy.obsidian.relink").on_note_added(
+        require("lzy.nyabsidian.relink").on_note_added(
           root .. "/carpeta/Sola.md",
           { root = root, notify = function() end }
         )
@@ -2067,7 +2107,7 @@ describe("Nyabsidian structured links and attachments", function()
     write("cerca/source.md", { "texto" })
     vim.cmd.edit(root .. "/cerca/source.md")
 
-    local notes = require "lzy.obsidian.notes"
+    local notes = require "lzy.nyabsidian.notes"
     notes.invalidate_index()
     local got
     notes.resolve_async("a", function(found)
@@ -2093,7 +2133,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- y el nombre pelado saldría como si fuese inequívoco cuando no lo es.
     write("x/Unica.md", { "# Unica" })
     write("y/Distinta.md", { "---", "aliases:", "  - Unica", "---", "", "# Distinta" })
-    local coordinate = require "lzy.obsidian.coordinate"
+    local coordinate = require "lzy.nyabsidian.coordinate"
     local opts = { root = root, fresh = true }
 
     assert.are.equal("x/Unica", coordinate.minimal(root .. "/x/Unica.md", opts))
@@ -2104,7 +2144,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- posicional, que es lo único que la separa de quien la reclama por alias.
     write("Raiz.md", { "# Raiz" })
     write("z/Otra.md", { "---", "aliases:", "  - Raiz", "---", "", "# Otra" })
-    local coordinate = require "lzy.obsidian.coordinate"
+    local coordinate = require "lzy.nyabsidian.coordinate"
 
     assert.are.equal(
       "/Raiz",
@@ -2115,7 +2155,7 @@ describe("Nyabsidian structured links and attachments", function()
   it("only counts a rival as sharing a suffix on a folder boundary", function()
     write("otra/Nota.md", { "# Una" })
     write("miotra/Nota.md", { "# Otra" })
-    local coordinate = require "lzy.obsidian.coordinate"
+    local coordinate = require "lzy.nyabsidian.coordinate"
     local opts = { root = root, fresh = true }
 
     -- `miotra/Nota` termina en la cadena "otra/Nota", pero no en el segmento:
@@ -2126,7 +2166,7 @@ describe("Nyabsidian structured links and attachments", function()
 
   it("writes a markdown destination as a root path, encoded, never a bare name", function()
     write("docs/Software wrapper.md", { "# SW" })
-    local coordinate = require "lzy.obsidian.coordinate"
+    local coordinate = require "lzy.nyabsidian.coordinate"
 
     -- Un basename pelado resolvería aquí (buscamos por el vault) y daría 404
     -- en GitHub, que sólo mira la ruta literal.
@@ -2146,7 +2186,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/source.md")
     vim.api.nvim_win_set_cursor(0, { 2, 5 })
 
-    require("lzy.obsidian.link_actions").convert_link({
+    require("lzy.nyabsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         local choice = vim.iter(items):find(function(item)
@@ -2175,7 +2215,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local seen
-    require("lzy.obsidian.link_actions").convert_link({
+    require("lzy.nyabsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         seen = vim.tbl_map(function(item)
@@ -2198,7 +2238,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/notes/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 15 })
 
-    require("lzy.obsidian.link_actions").convert_link({
+    require("lzy.nyabsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         callback(vim.iter(items):find(function(item)
@@ -2219,7 +2259,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.cmd.edit(root .. "/notes/source.md")
     vim.api.nvim_win_set_cursor(0, { 1, 20 })
 
-    require("lzy.obsidian.link_actions").convert_link({
+    require("lzy.nyabsidian.link_actions").convert_link({
       notify = function() end,
       select = function(items, _, callback)
         callback(vim.iter(items):find(function(item)
@@ -2241,7 +2281,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local copied
-    require("lzy.obsidian.link_actions").copy_path({
+    require("lzy.nyabsidian.link_actions").copy_path({
       copy = function(path)
         copied = path
       end,
@@ -2258,7 +2298,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
     vim.o.clipboard = ""
 
-    require("lzy.obsidian.link_actions").copy_path({
+    require("lzy.nyabsidian.link_actions").copy_path({
       notify = function() end,
     })
 
@@ -2307,7 +2347,7 @@ describe("Nyabsidian structured links and attachments", function()
     reload_provider()
 
     local ok, err = pcall(function()
-      require("lzy.obsidian.link_actions").copy_path {
+      require("lzy.nyabsidian.link_actions").copy_path {
         notify = function() end,
       }
     end)
@@ -2329,7 +2369,7 @@ describe("Nyabsidian structured links and attachments", function()
     vim.api.nvim_win_set_cursor(0, { 1, 8 })
 
     local copied
-    require("lzy.obsidian.link_actions").copy_path({
+    require("lzy.nyabsidian.link_actions").copy_path({
       copy = function(path)
         copied = path
       end,
@@ -2340,7 +2380,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("always sends zero or one backlink to the picker", function()
-    local backlinks = require "lzy.obsidian.backlinks"
+    local backlinks = require "lzy.nyabsidian.backlinks"
     local picked = {}
     local function pick(items, opts)
       picked[#picked + 1] = { items = items, title = opts.prompt_title }
@@ -2391,7 +2431,7 @@ describe("Nyabsidian structured links and attachments", function()
       vim.cmd.edit(root .. "/source.md")
 
       local prompts = {}
-      require("lzy.obsidian.new_note").confirm = function(prompt, done)
+      require("lzy.nyabsidian.new_note").confirm = function(prompt, done)
         prompts[#prompts + 1] = prompt
         done "yes"
       end
@@ -2410,7 +2450,7 @@ describe("Nyabsidian structured links and attachments", function()
     it("creates the note under the subfolder the link names", function()
       write("source.md", { "[[sub/Anidada]]" })
       vim.cmd.edit(root .. "/source.md")
-      require("lzy.obsidian.new_note").confirm = function(_, done)
+      require("lzy.nyabsidian.new_note").confirm = function(_, done)
         done "yes"
       end
 
@@ -2423,7 +2463,7 @@ describe("Nyabsidian structured links and attachments", function()
     it("creates nothing when the user declines", function()
       write("source.md", { "[[Cancelada]]" })
       vim.cmd.edit(root .. "/source.md")
-      require("lzy.obsidian.new_note").confirm = function(_, done)
+      require("lzy.nyabsidian.new_note").confirm = function(_, done)
         done "no"
       end
 
@@ -2436,7 +2476,7 @@ describe("Nyabsidian structured links and attachments", function()
     it("does not prompt when the note already exists", function()
       vim.cmd.edit(root .. "/source.md")
       local confirm_called = false
-      require("lzy.obsidian.new_note").confirm = function(_, done)
+      require("lzy.nyabsidian.new_note").confirm = function(_, done)
         confirm_called = true
         done "yes"
       end
@@ -2455,7 +2495,7 @@ describe("Nyabsidian structured links and attachments", function()
       vim.cmd.edit(root .. "/source.md")
       local bufnr = vim.api.nvim_get_current_buf()
 
-      require("lzy.obsidian.diagnostics").refresh(bufnr)
+      require("lzy.nyabsidian.diagnostics").refresh(bufnr)
       vim.wait(3000, function()
         return #vim.diagnostic.get(bufnr) > 0
       end, 20)
@@ -2466,19 +2506,36 @@ describe("Nyabsidian structured links and attachments", function()
       assert.matches("Missing", diags[1].message)
     end)
 
+    it("leaves a link to an existing folder alone", function()
+      write("d2/clases.d2", { "a -> b" })
+      write("source.md", { "[D2](d2/)", "[Nada](nada/)" })
+      vim.cmd.edit(root .. "/source.md")
+      local bufnr = vim.api.nvim_get_current_buf()
+
+      require("lzy.nyabsidian.diagnostics").refresh(bufnr)
+      vim.wait(3000, function()
+        return #vim.diagnostic.get(bufnr) > 0
+      end, 20)
+
+      local diags = vim.diagnostic.get(bufnr)
+      assert.are.equal(1, #diags)
+      assert.are.equal(1, diags[1].lnum)
+      assert.matches("nada/", diags[1].message)
+    end)
+
     it("clears once the missing note is created", function()
       write("source.md", { "[[Missing]]" })
       vim.cmd.edit(root .. "/source.md")
       local bufnr = vim.api.nvim_get_current_buf()
 
-      require("lzy.obsidian.diagnostics").refresh(bufnr)
+      require("lzy.nyabsidian.diagnostics").refresh(bufnr)
       vim.wait(3000, function()
         return #vim.diagnostic.get(bufnr) > 0
       end, 20)
       assert.are.equal(1, #vim.diagnostic.get(bufnr))
 
       write("Missing.md", { "# Missing" })
-      require("lzy.obsidian.diagnostics").refresh(bufnr)
+      require("lzy.nyabsidian.diagnostics").refresh(bufnr)
       vim.wait(3000, function()
         return #vim.diagnostic.get(bufnr) == 0
       end, 20)
@@ -2491,7 +2548,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- devuelve la imagen, así que el destino de fuera quedaba invisible para
     -- follow, convert y las reescrituras de rename.
     local line = "[![Logo](./img/logo.png)](/docs/nota.md)"
-    local refs = require("lzy.obsidian.attachments").parse_refs(line, 0)
+    local refs = require("lzy.nyabsidian.attachments").parse_refs(line, 0)
     assert.are.equal(2, #refs)
 
     -- Primero la imagen: es el adjunto, y donde los dos se solapan es lo que
@@ -2513,9 +2570,9 @@ describe("Nyabsidian structured links and attachments", function()
     )
 
     -- Una imagen suelta sigue siendo una sola cosa.
-    assert.are.equal(1, #require("lzy.obsidian.attachments").parse_refs("![Logo](./img/logo.png)", 0))
+    assert.are.equal(1, #require("lzy.nyabsidian.attachments").parse_refs("![Logo](./img/logo.png)", 0))
     -- Y un enlace normal con texto tampoco se duplica.
-    assert.are.equal(1, #require("lzy.obsidian.attachments").parse_refs("[Texto](/docs/nota.md)", 0))
+    assert.are.equal(1, #require("lzy.nyabsidian.attachments").parse_refs("[Texto](/docs/nota.md)", 0))
   end)
 
   it("reads a destination wrapped in angles, alone and inside a linked image", function()
@@ -2523,7 +2580,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- espacios sin escapar: la forma legible de lo que si no lleva `%20`. Este
     -- lado ya la entendía; el test la fija porque es fácil de romper al tocar el
     -- parseo, y porque una nota puede acabar aquí viniendo de Markdown suelto.
-    local parse_refs = require("lzy.obsidian.attachments").parse_refs
+    local parse_refs = require("lzy.nyabsidian.attachments").parse_refs
 
     local plain = "[Texto](</docs/Mi nota.md>)"
     local refs = parse_refs(plain, 0)
@@ -2558,7 +2615,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- etiqueta difiere del nombre de la nota, y la etiqueta sale de lo
     -- tecleado: escribir `[[/docs` sobre una nota con id Zettel producía
     -- `[[1786867178-OZDA|/docs]]`, un alias que es media ruta.
-    local drop = require("lzy.obsidian.completion").drop_pathish_alias
+    local drop = require("lzy.nyabsidian.completion").drop_pathish_alias
     assert.are.equal("[[1786867178-OZDA]]", drop "[[1786867178-OZDA|/docs]]")
     assert.are.equal("[[nota]]", drop "[[nota|docs/api]]")
     assert.are.equal("[[nota]]", drop "[[nota|./vecina]]")
@@ -2571,7 +2628,7 @@ describe("Nyabsidian structured links and attachments", function()
     -- El item "(create)" de obsidian.nvim propone crear una nota llamada como
     -- lo tecleado. `[[/docs` no pide una nota `/docs`, pide bajar por `docs`:
     -- de ahí salía el `[[<id>|/do]] (create)` que no significaba nada.
-    local sanitize = require("lzy.obsidian.completion").sanitize
+    local sanitize = require("lzy.nyabsidian.completion").sanitize
     local function create_item(term)
       return {
         label = ("[[%s]] (create)"):format(term),
@@ -2606,7 +2663,7 @@ describe("Nyabsidian structured links and attachments", function()
       write("wiki.md", { line })
       vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
       local result
-      require("lzy.obsidian.completion").custom_completion({
+      require("lzy.nyabsidian.completion").custom_completion({
         textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
         position = { line = 0, character = #line },
       }, function(value)
@@ -2663,7 +2720,7 @@ describe("Nyabsidian structured links and attachments", function()
       write("wiki.md", { "[[Nota con]]" })
       vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
       local result
-      require("lzy.obsidian.completion").custom_completion({
+      require("lzy.nyabsidian.completion").custom_completion({
         textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
         position = { line = 0, character = 10 },
       }, function(value)
@@ -2685,7 +2742,7 @@ describe("Nyabsidian structured links and attachments", function()
         write("wiki.md", { line })
         vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
         local result
-        require("lzy.obsidian.completion").custom_completion({
+        require("lzy.nyabsidian.completion").custom_completion({
           textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
           position = { line = 0, character = #line },
         }, function(value)
@@ -2713,7 +2770,7 @@ describe("Nyabsidian structured links and attachments", function()
       write("wiki.md", { "[Algo](Nota con" })
       vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
       local result
-      require("lzy.obsidian.completion").custom_completion({
+      require("lzy.nyabsidian.completion").custom_completion({
         textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
         position = { line = 0, character = 15 },
       }, function(value)
@@ -2737,7 +2794,7 @@ describe("Nyabsidian structured links and attachments", function()
         write("wiki.md", { line })
         vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
         local result
-        require("lzy.obsidian.completion").custom_completion({
+        require("lzy.nyabsidian.completion").custom_completion({
           textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
           position = { line = 0, character = #line },
         }, function(value)
@@ -2769,7 +2826,7 @@ describe("Nyabsidian structured links and attachments", function()
     end)
 
     it("does not treat a markdown link as a wiki anchor", function()
-      local completion = require "lzy.obsidian.completion"
+      local completion = require "lzy.nyabsidian.completion"
       assert.is_nil(completion.wiki_anchor_context("[Algo](nota.md#frag", 19))
       assert.is_nil(completion.wiki_anchor_context("[[Nota]] y [x](a.md#f", 21))
     end)
@@ -2778,10 +2835,10 @@ describe("Nyabsidian structured links and attachments", function()
       -- `Igual` se repite, pero sus padres inmediatos ya son distintos: la
       -- cadena para ahi y no llega a nombrar a `Alpha`, que es comun a los dos.
       write("Ambiguo.md", { "# Alpha", "## Beta", "### Igual", "## Gamma", "### Igual" })
-      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Ambiguo.md"))
+      local note = require("lzy.nyabsidian.headings").load_note(vim.fs.joinpath(root, "Ambiguo.md"))
       local targets = vim.tbl_map(function(suggestion)
-        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
-      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+        return require("lzy.nyabsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.nyabsidian.completion").anchor_suggestions(note))
       assert.is_true(vim.tbl_contains(targets, "Beta#Igual"))
       assert.is_true(vim.tbl_contains(targets, "Gamma#Igual"))
       assert.is_false(vim.tbl_contains(targets, "Alpha#Beta#Igual"))
@@ -2794,30 +2851,30 @@ describe("Nyabsidian structured links and attachments", function()
         "# Delta", "## Beta", "### Repetido",
         "# Epsilon", "## Beta", "### Repetido",
       })
-      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Abuelo.md"))
+      local note = require("lzy.nyabsidian.headings").load_note(vim.fs.joinpath(root, "Abuelo.md"))
       local targets = vim.tbl_map(function(suggestion)
-        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
-      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+        return require("lzy.nyabsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.nyabsidian.completion").anchor_suggestions(note))
       assert.is_true(vim.tbl_contains(targets, "Delta#Beta#Repetido"))
       assert.is_true(vim.tbl_contains(targets, "Epsilon#Beta#Repetido"))
     end)
 
     it("names no parent at all when the heading has no twin", function()
       write("Unico.md", { "# Sin gemelo", "## Unico" })
-      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Unico.md"))
+      local note = require("lzy.nyabsidian.headings").load_note(vim.fs.joinpath(root, "Unico.md"))
       local targets = vim.tbl_map(function(suggestion)
-        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
-      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+        return require("lzy.nyabsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.nyabsidian.completion").anchor_suggestions(note))
       assert.is_true(vim.tbl_contains(targets, "Unico"))
       assert.is_false(vim.tbl_contains(targets, "Sin gemelo#Unico"))
     end)
 
     it("disambiguates two headings with the same name using their parent", function()
       write("Repes.md", { "# Uno", "## Igual", "# Dos", "## Igual" })
-      local note = require("lzy.obsidian.headings").load_note(vim.fs.joinpath(root, "Repes.md"))
+      local note = require("lzy.nyabsidian.headings").load_note(vim.fs.joinpath(root, "Repes.md"))
       local targets = vim.tbl_map(function(suggestion)
-        return require("lzy.obsidian.completion").anchor_written(suggestion.segments)
-      end, require("lzy.obsidian.completion").anchor_suggestions(note))
+        return require("lzy.nyabsidian.completion").anchor_written(suggestion.segments)
+      end, require("lzy.nyabsidian.completion").anchor_suggestions(note))
       assert.is_true(vim.tbl_contains(targets, "Uno#Igual"))
       assert.is_true(vim.tbl_contains(targets, "Dos#Igual"))
     end)
@@ -2833,7 +2890,7 @@ describe("Nyabsidian structured links and attachments", function()
       write("wiki.md", { line })
       vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
       local result
-      require("lzy.obsidian.completion").custom_completion({
+      require("lzy.nyabsidian.completion").custom_completion({
         textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
         position = { line = 0, character = #line },
       }, function(value)
@@ -2928,7 +2985,7 @@ describe("Nyabsidian structured links and attachments", function()
       write("wiki.md", { line })
       vim.cmd.edit(vim.fs.joinpath(root, "wiki.md"))
       local result
-      require("lzy.obsidian.completion").custom_completion({
+      require("lzy.nyabsidian.completion").custom_completion({
         textDocument = { uri = vim.uri_from_bufnr(vim.api.nvim_get_current_buf()) },
         position = { line = 0, character = #"[Algo](/docs/arch" },
       }, function(value)
@@ -2947,7 +3004,7 @@ describe("Nyabsidian structured links and attachments", function()
     it("resolves the note it just inserted", function()
       write("docs/archlinux.md", { "# Arch" })
       local resolved
-      require("lzy.obsidian.notes").resolve_async("/docs/archlinux.md", function(notes)
+      require("lzy.nyabsidian.notes").resolve_async("/docs/archlinux.md", function(notes)
         resolved = notes
       end)
       vim.wait(2000, function()
@@ -2973,7 +3030,7 @@ describe("Nyabsidian structured links and attachments", function()
   end)
 
   it("finds the target being typed in any link syntax, not only in [[", function()
-    local context = require("lzy.obsidian.completion").target_context
+    local context = require("lzy.nyabsidian.completion").target_context
     ---@param line string
     ---@param character integer
     local function found(line, character)
@@ -3025,7 +3082,7 @@ describe("Nyabsidian structured links and attachments", function()
     local function copy_at(row, col)
       vim.api.nvim_win_set_cursor(0, { row, col })
       local got
-      require("lzy.obsidian.smart_copy").smart_copy {
+      require("lzy.nyabsidian.smart_copy").smart_copy {
         copy = function(text)
           got = text
         end,

@@ -77,7 +77,7 @@ local function resolve_root(opts)
 end
 
 local function test_nyabsidian(root)
-  require("lzy.obsidian").setup()
+  require("lzy.nyabsidian").setup()
   local Obsidian = rawget(_G, "Obsidian")
   local roots = {}
   for _, ws in ipairs(Obsidian and Obsidian.workspaces or {}) do

@@ -38,6 +38,11 @@ local function is_file(path)
   return stat ~= nil and stat.type == "file"
 end
 
+local function is_directory(path)
+  local stat = uv.fs_stat(path)
+  return stat ~= nil and stat.type == "directory"
+end
+
 ---@param path string
 ---@param root string|table
 ---@return boolean
@@ -212,7 +217,7 @@ end
 ---archivo que hace `normalize()` (una syscall cada uno) y solo aplica
 ---`vim.fs.normalize()` (puro manejo de strings, sin tocar disco). Para
 ---adjuntos importa tener la ruta real (symlinks resueltos, para dedupear
----identidad de archivo); para indexar contenido de notas (lzy.obsidian.
+---identidad de archivo); para indexar contenido de notas (lzy.nyabsidian.
 ---notes) no hace falta -- y en un vault
 ---de ~1600 archivos, esa syscall de más terminó siendo la mayoría del
 ---tiempo real (perfilado con jit.p: ~76% del tiempo en normalize()/fs.*).
@@ -322,7 +327,7 @@ local function best_match_order(candidates, source_dir)
   end, indexed)
 end
 
---- Expuestos para que otros módulos (lzy.obsidian.notes) puedan construir
+--- Expuestos para que otros módulos (lzy.nyabsidian.notes) puedan construir
 --- su propio índice de un
 --- solo recorrido del vault sin reimplementar las reglas de ignorados
 --- (`.obsidian`/`.nyabsidian` como límite, `obsidian.ignore`, dotfiles).
@@ -368,10 +373,42 @@ end
 ---@field root string|?
 ---@field source_path string|?
 
+---Una carpeta en las coordenadas explícitas del enlace: `[D2](d2/)` apunta a
+---la carpeta `d2` junto a la nota, y seguirlo la abre en el explorador del
+---sistema (open_path -> file_opener). Tiene que decirlo el enlace, con barra
+---final o con forma de ruta: `[[Proyectos]]` sigue siendo una nota aunque al
+---lado haya una carpeta `Proyectos/`, porque crear la nota de una carpeta es un
+---uso normal. Misma regla que en lzy.marksman.workspace.
+---@param target string ya sin fragmentos ni escapes
+---@param ctx table
+---@return string|nil
+local function explicit_directory(target, ctx)
+  local candidates
+  local explicit_file = file_uri(target)
+  if explicit_file then
+    candidates = { explicit_file }
+  elseif vim.startswith(target, "/") then
+    candidates = { vim.fs.joinpath(ctx.root, target:sub(2)), target }
+  elseif vim.fn.isabsolutepath(target) == 1 then
+    candidates = { target }
+  elseif vim.startswith(target, "./") or vim.startswith(target, "../") then
+    candidates = { vim.fs.joinpath(ctx.source_dir, target) }
+  elseif vim.endswith(target, "/") then
+    candidates = { vim.fs.joinpath(ctx.source_dir, target), vim.fs.joinpath(ctx.root, target) }
+  else
+    return nil
+  end
+  for _, candidate in ipairs(candidates) do
+    if is_directory(candidate) then
+      return normalize(candidate, false)
+    end
+  end
+end
+
 ---@param target string
 ---@param opts { bufnr?: integer, source_path?: string, root?: string, format?: string, index?: nyabsidian.AttachmentIndex }|?
 ---@return nyabsidian.AttachmentResolved|nyabsidian.AttachmentMissing
-function M.resolve(target, opts)
+local function resolve_file(target, opts)
   opts = opts or {}
   local ctx = context(opts)
   target = M.strip_fragments(target or "")
@@ -408,7 +445,7 @@ function M.resolve(target, opts)
   if explicit_file then
     candidate = normalize(explicit_file, false)
   elseif vim.startswith(target, "/") then
-    -- Misma regla que para notas (ver lzy.obsidian.link_actions): la barra
+    -- Misma regla que para notas (ver lzy.nyabsidian.link_actions): la barra
     -- inicial es la raíz del vault. Sólo si ahí no hay archivo se prueba como
     -- ruta del sistema, que es como se enlaza un adjunto de fuera.
     local from_root = normalize(vim.fs.joinpath(ctx.root, target:sub(2)), false)
@@ -515,6 +552,34 @@ function M.resolve(target, opts)
     reason = ("no se encuentra '%s' en el vault"):format(target),
     root = ctx.root,
     source_path = ctx.source_path,
+  }
+end
+
+---Un archivo del vault (o de fuera) y, si no hay ninguno, una carpeta que el
+---enlace nombre de forma explícita (ver `explicit_directory`).
+---@param target string
+---@param opts { bufnr?: integer, source_path?: string, root?: string, format?: string, index?: nyabsidian.AttachmentIndex }|?
+---@return nyabsidian.AttachmentResolved|nyabsidian.AttachmentMissing
+function M.resolve(target, opts)
+  local result = resolve_file(target, opts)
+  if result.status ~= "missing" or not result.root then
+    return result
+  end
+  local is_uri, scheme = require("obsidian.util").is_uri(result.target)
+  if is_uri and scheme ~= "file" then
+    return result
+  end
+  local ctx = context(opts)
+  local directory = ctx and explicit_directory(result.target, ctx)
+  if not directory then
+    return result
+  end
+  return {
+    status = "resolved",
+    path = directory,
+    root = ctx.root,
+    source_path = ctx.source_path,
+    external = not inside(directory, ctx.root),
   }
 end
 
@@ -965,7 +1030,7 @@ function M.open_under_cursor(bufnr)
   -- cursor_linked_image. obsidian.nvim solo ve la imagen, así que sin esto `gx`
   -- sobre un badge abría el SVG en vez del enlace.
   local badge = M.cursor_linked_image(bufnr)
-  local ref = badge or M.cursor_ref(bufnr) or require("lzy.obsidian.links").cursor_ref(bufnr)
+  local ref = badge or M.cursor_ref(bufnr) or require("lzy.nyabsidian.links").cursor_ref(bufnr)
   local target = ref and (ref.raw_target or ref.target) or nil
   if target and M.is_target(target, { bufnr = bufnr }) then
     return M.follow(target, { bufnr = bufnr })

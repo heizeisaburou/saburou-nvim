@@ -1,7 +1,7 @@
--- lzy.obsidian.commands
+-- lzy.nyabsidian.commands
 --
 -- Registra los comandos Nyabsidian* al arranque, sin que obsidian.nvim (ni el
--- módulo lzy.obsidian) tenga que estar cargado -- vive dentro de lzy/obsidian/
+-- módulo lzy.nyabsidian) tenga que estar cargado -- vive dentro de lzy/nyabsidian/
 -- pero `require` no toca su init.lua, así que sigue sin arrastrar nada. Cada
 -- comando carga el módulo bajo demanda y lo inicializa la primera vez (plugin
 -- + setup).
@@ -31,7 +31,7 @@ function M.setup()
     vim.api.nvim_create_user_command(spec.cmd, function()
       -- require fresco en cada invocación: si el módulo se recarga (dofile),
       -- el comando sigue apuntando a la versión nueva.
-      local mod = require "lzy.obsidian"
+      local mod = require "lzy.nyabsidian"
       mod.ensure_setup()
       local ok, err = pcall(mod[spec.fn], spec.args)
       if not ok then

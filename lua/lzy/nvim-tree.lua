@@ -429,7 +429,7 @@ M.setup = function()
         -- No cargamos obsidian.nvim solo por operar en el árbol. Si ya está
         -- activo, el evento posterior a la operación puede redescubrir el
         -- vault inmediatamente, aunque el foco siga dentro de nvim-tree.
-        local nyabsidian = package.loaded["lzy.obsidian"]
+        local nyabsidian = package.loaded["lzy.nyabsidian"]
         if nyabsidian then
           vim.schedule(function()
             nyabsidian.refresh { notify_changes = true, only_if_changed = true }

@@ -6,7 +6,7 @@
 
 vim.keymap.set("n", "gx", function()
   local bufnr = vim.api.nvim_get_current_buf()
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
   if attachments.in_vault(bufnr) then
     if attachments.open_under_cursor(bufnr) then
       return

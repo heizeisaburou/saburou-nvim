@@ -56,7 +56,7 @@ end
 --- `/` y `#` NO están: son estructura, no contenido. Varios sitios codifican
 --- `ruta#fragmento` de una pieza, y escapar la almohadilla ahí se comería el
 --- separador. Quien necesite un `#` literal dentro de un segmento lo escapa por
---- su cuenta (ver lzy.obsidian.headings.anchor_text).
+--- su cuenta (ver lzy.nyabsidian.headings.anchor_text).
 local UNSAFE = '[ \t\r\n"\'()<>%[%]{}|\\`^]'
 
 ---Las filas que NO contienen enlaces aunque lo parezcan: bloques de código

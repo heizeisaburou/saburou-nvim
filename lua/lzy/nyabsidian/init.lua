@@ -1,4 +1,4 @@
--- lzy/obsidian/init.lua
+-- lzy/nyabsidian/init.lua
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- ― Módulo y estado
@@ -404,7 +404,7 @@ local function workspace_overrides(root)
   local custom = plugin_overrides.nyabsidian
   plugin_overrides.nyabsidian = nil
 
-  local configured, custom_error = require("lzy.obsidian.attachments").configure(root, custom)
+  local configured, custom_error = require("lzy.nyabsidian.attachments").configure(root, custom)
   if not configured then
     config_warning(vim.fs.joinpath(root, NYABSIDIAN_MARKER), custom_error)
     return {}
@@ -423,7 +423,7 @@ local function workspace_overrides(root)
     require("obsidian.config").normalize(copy)
   end)
   if not ok then
-    require("lzy.obsidian.attachments").configure(root, nil)
+    require("lzy.nyabsidian.attachments").configure(root, nil)
     config_warning(vim.fs.joinpath(root, NYABSIDIAN_MARKER), err)
     return {}
   end
@@ -508,9 +508,9 @@ local function make_opts()
     --
     -- El id es el título tal cual, no su slug: "Mi Nota" -> `Mi Nota.md`. Así
     -- esta puerta y la de crear desde un enlace ya escrito
-    -- (`lzy.obsidian.new_note.create`, verbatim desde siempre) producen el
+    -- (`lzy.nyabsidian.new_note.create`, verbatim desde siempre) producen el
     -- mismo nombre. Solo afecta a notas nuevas.
-    note_id_func = require("lzy.obsidian.new_note").verbatim_id,
+    note_id_func = require("lzy.nyabsidian.new_note").verbatim_id,
 
     -- Default de obsidian.nvim es { " ", "~", "!", ">", "x" }: pone "~"
     -- justo después de "[ ]", antes que "x". Poco natural para toggle
@@ -787,7 +787,7 @@ local function reset_obsidian_buffer(bufnr)
   -- Fuera del vault ya no aplica "esta nota no existe": lo limpia igual que
   -- BufUnload, por si el buffer sigue cargado (p.ej. se borró .nyabsidian
   -- sin cerrar el archivo).
-  require("lzy.obsidian.diagnostics").clear(bufnr)
+  require("lzy.nyabsidian.diagnostics").clear(bufnr)
 
   -- Fuera del vault: obsidian-ls se desconecta y marksman toma el relevo.
   leave_vault(bufnr)
@@ -1706,25 +1706,25 @@ local function install_runtime()
   end, { desc = "New .nyabsidian template buffer" })
 
   vim.api.nvim_create_user_command("NyabsidianCopyPath", function()
-    require("lzy.obsidian.link_actions").copy_path()
+    require("lzy.nyabsidian.link_actions").copy_path()
   end, { desc = "Copy absolute path of note or attachment" })
 
   vim.api.nvim_create_user_command("NyabsidianConvertLink", function()
-    require("lzy.obsidian.link_actions").convert_link()
+    require("lzy.nyabsidian.link_actions").convert_link()
   end, { desc = "Change the path format of the link under cursor" })
 
   vim.api.nvim_create_user_command("NyabsidianFetchTitle", function()
-    require("lzy.obsidian.link_actions").fetch_web_title()
+    require("lzy.nyabsidian.link_actions").fetch_web_title()
   end, { desc = "Use the web page title as the Markdown link label" })
 
   vim.api.nvim_create_user_command("NyabsidianRelink", function()
-    require("lzy.obsidian.relink").run()
+    require("lzy.nyabsidian.relink").run()
   end, {
     desc = "Llevar todos los enlaces del vault a su forma canónica (pide confirmación)",
   })
 
   vim.api.nvim_create_user_command("NyabsidianSmartCopy", function()
-    require("lzy.obsidian.smart_copy").smart_copy()
+    require("lzy.nyabsidian.smart_copy").smart_copy()
   end, {
     desc = "Copia según el cursor: enlace (label/target/url), negrita/cursiva, o header como [[Nota#anchor]]",
   })
@@ -1734,9 +1734,9 @@ function M.setup()
   -- El filetype de .nyabsidian se registra en ftdetect/nyabsidian.lua para
   -- que aplique desde el arranque, sin depender de que este módulo cargue.
   -- Debe instalarse antes de que pueda arrancar el primer obsidian-ls.
-  require("lzy.obsidian.links").setup { notify = notify, state = state }
-  require("lzy.obsidian.backlinks").setup(state)
-  require("lzy.obsidian.diagnostics").setup()
+  require("lzy.nyabsidian.links").setup { notify = notify, state = state }
+  require("lzy.nyabsidian.backlinks").setup(state)
+  require("lzy.nyabsidian.diagnostics").setup()
   patch_lsp_server_shutdown()
   patch_note_save()
   patch_backlink_escaped_pipe()
@@ -1753,7 +1753,7 @@ function M.setup()
 end
 
 --- Inicializa el módulo a demanda (lo usan los comandos registrados al
---- arranque por lzy.obsidian.commands). Si lazy.nvim está presente, carga el plugin
+--- arranque por lzy.nyabsidian.commands). Si lazy.nvim está presente, carga el plugin
 --- primero para que su `config` ejecute M.setup(); si no, lo intenta directo.
 function M.ensure_setup()
   if state.initialized then

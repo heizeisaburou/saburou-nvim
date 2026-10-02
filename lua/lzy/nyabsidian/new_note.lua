@@ -127,18 +127,18 @@ function M.create(name, opts, callback)
       return callback(nil)
     end
 
-    -- El índice rápido de lzy.obsidian.notes tiene un TTL corto, pero no
+    -- El índice rápido de lzy.nyabsidian.notes tiene un TTL corto, pero no
     -- hace falta esperarlo: la nota recién creada debería resolver ya en
     -- el próximo refresh de diagnósticos, no hasta 2s después.
     pcall(function()
-      require("lzy.obsidian.notes").invalidate_index()
+      require("lzy.nyabsidian.notes").invalidate_index()
     end)
 
     -- Si el nombre colisiona con otra nota, los `[[Nombre]]` que ya había
     -- dejan de apuntar donde apuntaban. Se amplían para que sigan señalando la
     -- suya; si no colisiona (lo normal) esto es un lookup y no hace nada más.
     pcall(function()
-      require("lzy.obsidian.relink").on_note_added(tostring(note.path), { notify = notify })
+      require("lzy.nyabsidian.relink").on_note_added(tostring(note.path), { notify = notify })
     end)
 
     callback(note)

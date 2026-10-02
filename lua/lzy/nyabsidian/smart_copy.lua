@@ -11,7 +11,7 @@
 --      (`` `[[x]]` `` se vería como un enlace de verdad).
 --   2. Enlace: el componente exacto que se está hovereando (label, target/
 --      nota, url, descripción, id de referencia...), ya sin llaves ni
---      paréntesis alrededor -- reusa lzy.obsidian.links.cursor_context(),
+--      paréntesis alrededor -- reusa lzy.nyabsidian.links.cursor_context(),
 --      que ya distingue esto para hover/rename/follow.
 --   3. Negrita/cursiva/negrita-cursiva/tachado: el contenido sin los
 --      delimitadores (`***hola***` -> `hola`, en cualquier combinación de
@@ -360,7 +360,7 @@ local function note_target_name(path)
   if not root then
     return nil
   end
-  local ok_la, link_actions = pcall(require, "lzy.obsidian.link_actions")
+  local ok_la, link_actions = pcall(require, "lzy.nyabsidian.link_actions")
   if not ok_la or not link_actions.shortest_note_target then
     return nil
   end
@@ -380,7 +380,7 @@ end
 ---@param bufnr integer
 ---@return boolean
 local function in_vault(bufnr)
-  local ok, attachments = pcall(require, "lzy.obsidian.attachments")
+  local ok, attachments = pcall(require, "lzy.nyabsidian.attachments")
   return ok and attachments.in_vault(bufnr) or false
 end
 
@@ -441,7 +441,7 @@ end
 ---@param row0 integer 0-based
 ---@return string|?
 local function heading_link_at_cursor(bufnr, row0)
-  local ok_headings, headings = pcall(require, "lzy.obsidian.headings")
+  local ok_headings, headings = pcall(require, "lzy.nyabsidian.headings")
   if not ok_headings then
     return nil
   end
@@ -530,7 +530,7 @@ function M.smart_copy(opts)
   --    está bajo el cursor, ya sin delimitadores.
   local vault = in_vault(bufnr)
   if vault then
-    local ok_links, links = pcall(require, "lzy.obsidian.links")
+    local ok_links, links = pcall(require, "lzy.nyabsidian.links")
     if ok_links and links.cursor_context then
       local ok_ctx, ctx = pcall(links.cursor_context)
       if ok_ctx and ctx and ctx.component and ctx.component.text and ctx.component.text ~= "" then

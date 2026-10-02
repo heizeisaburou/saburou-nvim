@@ -281,7 +281,7 @@ function M.links(line, row)
 					-- dejaba la imagen invisible: no se podía ir a ella ni renombrarla.
 					-- Se añade primero, antes de que el de fuera ocupe el hueco (ver
 					-- `overlaps`); quién manda donde se solapan lo decide `M.at`. Mismo
-					-- criterio que el lado Obsidian, ver lzy.obsidian.attachments.
+					-- criterio que el lado Obsidian, ver lzy.nyabsidian.attachments.
 					if kind == "inline_link" and label_node then
 						for child in label_node:iter_children() do
 							if child:named() and child:type() == "image" then

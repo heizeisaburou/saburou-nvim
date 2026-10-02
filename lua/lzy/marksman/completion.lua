@@ -143,7 +143,7 @@ function M.source()
 		--- sin escapes. Un destino Markdown va con la ruta escapada y con
 		--- extensión. Aquí se insertaba siempre la forma Markdown, así que en
 		--- `[[` salía `[[/Espacios%20y%20mayús.md]]` -- forma correcta, sintaxis
-		--- equivocada. Mismo criterio que lzy.obsidian.completion.
+		--- equivocada. Mismo criterio que lzy.nyabsidian.completion.
 		local function write_target(target, path)
 			if ctx.kind ~= "wiki" then
 				-- Entre ángulos, la ruta legible: escaparla ahí sería devolver el

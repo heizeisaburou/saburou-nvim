@@ -6,13 +6,17 @@ local CURL_REVOCATION_ERROR = "CRYPT_E_NO_REVOCATION_CHECK"
 local CURL_REVOCATION_FLAG = "--ssl-revoke-best-effort"
 local install_running = false
 
+-- La única fuente de verdad de Tree-sitter: un parser activo aquí se instala con
+-- :TSInstallAll y resalta los filetypes que le corresponden (ver M.highlights);
+-- comentado, ni una cosa ni la otra. Las entradas `-- custom` no están en el
+-- catálogo de nvim-treesitter: su origen está en M.custom_parsers.
 M.languages = {
   "lua",
   "luadoc",
   "markdown_inline",
   "markdown",
   -- "ada",
-  -- "d2", -- externo: no está en el catálogo, ver M.external_parsers
+  -- "d2", -- custom: fuera del catálogo de nvim-treesitter, ver M.custom_parsers
   -- "dot",
   -- "fortran",
   -- "graphql",
@@ -85,91 +89,6 @@ M.languages = {
   -- "zsh",
 }
 
-M.enabled_highlights = {
-  ada = true,
-  asm = true,
-  bash = true,
-  sh = true, -- scripts Bash/POSIX; el parser se llama `bash`
-  c = true,
-  clojure = true,
-  cmake = true,
-  cpp = true,
-  cs = true,
-  css = true,
-  d2 = true,
-  dart = true,
-  dot = true,
-  dtd = true, -- `.dtd`; parser que arrastra `xml`
-  edn = true,
-  elixir = true,
-  erlang = true,
-  fish = true,
-  fortran = true,
-  fsharp = true,
-  glsl = true,
-  go = true,
-  gomod = true,
-  gosum = true,
-  gotmpl = true,
-  gowork = true,
-  groovy = true,
-  graphql = true,
-  haskell = true,
-  html = true,
-  htmldjango = true,
-  java = true,
-  javascript = true,
-  jinja = true,
-  json = true,
-  json5 = true,
-  julia = true,
-  kotlin = true,
-  lhaskell = true, -- `.lhs`; requiere también el alias de M.language_aliases
-  liquid = true,
-  lua = true,
-  luadoc = true,
-  make = true,
-  markdown = true,
-  markdown_inline = true,
-  nasm = true,
-  mermaid = true,
-  nix = true,
-  ocaml = true,
-  ocamlinterface = true,
-  pascal = true,
-  perl = true,
-  php = true,
-  printf = true,
-  ps1 = true, -- filetype de PowerShell; el parser se llama `powershell`
-  pug = true,
-  python = true,
-  qml = true,
-  r = true,
-  ruby = true,
-  rust = true,
-  scala = true,
-  solidity = true,
-  sql = true,
-  svg = true, -- SVG es XML; requiere el alias de M.language_aliases
-  svelte = true,
-  swift = true,
-  toml = true,
-  twig = true,
-  typescript = true,
-  typescriptreact = true,
-  typst = true,
-  vim = true,
-  vimdoc = true,
-  help = true, -- helpfiles de Vim/Neovim; el parser se llama `vimdoc`
-  vue = true,
-  xml = true,
-  xsd = true, -- `.xsd`; requiere el alias de M.language_aliases
-  xslt = true, -- `.xsl`/`.xslt`; requiere el alias de M.language_aliases
-  yaml = true,
-  zig = true,
-  zsh = true,
-}
-
 -- Filetypes que no comparten nombre con su parser. nvim-treesitter ya registra
 -- los casos conocidos (cs -> c_sharp, ocamlinterface -> ocaml_interface); estos
 -- alias adicionales pertenecen a los filetypes secundarios que añadimos. Las
@@ -180,15 +99,19 @@ M.language_aliases = {
   svg = "xml",
   xsd = "xml",
   xslt = "xml", -- `.xsl` y `.xslt`
+  -- Sin parser propio: EDN es sintaxis de Clojure, y un `.lhs` se lee con el de
+  -- Haskell.
+  edn = "clojure",
+  lhaskell = "haskell",
 }
 
--- Parsers que no están en el catálogo de nvim-treesitter. Se registran en su
--- tabla de parsers para que :TSInstallAll los instale como al resto. El commit
--- va fijado: un parser externo no pasa por las pruebas de nvim-treesitter, así
--- que sólo se actualiza a mano, cambiando `revision` tras comprobarlo. Las
--- queries salen del propio repositorio en ese mismo commit.
-M.external_parsers = {
-  -- MIT, (c) 2023 Alex. Ver «Código de terceros» en el README.
+-- Origen de los parsers marcados `-- custom` en M.languages, que no están en el
+-- catálogo de nvim-treesitter. Sólo se registran los que estén activos allí, y
+-- entonces :TSInstallAll los instala como al resto. El commit va fijado: un
+-- parser de fuera no pasa por las pruebas de nvim-treesitter, así que sólo se
+-- actualiza a mano, cambiando `revision` tras comprobarlo. Las queries salen
+-- del propio repositorio en ese mismo commit.
+M.custom_parsers = {
   d2 = {
     install_info = {
       url = "https://github.com/ravsii/tree-sitter-d2",
@@ -199,12 +122,48 @@ M.external_parsers = {
 }
 
 -- nvim-treesitter recarga su tabla de parsers en cada instalación y avisa con
--- `User TSUpdate`: hay que volver a registrar los externos cada vez.
-local function register_external_parsers()
+-- `User TSUpdate`: hay que volver a registrar los custom cada vez.
+local function register_custom_parsers()
   local parsers = require "nvim-treesitter.parsers"
-  for language, parser in pairs(M.external_parsers) do
-    parsers[language] = vim.deepcopy(parser)
+  for _, language in ipairs(M.languages) do
+    local parser = M.custom_parsers[language]
+    if parser then
+      parsers[language] = vim.deepcopy(parser)
+    end
   end
+end
+
+-- Los parsers activos y los que arrastran como dependencia (`xml` trae `dtd`).
+---@return table<string, true>
+local function active_languages()
+  local ok, parsers = pcall(require, "nvim-treesitter.parsers")
+  local active = {}
+  local function add(language)
+    if active[language] then
+      return
+    end
+    active[language] = true
+    local parser = ok and parsers[language] or M.custom_parsers[language]
+    for _, dependency in ipairs(parser and parser.requires or {}) do
+      add(dependency)
+    end
+  end
+  for _, language in ipairs(M.languages) do
+    add(language)
+  end
+  return active
+end
+
+--- ¿Se resalta este filetype con Tree-sitter? Sí si su parser está activo en
+--- M.languages. Los filetypes compuestos (`yaml.ansible`) caen al base.
+---@param filetype string
+---@return boolean
+function M.highlights(filetype)
+  local base = vim.split(filetype, ".", { plain = true })[1]
+  local language = vim.treesitter.language.get_lang(filetype)
+    or vim.treesitter.language.get_lang(base)
+    or base
+  return active_languages()[language] == true
 end
 
 local function notify(message, level)
@@ -454,12 +413,7 @@ function M.install_all()
 end
 
 local function start_for_buffer(bufnr)
-  local ft = vim.bo[bufnr].filetype
-  -- Los filetypes compuestos (p.ej. `yaml.ansible`) caen al base (`yaml`);
-  -- `vim.treesitter.start` también resuelve el parser por el base.
-  local base = vim.split(ft, ".", { plain = true })[1]
-
-  if not (M.enabled_highlights[ft] or M.enabled_highlights[base]) then
+  if not M.highlights(vim.bo[bufnr].filetype) then
     return
   end
 
@@ -473,11 +427,11 @@ function M.setup()
   require("hzsr.ts.gotmpl").register()
 
   vim.api.nvim_create_autocmd("User", {
-    group = vim.api.nvim_create_augroup("lzy_treesitter_external", { clear = true }),
+    group = vim.api.nvim_create_augroup("lzy_treesitter_custom", { clear = true }),
     pattern = "TSUpdate",
-    callback = register_external_parsers,
+    callback = register_custom_parsers,
   })
-  register_external_parsers()
+  register_custom_parsers()
 
   for filetype, language in pairs(M.language_aliases) do
     vim.treesitter.language.register(language, filetype)

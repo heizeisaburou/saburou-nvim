@@ -7,8 +7,8 @@
 -- Sin marksman en el buffer, ese "esta nota no existe" dejó de verse.
 --
 -- Este módulo repone solo eso, sin depender de qué LSP esté activo: escanea
--- los mismos refs que follow_link/rename (lzy.obsidian.attachments), resuelve
--- cada target con el mismo motor (lzy.obsidian.notes) y marca con
+-- los mismos refs que follow_link/rename (lzy.nyabsidian.attachments), resuelve
+-- cada target con el mismo motor (lzy.nyabsidian.notes) y marca con
 -- vim.diagnostic los que no tienen nota. Nada de colores custom por ahora.
 
 local M = {}
@@ -45,7 +45,7 @@ end
 ---@param bufnr integer
 ---@return { range: table, target: string }[]
 local function note_refs(bufnr)
-  local attachments = require "lzy.obsidian.attachments"
+  local attachments = require "lzy.nyabsidian.attachments"
   local util = require "obsidian.util"
   local out = {}
 
@@ -251,7 +251,7 @@ local function refresh(bufnr)
   -- existe". Rebuild cuesta ~150-400ms en un vault de ~1200 notas, muy
   -- por debajo de lo que costaba un solo rg/fd de los que reemplaza.
   pcall(function()
-    require("lzy.obsidian.notes").invalidate_index()
+    require("lzy.nyabsidian.notes").invalidate_index()
   end)
 
   -- Sintáctico y sin disco: se calcula siempre, incluso si no hay ni un enlace
@@ -295,7 +295,7 @@ local function refresh(bufnr)
     vim.diagnostic.set(NS, bufnr, diagnostics)
   end
 
-  local notes = require "lzy.obsidian.notes"
+  local notes = require "lzy.nyabsidian.notes"
   for target, locations in pairs(by_target) do
     local resolve_ok = pcall(notes.resolve_async, target, function(found)
       if #found == 0 then
@@ -372,7 +372,7 @@ function M.setup()
   local group = vim.api.nvim_create_augroup("nyabsidian_diagnostics", { clear = true })
 
   -- Cualquier nota que se guarde (nueva o editada) puede cambiar lo que el
-  -- índice rápido de lzy.obsidian.notes sabe -- no solo cuando se crea vía
+  -- índice rápido de lzy.nyabsidian.notes sabe -- no solo cuando se crea vía
   -- new_note.lua, también un `:w` directo sobre un archivo nuevo, una
   -- plantilla, herramientas externas, etc. Sin esto, con trust_not_found
   -- activado (ver notes.lua), una nota recién creada podía seguir
@@ -384,7 +384,7 @@ function M.setup()
     group = group,
     pattern = { "*.md", "*.markdown", "*.qmd", "*.mdx" },
     callback = function()
-      require("lzy.obsidian.notes").invalidate_index()
+      require("lzy.nyabsidian.notes").invalidate_index()
     end,
   })
 
