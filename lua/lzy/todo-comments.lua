@@ -78,7 +78,7 @@ M.opts = {
     FIX = {
       icon = " ", -- icon used for the sign, and in search results
       color = "error", -- can be a hex color, or a named color (see below)
-      alt = { "FIXME", "BUG", "FIXIT", "ISSUE" }, -- a set of other keywords that all map to this FIX keywords
+      alt = { "PANIC", "FIXME", "BUG", "FIXIT", "ISSUE" }, -- a set of other keywords that all map to this FIX keywords
       -- signs = false, -- configure signs for some keywords individually
     },
     SECURITY = {
@@ -224,11 +224,17 @@ local function update_leading_padding(bufnr, first, last)
 
     if ok and keyword and colon_col >= 0 and line:sub(colon_col + 1, colon_col + 1) == ":" then
       keyword = config.keywords[keyword] or keyword
-      vim.api.nvim_buf_set_extmark(bufnr, leading_padding_namespace, first + offset - 1, colon_col, {
-        end_col = colon_col + 1,
-        hl_group = "TodoLeadingPadding" .. keyword,
-        priority = 501,
-      })
+      vim.api.nvim_buf_set_extmark(
+        bufnr,
+        leading_padding_namespace,
+        first + offset - 1,
+        colon_col,
+        {
+          end_col = colon_col + 1,
+          hl_group = "TodoLeadingPadding" .. keyword,
+          priority = 501,
+        }
+      )
     end
   end
 end
