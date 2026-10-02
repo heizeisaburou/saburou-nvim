@@ -12,6 +12,7 @@ M.languages = {
   "markdown_inline",
   "markdown",
   -- "ada",
+  -- "d2", -- externo: no está en el catálogo, ver M.external_parsers
   -- "dot",
   -- "fortran",
   -- "graphql",
@@ -95,6 +96,7 @@ M.enabled_highlights = {
   cpp = true,
   cs = true,
   css = true,
+  d2 = true,
   dart = true,
   dot = true,
   dtd = true, -- `.dtd`; parser que arrastra `xml`
@@ -179,6 +181,31 @@ M.language_aliases = {
   xsd = "xml",
   xslt = "xml", -- `.xsl` y `.xslt`
 }
+
+-- Parsers que no están en el catálogo de nvim-treesitter. Se registran en su
+-- tabla de parsers para que :TSInstallAll los instale como al resto. El commit
+-- va fijado: un parser externo no pasa por las pruebas de nvim-treesitter, así
+-- que sólo se actualiza a mano, cambiando `revision` tras comprobarlo. Las
+-- queries salen del propio repositorio en ese mismo commit.
+M.external_parsers = {
+  -- MIT, (c) 2023 Alex. Ver «Código de terceros» en el README.
+  d2 = {
+    install_info = {
+      url = "https://github.com/ravsii/tree-sitter-d2",
+      revision = "200434618a6bede20ebd4982aa4d4f1edeb0b5c1",
+      queries = "queries",
+    },
+  },
+}
+
+-- nvim-treesitter recarga su tabla de parsers en cada instalación y avisa con
+-- `User TSUpdate`: hay que volver a registrar los externos cada vez.
+local function register_external_parsers()
+  local parsers = require "nvim-treesitter.parsers"
+  for language, parser in pairs(M.external_parsers) do
+    parsers[language] = vim.deepcopy(parser)
+  end
+end
 
 local function notify(message, level)
   vim.notify(message, level, { title = "TSInstallAll" })
@@ -444,6 +471,13 @@ function M.setup()
   -- predicado y dos directivas propias, y una query con nombres sin registrar no
   -- compila.
   require("hzsr.ts.gotmpl").register()
+
+  vim.api.nvim_create_autocmd("User", {
+    group = vim.api.nvim_create_augroup("lzy_treesitter_external", { clear = true }),
+    pattern = "TSUpdate",
+    callback = register_external_parsers,
+  })
+  register_external_parsers()
 
   for filetype, language in pairs(M.language_aliases) do
     vim.treesitter.language.register(language, filetype)

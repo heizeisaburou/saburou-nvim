@@ -183,3 +183,39 @@ describe("TSInstallAll Windows TLS preflight", function()
     assert.matches("No se encuentra tree%-sitter%-cli", notifications[#notifications].message)
   end)
 end)
+
+describe("External tree-sitter parsers", function()
+  local original_parsers
+
+  before_each(function()
+    original_parsers = package.loaded["nvim-treesitter.parsers"]
+    package.loaded["nvim-treesitter.parsers"] = {}
+    package.loaded["lzy.treesitter"] = nil
+  end)
+
+  after_each(function()
+    package.loaded["nvim-treesitter.parsers"] = original_parsers
+    package.loaded["lzy.treesitter"] = nil
+  end)
+
+  it("pins every external parser to a full commit", function()
+    local treesitter = require "lzy.treesitter"
+    for language, parser in pairs(treesitter.external_parsers) do
+      local revision = parser.install_info.revision
+      assert.is_string(revision, language)
+      assert.are.equal(40, #revision, language)
+      assert.is_truthy(revision:match "^%x+$", language)
+    end
+  end)
+
+  it("registers them on setup and again after nvim-treesitter reloads its parsers", function()
+    local treesitter = require "lzy.treesitter"
+    treesitter.setup()
+    assert.are.same(treesitter.external_parsers.d2, package.loaded["nvim-treesitter.parsers"].d2)
+
+    -- Así recarga nvim-treesitter su tabla en cada instalación.
+    package.loaded["nvim-treesitter.parsers"] = {}
+    vim.api.nvim_exec_autocmds("User", { pattern = "TSUpdate" })
+    assert.are.same(treesitter.external_parsers.d2, package.loaded["nvim-treesitter.parsers"].d2)
+  end)
+end)

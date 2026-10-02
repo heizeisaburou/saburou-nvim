@@ -51,7 +51,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | CSS | `css` | `cssls` | `prettier` | — | `css` |
 | Dart | `dart` | `dartls` | `dart_format` | — | `dart` |
 | Django templates | `htmldjango` | `djls` | `djlint` | — | `htmldjango` |
-| D2 | `d2` | — | `d2` (externo) | — | no existe (resalta `syntax/d2.vim`) |
+| D2 | `d2` | — | `d2` (externo) | — | `d2` (externo, commit fijado; sin él resalta `syntax/d2.vim`) |
 | DOT / Graphviz | `dot` | `dotls` | — (no existe) | — | `dot` |
 | Elixir | `elixir` | `elixirls` | `mix` | — | `elixir` |
 | EEx | `eelixir` | `elixirls` | `mix` | — | — |
@@ -561,16 +561,19 @@ sudo pacman -S --needed d2   # repo oficial extra; no está en Mason
 d2 diagrama.d2 diagrama.svg  # renderizar
 ```
 
-En Neovim, D2 tiene resaltado y formatter, pero **no tiene LSP**: no hay ningún servidor de D2, así que los errores no se ven hasta que se formatea o se renderiza. **Tampoco hay parser de Tree-sitter** catalogado. Todo sale de esta configuración:
+En Neovim, D2 tiene resaltado y formatter, pero **no tiene LSP**: no hay ningún servidor de D2, así que los errores no se ven hasta que se formatea o se renderiza. Su parser de Tree-sitter **no está en el catálogo** de nvim-treesitter: es externo, y esta configuración lo registra. Todo sale de aquí:
 
 | Pieza | Dónde | Sin ella |
 | --- | --- | --- |
 | Filetype `d2` | [lua/user/opts.lua](/lua/user/opts.lua) | Neovim **no detecta `.d2`**: el fichero no tiene filetype y no se carga nada de lo demás |
-| Resaltado | [syntax/d2.vim](/syntax/d2.vim) | sin resaltado |
+| Parser `d2` | `M.external_parsers` en [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) | resalta `syntax/d2.vim`, y los bloques ` ```d2 ` de un markdown salen sin color |
+| Resaltado de respaldo | [syntax/d2.vim](/syntax/d2.vim) | sin resaltado mientras el parser no esté instalado |
 | `commentstring` | [after/ftplugin/d2.lua](/after/ftplugin/d2.lua) | `gc` falla con `commentstring is empty` |
 | Formatter `d2` | [lua/lzy/conform.lua](/lua/lzy/conform.lua) | sin formato; Conform ejecuta `d2 fmt` y necesita el binario |
 
-El resaltado es un `syntax/*.vim` propio, como los de YARA, JQL y PlantUML. Las palabras reservadas, las formas y la sintaxis de flechas y de bloques de texto salen del parser de D2 (`d2ast/keywords.go` y `d2parser/parse.go`). Las palabras reservadas (`shape`, `style`, `fill`, `target-arrowhead`...) solo se resaltan en posición de clave, así que no se colorean dentro del texto de una etiqueta.
+El parser es [ravsii/tree-sitter-d2](https://github.com/ravsii/tree-sitter-d2) (MIT). Se activa como cualquier otro, descomentando `"d2"` en `M.languages`, y `:TSInstallAll` lo descarga y lo compila junto con sus queries. Va fijado a un commit (`revision` en `M.external_parsers`): al no estar en el catálogo, nvim-treesitter no lo prueba con sus versiones, así que se actualiza a mano, cambiando el commit después de comprobarlo. Con él instalado, los bloques ` ```d2 ` de un markdown también se colorean, porque el markdown inyecta el parser que corresponde a cada bloque.
+
+El resaltado de respaldo es un `syntax/*.vim` propio, como los de YARA, JQL y PlantUML. Las palabras reservadas, las formas y la sintaxis de flechas y de bloques de texto salen del parser de D2 (`d2ast/keywords.go` y `d2parser/parse.go`). Las palabras reservadas (`shape`, `style`, `fill`, `target-arrowhead`...) solo se resaltan en posición de clave, así que no se colorean dentro del texto de una etiqueta.
 
 Dos detalles de D2 que conviene saber, porque el resaltado los refleja:
 
@@ -1372,7 +1375,7 @@ Hay varias extensiones que se normalizan deliberadamente para que LSP, formatter
 - `lhaskell` → parser Tree-sitter `haskell`.
 - `.yar`, `.yara` → `yara`, de serie en Neovim; sin parser Tree-sitter, resalta con [syntax/yara.vim](/syntax/yara.vim) porque el runtime no trae ninguno.
 - `.rules` → `hog` (Snort/Suricata), también de serie y ya con las excepciones de udev, polkit y ufw resueltas; no hay que añadir ningún mapeo propio.
-- `.d2` → `d2`, mapeo propio: el runtime no conoce la extensión. Sin parser Tree-sitter, resalta con [syntax/d2.vim](/syntax/d2.vim).
+- `.d2` → `d2`, mapeo propio: el runtime no conoce la extensión. Con el parser externo `d2` resalta con Tree-sitter; sin él, con [syntax/d2.vim](/syntax/d2.vim).
 - `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` → `plantuml`, mapeo propio: el runtime no conoce ninguna. Sin parser Tree-sitter, resalta con [syntax/plantuml.vim](/syntax/plantuml.vim). `.uml` no se mapea (es también XMI de Eclipse UML2).
 - `.jql` → `jql`, mapeo propio: el runtime no conoce la extensión. Sin parser Tree-sitter ni LSP, resalta con [syntax/jql.vim](/syntax/jql.vim).
 

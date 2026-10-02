@@ -21,6 +21,15 @@
 - [@POLA](https://github.com/POLA-LCS) y [@Misitox](https://github.com/mateolgallegoss) por ser los primeros betatesters de Windows.
 - [@SamuelGiron1](https://github.com/SamuelGiron1) por ser el primer betatester de macOS y también por ayudarme a redactar la guía completa de macOS dejandome utilizar su mac.
 
+## Código de terceros
+
+Partes de esta configuración vienen de otros proyectos y conservan su licencia:
+
+| Proyecto | Licencia | Cómo entra | Dónde |
+| --- | --- | --- | --- |
+| [NvChad/ui](https://github.com/NvChad/ui) | GPL-3.0 | Copiado y modificado: el adaptador de Mason | [lua/hzsr/mason/nvchad/](/lua/hzsr/mason/nvchad/), con su `LICENSE` y su `NOTICE.md` |
+| [ravsii/tree-sitter-d2](https://github.com/ravsii/tree-sitter-d2) | MIT | No se copia: `:TSInstallAll` descarga el parser de D2 y sus queries en un commit fijado | `M.external_parsers` en [lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua) |
+
 ## Installation
 
 > [!note] Si usas macOS
@@ -206,7 +215,7 @@ Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lengua
 
 Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_ soportado. El formateador y el linter son opcionales, y en muchos lenguajes el propio LSP ya formatea.
 
-Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA, JQL, D2 y PlantUML, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim), [syntax/jql.vim](/syntax/jql.vim), [syntax/d2.vim](/syntax/d2.vim) y [syntax/plantuml.vim](/syntax/plantuml.vim). No hay nada que descomentar, se cargan solos.
+Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA, JQL, D2 y PlantUML, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim), [syntax/jql.vim](/syntax/jql.vim), [syntax/d2.vim](/syntax/d2.vim) y [syntax/plantuml.vim](/syntax/plantuml.vim). No hay nada que descomentar, se cargan solos. D2 tiene además un parser de Tree-sitter externo: si lo activas, sustituye a `syntax/d2.vim`, que queda de respaldo.
 
 Después de descomentar, dos comandos:
 
@@ -331,7 +340,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | CSS | `css` | `cssls` | `prettier` | — | `css` |
 | Dart | `dart` | `dartls` | `dart_format` | — | `dart` |
 | Django templates | `htmldjango` | `djls` | `djlint` | — | `htmldjango` |
-| D2 | `d2` | — | `d2` (externo) | — | no existe (resalta `syntax/d2.vim`) |
+| D2 | `d2` | — | `d2` (externo) | — | `d2` (externo, commit fijado; sin él resalta `syntax/d2.vim`) |
 | DOT / Graphviz | `dot` | `dotls` | — (no existe) | — | `dot` |
 | Elixir | `elixir` | `elixirls` | `mix` | — | `elixir` |
 | EEx | `eelixir` | `elixirls` | `mix` | — | — |
