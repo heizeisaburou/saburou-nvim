@@ -1,0 +1,25 @@
+%% Diagrama de flujo de Graph.Affected: recorre en anchura los dependientes de las
+%% unidades cambiadas y devuelve todas las que hay que recompilar.
+flowchart TD
+  inicio([Affected#40;changed...#41;])
+  existe{¿Todas las unidades<br/>están en el grafo?}
+  error([Devolver error])
+  init[pending ← changed<br/>affected ← changed]
+  vacia{¿pending está vacía?}
+  sacar["u ← pending.pop()"]
+  dependientes["para cada d en dependents[u]"]
+  vista{¿d ya está en affected?}
+  anadir["affected ← affected ∪ {d}<br/>pending.push(d)"]
+  fin([Devolver affected])
+
+  inicio --> existe
+  existe -- no --> error
+  existe -- sí --> init
+  init --> vacia
+  vacia -- sí --> fin
+  vacia -- no --> sacar
+  sacar --> dependientes
+  dependientes --> vista
+  vista -- no --> anadir
+  vista -- sí, siguiente --> vacia
+  anadir --> vacia

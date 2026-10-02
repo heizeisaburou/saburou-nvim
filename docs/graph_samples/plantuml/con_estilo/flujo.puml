@@ -1,0 +1,47 @@
+' Diagrama de flujo de Graph.Affected: recorre en anchura los dependientes de las
+' unidades cambiadas y devuelve todas las que hay que recompilar.
+@startuml flujo
+<style>
+activityDiagram {
+  activity {
+    BackgroundColor #F7F8FE
+    LineColor #0D32B2
+  }
+  diamond {
+    BackgroundColor #CFD2DD
+    LineColor #0D32B2
+  }
+  arrow {
+    LineColor #0D32B2
+    FontColor #676C7E
+  }
+}
+.error {
+  BackgroundColor #FDE2E2
+}
+.ok {
+  BackgroundColor #E2F5E2
+}
+</style>
+start
+:Affected(changed...);
+if (¿Todas las unidades\nestán en el grafo?) then (no)
+  :Devolver error; <<error>>
+  stop
+else (sí)
+endif
+:pending ← changed
+affected ← changed;
+while (¿pending está vacía?) is (no)
+  :u ← pending.pop();
+  while (¿quedan dependientes d en dependents[u]?) is (sí)
+    if (¿d ya está en affected?) then (no)
+      :affected ← affected ∪ {d}
+      pending.push(d);
+    else (sí, siguiente)
+    endif
+  endwhile (no)
+endwhile (sí)
+:Devolver affected; <<ok>>
+stop
+@enduml

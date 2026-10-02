@@ -1,0 +1,30 @@
+# Diagrama de flujo de Graph.Affected: recorre en anchura los dependientes de las
+# unidades cambiadas y devuelve todas las que hay que recompilar.
+vars: {
+  d2-config: {
+    layout-engine: dagre
+  }
+}
+
+inicio: Affected(changed...) {shape: oval}
+existe: ¿Todas las unidades\nestán en el grafo? {shape: diamond}
+error: Devolver error {shape: oval; style.fill: "#fde2e2"}
+init: "pending ← changed\naffected ← changed" {shape: rectangle}
+vacia: ¿pending está vacía? {shape: diamond}
+sacar: "u ← pending.pop()" {shape: rectangle}
+dependientes: "para cada d en dependents[u]" {shape: rectangle}
+vista: ¿d ya está en affected? {shape: diamond}
+anadir: "affected ← affected ∪ {d}\npending.push(d)" {shape: rectangle}
+fin: Devolver affected {shape: oval; style.fill: "#e2f5e2"}
+
+inicio -> existe
+existe -> error: no
+existe -> init: sí
+init -> vacia
+vacia -> fin: sí
+vacia -> sacar: no
+sacar -> dependientes
+dependientes -> vista
+vista -> anadir: no
+vista -> vacia: sí, siguiente
+anadir -> vacia

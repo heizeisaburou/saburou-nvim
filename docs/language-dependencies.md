@@ -766,6 +766,15 @@ En Windows puede definirse la misma variable de entorno apuntando al directorio 
 
 ### Mermaid
 
+Para convertir el `.mmd` en imagen hace falta `mmdc`, de `mermaid-cli`. La configuración no lo usa: sólo resalta, y sin él se edita igual.
+
+```bash
+sudo pacman -S --needed mermaid-cli   # repo oficial extra; arrastra chromium como dependencia
+mmdc -i diagrama.mmd -o diagrama.png  # renderizar (.svg o .pdf según la extensión)
+```
+
+`mmdc` dibuja abriendo el diagrama en un navegador headless (Puppeteer), por eso trae `chromium`. Sin instalar nada también funciona con `npx -y @mermaid-js/mermaid-cli`, pero **por sí solo falla** porque Puppeteer no encuentra navegador. Hay dos arreglos: apuntarlo a un Chromium que ya esté instalado con `-p puppeteer.json`, donde el JSON contiene `{ "executablePath": "/usr/bin/brave" }`, o dejar que descargue el suyo con `npx puppeteer browsers install chrome-headless-shell` (unos 260 MB en `~/.cache/puppeteer`, más otros 450 MB del paquete en `~/.npm/_npx`).
+
 - Filetype nativo, `.mmd` y `.mermaid`. Parser `mermaid`, `unstable`, con las cuatro capacidades.
 - **No hay LSP ni formatter**: sólo resaltado, plegado y movimientos por sintaxis.
 

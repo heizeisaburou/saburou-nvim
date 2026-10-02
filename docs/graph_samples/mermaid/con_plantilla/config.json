@@ -1,0 +1,14 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#F7F8FE",
+    "primaryBorderColor": "#0D32B2",
+    "primaryTextColor": "#0A0F25",
+    "lineColor": "#0D32B2",
+    "secondaryColor": "#CFD2DD",
+    "tertiaryColor": "#EEF1FB",
+    "clusterBkg": "#EEF1FB",
+    "clusterBorder": "#0D32B2"
+  },
+  "flowchart": { "wrappingWidth": 400 }
+}

@@ -1,0 +1,58 @@
+# Diagrama de clases del paquete incremental: un grafo de unidades con dependencias, un
+# manifiesto con el estado de la última compilación y un tracker que los cruza para saber
+# qué hay que regenerar.
+vars: {
+  d2-config: {
+    layout-engine: elk
+  }
+}
+
+UnitID: {
+  shape: class
+  "string"
+}
+
+Unit: {
+  shape: class
+  +ID: UnitID
+  +DependsOn: "[]UnitID"
+}
+
+Graph: {
+  shape: class
+  -units: "map[UnitID]Unit"
+  -dependents: "map[UnitID][]UnitID"
+  +Add(u Unit): error
+  "+Affected(changed ...UnitID)": "([]UnitID, error)"
+}
+
+Tracker: {
+  shape: class
+  -graph: "*Graph"
+  -manifest: "*Manifest"
+  +Changed(): "([]UnitID, error)"
+  +Pending(): "([]UnitID, error)"
+  "+Commit(ids ...UnitID)": error
+}
+
+Manifest: {
+  shape: class
+  -entries: "map[UnitID]Entry"
+  +Lookup(id UnitID): "(Entry, bool)"
+  +Record(e Entry): ""
+  +Save(path string): error
+}
+
+Entry: {
+  shape: class
+  +Unit: UnitID
+  +Hash: "[32]byte"
+  +BuiltAt: time.Time
+}
+
+Graph -> Unit: "contiene 0..*"
+Unit -> UnitID: "identificado por"
+Tracker -> Graph: consulta
+Tracker -> Manifest: "compara y actualiza"
+Manifest -> Entry: "contiene 0..*"
+Entry -> UnitID: referencia

@@ -1,0 +1,4 @@
+La plantilla es estilo.args: atributos globales que se pasan a `dot` por línea de comandos.
+Los diagramas no la mencionan; sin esos argumentos salen igual que en sin_estilo/.
+
+for f in *.dot; do dot -Tpng -Gdpi=150 $(cat estilo.args) "$f" -o "${f%.dot}.png"; done

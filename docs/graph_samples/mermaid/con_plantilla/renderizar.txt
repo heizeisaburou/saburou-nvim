@@ -1,0 +1,7 @@
+La plantilla es config.json: tema y configuración que se pasan a `mmdc` con `-c`. Los
+diagramas no la mencionan; sin `-c config.json` salen igual que en sin_estilo/.
+
+for f in *.mmd; do mmdc -s 2 -b white -c config.json -i "$f" -o "${f%.mmd}.png"; done
+
+GitHub no lee config.json: para que un bloque ```mermaid se vea igual en un markdown, la
+configuración tiene que ir en el frontmatter de ese bloque.

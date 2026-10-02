@@ -1,0 +1,47 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#F7F8FE"
+    primaryBorderColor: "#0D32B2"
+    primaryTextColor: "#0A0F25"
+    lineColor: "#0D32B2"
+    secondaryColor: "#CFD2DD"
+    tertiaryColor: "#EEF1FB"
+    edgeLabelBackground: "#FFFFFF"
+    clusterBkg: "#EEF1FB"
+    clusterBorder: "#0D32B2"
+  flowchart:
+    wrappingWidth: 400
+    padding: 10
+---
+%% Diagrama de flujo de Graph.Affected: recorre en anchura los dependientes de las
+%% unidades cambiadas y devuelve todas las que hay que recompilar.
+flowchart TD
+  inicio([Affected#40;changed...#41;])
+  existe{¿Todas las unidades<br/>están en el grafo?}
+  error([Devolver error]):::error
+  init[pending ← changed<br/>affected ← changed]
+  vacia{¿pending está vacía?}
+  sacar["u ← pending.pop()"]
+  dependientes["para cada d en dependents[u]"]
+  vista{¿d ya está en affected?}
+  anadir["affected ← affected ∪ {d}<br/>pending.push(d)"]
+  fin([Devolver affected]):::ok
+
+  inicio --> existe
+  existe -- no --> error
+  existe -- sí --> init
+  init --> vacia
+  vacia -- sí --> fin
+  vacia -- no --> sacar
+  sacar --> dependientes
+  dependientes --> vista
+  vista -- no --> anadir
+  vista -- sí, siguiente --> vacia
+  anadir --> vacia
+
+  classDef error fill:#fde2e2
+  classDef ok fill:#e2f5e2
+  classDef decision fill:#CFD2DD
+  class existe,vacia,vista decision

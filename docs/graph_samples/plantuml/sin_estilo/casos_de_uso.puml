@@ -1,0 +1,31 @@
+' Diagrama de casos de uso del sitio personal: quién hace qué con él, desde que se escribe
+' una entrada hasta que alguien la lee.
+@startuml casos_de_uso
+actor Autor as autor
+actor "GitHub Actions" as ci
+actor Visitante as visitante
+
+rectangle "Sitio personal" {
+  usecase "Escribir una entrada" as escribir
+  usecase "Previsualizar en local" as previsualizar
+  usecase "Regenerar sólo\nlo que cambió" as regenerar
+  usecase "Publicar el sitio" as publicar
+  usecase "Generar el sitio\ncompleto" as generar
+  usecase "Leer una entrada" as leer
+  usecase "Cambiar de idioma" as idioma
+  usecase "Seguir entradas\nrelacionadas" as navegar
+}
+
+autor -- escribir
+autor -- previsualizar
+autor -- publicar
+ci -- publicar
+visitante -- leer
+visitante -- idioma
+visitante -- navegar
+
+previsualizar ..> regenerar : <<include>>
+publicar ..> generar : <<include>>
+idioma ..> leer : <<extend>>
+navegar ..> leer : <<extend>>
+@enduml

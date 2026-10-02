@@ -1,0 +1,32 @@
+%% Diagrama de casos de uso del sitio personal: quién hace qué con él, desde que se escribe
+%% una entrada hasta que alguien la lee.
+%% Mermaid no tiene diagrama de casos de uso: es un flowchart con los actores como
+%% círculos, los casos como estadios y el sistema como subgraph.
+flowchart LR
+  autor((Autor))
+  ci((GitHub<br/>Actions))
+  visitante((Visitante))
+
+  subgraph sitio [Sitio personal]
+    escribir([Escribir una entrada])
+    previsualizar([Previsualizar en local])
+    regenerar([Regenerar sólo<br/>lo que cambió])
+    publicar([Publicar el sitio])
+    generar([Generar el sitio<br/>completo])
+    leer([Leer una entrada])
+    idioma([Cambiar de idioma])
+    navegar([Seguir entradas<br/>relacionadas])
+
+    previsualizar -. «include» .-> regenerar
+    publicar -. «include» .-> generar
+    idioma -. «extend» .-> leer
+    navegar -. «extend» .-> leer
+  end
+
+  autor --- escribir
+  autor --- previsualizar
+  autor --- publicar
+  ci --- publicar
+  visitante --- leer
+  visitante --- idioma
+  visitante --- navegar

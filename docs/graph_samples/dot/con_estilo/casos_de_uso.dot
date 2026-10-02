@@ -1,0 +1,47 @@
+// Diagrama de casos de uso del sitio personal: quién hace qué con él, desde que se escribe
+// una entrada hasta que alguien la lee.
+//
+// DOT no tiene monigotes ni casos de uso: los actores son cajas con el estereotipo «actor»
+// (la otra notación que admite UML) y el sistema es un cluster.
+graph casos_de_uso {
+  rankdir=LR
+  fontname="sans-serif"
+  newrank=true
+  node [fontname="sans-serif", fontsize=11]
+  edge [fontname="sans-serif", fontsize=10]
+
+  node [shape=box, style="rounded,filled", fillcolor="#dde4f7"]
+  autor [label="«actor»\nAutor"]
+  ci [label="«actor»\nGitHub Actions"]
+  visitante [label="«actor»\nVisitante"]
+
+  subgraph cluster_sitio {
+    label="Sitio personal"
+    style=filled
+    fillcolor="#eef1fb"
+    node [shape=ellipse, style=filled, fillcolor=white]
+
+    escribir [label="Escribir una entrada"]
+    previsualizar [label="Previsualizar en local"]
+    regenerar [label="Regenerar sólo\nlo que cambió"]
+    publicar [label="Publicar el sitio"]
+    generar [label="Generar el sitio\ncompleto"]
+    leer [label="Leer una entrada"]
+    idioma [label="Cambiar de idioma"]
+    navegar [label="Seguir entradas\nrelacionadas"]
+
+    edge [style=dashed, dir=forward, arrowhead=vee]
+    previsualizar -- regenerar [label="«include»"]
+    publicar -- generar [label="«include»"]
+    idioma -- leer [label="«extend»"]
+    navegar -- leer [label="«extend»"]
+  }
+
+  autor -- escribir
+  autor -- previsualizar
+  autor -- publicar
+  ci -- publicar
+  visitante -- leer
+  visitante -- idioma
+  visitante -- navegar
+}

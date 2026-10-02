@@ -1,0 +1,46 @@
+' Diagrama de clases del paquete incremental: un grafo de unidades con dependencias, un
+' manifiesto con el estado de la última compilación y un tracker que los cruza para saber
+' qué hay que regenerar.
+@startuml clases
+class UnitID <<string>>
+
+class Unit {
+  +ID UnitID
+  +DependsOn []UnitID
+}
+
+class Graph {
+  -units map[UnitID]Unit
+  -dependents map[UnitID][]UnitID
+  +Add(u Unit) error
+  +Affected(changed ...UnitID) ([]UnitID, error)
+}
+
+class Tracker {
+  -graph *Graph
+  -manifest *Manifest
+  +Changed() ([]UnitID, error)
+  +Pending() ([]UnitID, error)
+  +Commit(ids ...UnitID) error
+}
+
+class Manifest {
+  -entries map[UnitID]Entry
+  +Lookup(id UnitID) (Entry, bool)
+  +Record(e Entry)
+  +Save(path string) error
+}
+
+class Entry {
+  +Unit UnitID
+  +Hash [32]byte
+  +BuiltAt time.Time
+}
+
+Tracker --> Graph : consulta
+Tracker --> Manifest : compara y actualiza
+Graph *-- "0..*" Unit : contiene
+Manifest *-- "0..*" Entry : contiene
+Unit --> UnitID : identificado por
+Entry --> UnitID : referencia
+@enduml

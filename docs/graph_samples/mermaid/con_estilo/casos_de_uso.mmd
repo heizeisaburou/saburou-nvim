@@ -1,0 +1,50 @@
+---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#F7F8FE"
+    primaryBorderColor: "#0D32B2"
+    primaryTextColor: "#0A0F25"
+    lineColor: "#0D32B2"
+    secondaryColor: "#CFD2DD"
+    tertiaryColor: "#EEF1FB"
+    edgeLabelBackground: "#FFFFFF"
+    clusterBkg: "#EEF1FB"
+    clusterBorder: "#0D32B2"
+  flowchart:
+    wrappingWidth: 400
+    padding: 10
+---
+%% Diagrama de casos de uso del sitio personal: quién hace qué con él, desde que se escribe
+%% una entrada hasta que alguien la lee.
+%% Mermaid no tiene diagrama de casos de uso: es un flowchart con los actores como
+%% cajas con un 👤 (los círculos salen enormes), los casos como estadios y el sistema como
+%% subgraph.
+flowchart LR
+  autor["👤 Autor"]
+  ci["👤 GitHub Actions"]
+  visitante["👤 Visitante"]
+
+  subgraph sitio [Sitio personal]
+    escribir([Escribir una entrada])
+    previsualizar([Previsualizar en local])
+    regenerar([Regenerar sólo<br/>lo que cambió])
+    publicar([Publicar el sitio])
+    generar([Generar el sitio<br/>completo])
+    leer([Leer una entrada])
+    idioma([Cambiar de idioma])
+    navegar([Seguir entradas<br/>relacionadas])
+
+    previsualizar -. «include» .-> regenerar
+    publicar -. «include» .-> generar
+    idioma -. «extend» .-> leer
+    navegar -. «extend» .-> leer
+  end
+
+  autor --- escribir
+  autor --- previsualizar
+  autor --- publicar
+  ci --- publicar
+  visitante --- leer
+  visitante --- idioma
+  visitante --- navegar

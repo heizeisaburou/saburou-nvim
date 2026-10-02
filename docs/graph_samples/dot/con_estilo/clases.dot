@@ -1,0 +1,56 @@
+// Diagrama de clases del paquete incremental: un grafo de unidades con dependencias, un
+// manifiesto con el estado de la última compilación y un tracker que los cruza para saber
+// qué hay que regenerar.
+//
+// DOT no sabe qué es una clase: cada caja es una tabla HTML con tres filas (nombre,
+// campos y métodos). `Graph` va entre comillas porque `graph` es palabra reservada.
+digraph clases {
+  node [shape=plain, fontname="sans-serif", fontsize=11]
+  edge [fontname="sans-serif", fontsize=10, arrowhead=vee]
+
+  Tracker [label=<
+    <table border="1" cellborder="0" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#dde4f7"><b>Tracker</b></td></tr>
+      <tr><td align="left" sides="t" border="1">- graph *Graph<br align="left"/>- manifest *Manifest<br align="left"/></td></tr>
+      <tr><td align="left" sides="t" border="1">+ Changed() ([]UnitID, error)<br align="left"/>+ Pending() ([]UnitID, error)<br align="left"/>+ Commit(ids ...UnitID) error<br align="left"/></td></tr>
+    </table>>]
+
+  "Graph" [label=<
+    <table border="1" cellborder="0" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#dde4f7"><b>Graph</b></td></tr>
+      <tr><td align="left" sides="t" border="1">- units map[UnitID]Unit<br align="left"/>- dependents map[UnitID][]UnitID<br align="left"/></td></tr>
+      <tr><td align="left" sides="t" border="1">+ Add(u Unit) error<br align="left"/>+ Affected(changed ...UnitID) ([]UnitID, error)<br align="left"/></td></tr>
+    </table>>]
+
+  Manifest [label=<
+    <table border="1" cellborder="0" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#dde4f7"><b>Manifest</b></td></tr>
+      <tr><td align="left" sides="t" border="1">- entries map[UnitID]Entry<br align="left"/></td></tr>
+      <tr><td align="left" sides="t" border="1">+ Lookup(id UnitID) (Entry, bool)<br align="left"/>+ Record(e Entry)<br align="left"/>+ Save(path string) error<br align="left"/></td></tr>
+    </table>>]
+
+  Unit [label=<
+    <table border="1" cellborder="0" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#dde4f7"><b>Unit</b></td></tr>
+      <tr><td align="left" sides="t" border="1">+ ID UnitID<br align="left"/>+ DependsOn []UnitID<br align="left"/></td></tr>
+    </table>>]
+
+  Entry [label=<
+    <table border="1" cellborder="0" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#dde4f7"><b>Entry</b></td></tr>
+      <tr><td align="left" sides="t" border="1">+ Unit UnitID<br align="left"/>+ Hash [32]byte<br align="left"/>+ BuiltAt time.Time<br align="left"/></td></tr>
+    </table>>]
+
+  UnitID [label=<
+    <table border="1" cellborder="0" cellspacing="0" cellpadding="4">
+      <tr><td bgcolor="#dde4f7"><i>«string»</i><br/><b>UnitID</b></td></tr>
+    </table>>]
+
+  Tracker -> "Graph" [label=" consulta"]
+  Tracker -> Manifest [label=" compara y actualiza"]
+  // La composición se dibuja con el rombo relleno en el lado del contenedor.
+  "Graph" -> Unit [label=" contiene", headlabel="0..*", dir=both, arrowtail=diamond, arrowhead=none]
+  Manifest -> Entry [label=" contiene", headlabel="0..*", dir=both, arrowtail=diamond, arrowhead=none]
+  Unit -> UnitID [label=" identificado por"]
+  Entry -> UnitID [label=" referencia"]
+}

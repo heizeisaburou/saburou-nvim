@@ -1,0 +1,6 @@
+La plantilla es estilo.puml: skinparams que se pasan a `plantuml` con `-config`. Los
+diagramas no la mencionan; sin `-config estilo.puml` salen igual que en sin_estilo/.
+
+plantuml -tpng -Sdpi=200 -config estilo.puml *.puml
+
+Avisa de que estilo.puml no tiene imagen; es normal, no es un diagrama.

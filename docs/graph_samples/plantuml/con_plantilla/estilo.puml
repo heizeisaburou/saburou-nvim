@@ -1,0 +1,33 @@
+' Plantilla compartida: se aplica al renderizar con `plantuml -config estilo.puml`, sin
+' tocar los diagramas.
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam defaultFontName sans-serif
+skinparam ArrowColor #0D32B2
+skinparam ArrowFontColor #676C7E
+skinparam BackgroundColor white
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor #F7F8FE
+  BorderColor #0D32B2
+  HeaderBackgroundColor #E3E9FD
+}
+skinparam actor {
+  BackgroundColor #E3E9FD
+  BorderColor #0D32B2
+}
+skinparam usecase {
+  BackgroundColor #F7F8FE
+  BorderColor #0D32B2
+}
+skinparam rectangle {
+  BackgroundColor #EEF1FB
+  BorderColor #0D32B2
+}
+skinparam activity {
+  BackgroundColor #F7F8FE
+  BorderColor #0D32B2
+  DiamondBackgroundColor #CFD2DD
+  DiamondBorderColor #0D32B2
+}

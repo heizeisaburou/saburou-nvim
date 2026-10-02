@@ -1,0 +1,32 @@
+# Diagrama de casos de uso del sitio personal: quién hace qué con él, desde que se escribe
+# una entrada hasta que alguien la lee.
+
+...@estilo
+
+autor: Autor {shape: person}
+visitante: Visitante {shape: person}
+ci: GitHub Actions {shape: person}
+
+sitio: Sitio personal {
+  escribir: Escribir una entrada {shape: oval}
+  previsualizar: Previsualizar en local {shape: oval}
+  regenerar: Regenerar sólo\nlo que cambió {shape: oval}
+  publicar: Publicar el sitio {shape: oval}
+  generar: Generar el sitio\ncompleto {shape: oval}
+  leer: Leer una entrada {shape: oval}
+  idioma: Cambiar de idioma {shape: oval}
+  navegar: Seguir entradas\nrelacionadas {shape: oval}
+
+  previsualizar -> regenerar: «include» {class: dependencia}
+  publicar -> generar: «include» {class: dependencia}
+  idioma -> leer: «extend» {class: dependencia}
+  navegar -> leer: «extend» {class: dependencia}
+}
+
+autor -- sitio.escribir
+autor -- sitio.previsualizar
+autor -- sitio.publicar
+ci -- sitio.publicar
+visitante -- sitio.leer
+visitante -- sitio.idioma
+visitante -- sitio.navegar

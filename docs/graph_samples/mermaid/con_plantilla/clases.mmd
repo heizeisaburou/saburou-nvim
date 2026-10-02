@@ -1,0 +1,47 @@
+%% Diagrama de clases del paquete incremental: un grafo de unidades con dependencias, un
+%% manifiesto con el estado de la última compilación y un tracker que los cruza para saber
+%% qué hay que regenerar.
+classDiagram
+  class UnitID {
+    <<string>>
+  }
+
+  class Unit {
+    +UnitID ID
+    +[]UnitID DependsOn
+  }
+
+  class Graph {
+    -map[UnitID]Unit units
+    -map[UnitID][]UnitID dependents
+    +Add(u Unit) error
+    +Affected(changed ...UnitID) ([]UnitID, error)
+  }
+
+  class Tracker {
+    -*Graph graph
+    -*Manifest manifest
+    +Changed() ([]UnitID, error)
+    +Pending() ([]UnitID, error)
+    +Commit(ids ...UnitID) error
+  }
+
+  class Manifest {
+    -map[UnitID]Entry entries
+    +Lookup(id UnitID) (Entry, bool)
+    +Record(e Entry)
+    +Save(path string) error
+  }
+
+  class Entry {
+    +UnitID Unit
+    +[32]byte Hash
+    +time.Time BuiltAt
+  }
+
+  Tracker --> Graph : consulta
+  Tracker --> Manifest : compara y actualiza
+  Graph *-- "0..*" Unit : contiene
+  Manifest *-- "0..*" Entry : contiene
+  Unit --> UnitID : identificado por
+  Entry --> UnitID : referencia

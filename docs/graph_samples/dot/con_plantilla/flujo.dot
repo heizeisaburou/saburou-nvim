@@ -1,0 +1,28 @@
+// Diagrama de flujo de Graph.Affected: recorre en anchura los dependientes de las
+// unidades cambiadas y devuelve todas las que hay que recompilar.
+digraph flujo {
+  node [shape=box]
+
+  inicio [label="Affected(changed...)", shape=ellipse]
+  existe [label="¿Todas las unidades\nestán en el grafo?", shape=diamond]
+  error [label="Devolver error", shape=ellipse]
+  init [label="pending ← changed\naffected ← changed"]
+  vacia [label="¿pending está vacía?", shape=diamond]
+  sacar [label="u ← pending.pop()"]
+  dependientes [label="para cada d en dependents[u]"]
+  vista [label="¿d ya está en affected?", shape=diamond]
+  anadir [label="affected ← affected ∪ {d}\npending.push(d)"]
+  fin [label="Devolver affected", shape=ellipse]
+
+  inicio -> existe
+  existe -> error [label=" no"]
+  existe -> init [label=" sí"]
+  init -> vacia
+  vacia -> fin [label=" sí"]
+  vacia -> sacar [label=" no"]
+  sacar -> dependientes
+  dependientes -> vista
+  vista -> anadir [label=" no"]
+  vista -> vacia [label=" sí, siguiente"]
+  anadir -> vacia
+}

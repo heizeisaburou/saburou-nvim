@@ -1,0 +1,6 @@
+La plantilla es estilo.d2. Cada diagrama la importa en su primera línea de código con
+`...@estilo`, así que el comando es el de siempre:
+
+for f in clases flujo casos_de_uso; do d2 --pad 40 "$f.d2" "$f.png"; done
+
+estilo.d2 no es un diagrama: no se renderiza por sí solo.

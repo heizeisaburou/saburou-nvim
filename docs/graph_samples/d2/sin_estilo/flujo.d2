@@ -1,0 +1,25 @@
+# Diagrama de flujo de Graph.Affected: recorre en anchura los dependientes de las
+# unidades cambiadas y devuelve todas las que hay que recompilar.
+
+inicio: Affected(changed...) {shape: oval}
+existe: ¿Todas las unidades\nestán en el grafo? {shape: diamond}
+error: Devolver error {shape: oval}
+init: "pending ← changed\naffected ← changed" {shape: rectangle}
+vacia: ¿pending está vacía? {shape: diamond}
+sacar: "u ← pending.pop()" {shape: rectangle}
+dependientes: "para cada d en dependents[u]" {shape: rectangle}
+vista: ¿d ya está en affected? {shape: diamond}
+anadir: "affected ← affected ∪ {d}\npending.push(d)" {shape: rectangle}
+fin: Devolver affected {shape: oval}
+
+inicio -> existe
+existe -> error: no
+existe -> init: sí
+init -> vacia
+vacia -> fin: sí
+vacia -> sacar: no
+sacar -> dependientes
+dependientes -> vista
+vista -> anadir: no
+vista -> vacia: sí, siguiente
+anadir -> vacia
