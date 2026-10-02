@@ -904,7 +904,17 @@ Neovim no trae nada de PlantUML: ni detección de filetype, ni `syntax/plantuml.
 
 Extensiones mapeadas: `.puml`, `.plantuml`, `.pu`, `.iuml` (la convención para ficheros que se incluyen con `!include`) y `.wsd`. `.uml` queda fuera a propósito: también es la extensión del XMI de Eclipse UML2, que es XML, y mandarla a PlantUML estropearía esos ficheros.
 
-El resaltado es un `syntax/*.vim` propio, como los de YARA, JQL y D2, porque no hay parser catalogado. Gramáticas de Tree-sitter de terceros sí existen (la más completa es `derivasoftware/tree-sitter-plantuml`), pero ninguna está en nvim-treesitter. Es un resaltado gramatical: etiquetas `@start…`/`@end…`, preprocesador (`!include`, `!procedure`, `$variables`, `%funciones()`), comentarios, flechas con estilo y dirección (`-[#red]->`, `-up->`), notas multilínea, estereotipos, colores y palabras clave. No valida el diagrama: eso lo hace el LSP. Tampoco hay inyección en bloques ` ```plantuml ` de markdown, porque la inyección necesita un parser.
+El resaltado es un `syntax/*.vim` propio, como los de YARA y JQL, porque no hay parser de Tree-sitter catalogado. Y aquí no se puede hacer lo de D2, que usa uno externo con el commit fijado: **ninguna gramática de terceros es usable**. Hay una decena en GitHub, casi todas sin estrellas y marcadas como experimentales. Probadas en octubre de 2026 con tres diagramas corrientes (uno de clases, uno de actividad y uno de casos de uso):
+
+| Gramática | Resultado |
+| --- | --- |
+| `derivasoftware/tree-sitter-plantuml` (actualizada en septiembre de 2026) | 11, 2 y 2 nodos de error |
+| `qFioofa/tree-sitter-plantuml` (junio de 2026) | 3, 21 y 2 nodos de error |
+| `Decodetalkers/tree_sitter_plantuml` (la de más estrellas; parada desde 2023) | no trae el parser generado, y su gramática no compila con `tree-sitter generate` 0.26 |
+
+Con errores en diagramas tan simples, el resaltado saldría roto a trozos, peor que el de `syntax/plantuml.vim`. Habrá que volver a mirarlo cuando alguna madure o entre en el catálogo.
+
+`syntax/plantuml.vim` es un resaltado gramatical: etiquetas `@start…`/`@end…`, preprocesador (`!include`, `!procedure`, `$variables`, `%funciones()`), comentarios, flechas con estilo y dirección (`-[#red]->`, `-up->`), notas multilínea, estereotipos, colores y palabras clave. No valida el diagrama: eso lo hace el LSP. Tampoco hay inyección en bloques ` ```plantuml ` de markdown: el markdown se resalta con Tree-sitter, y lo que inyecta en cada bloque es otro parser de Tree-sitter, no un `syntax/*.vim`. Se podría encender el resaltado clásico del markdown además del de Tree-sitter, pero eso mezcla dos resaltados en todos los markdown solo por este caso.
 
 **No hay formatter.**
 
