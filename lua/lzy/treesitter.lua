@@ -18,6 +18,7 @@ M.languages = {
   -- "ada",
   -- "d2", -- custom: fuera del catálogo de nvim-treesitter, ver M.custom_parsers
   -- "dot",
+  -- "fluent", -- custom: fuera del catálogo de nvim-treesitter, ver M.custom_parsers
   -- "fortran",
   -- "graphql",
   -- "mermaid",
@@ -116,6 +117,15 @@ M.custom_parsers = {
     install_info = {
       url = "https://github.com/ravsii/tree-sitter-d2",
       revision = "200434618a6bede20ebd4982aa4d4f1edeb0b5c1",
+      queries = "queries",
+    },
+  },
+  -- Project Fluent (`.ftl`). El repositorio trae también el linter `ftl-lint`
+  -- (ver lzy.nvim-lint); la gramática y sus queries están en la raíz.
+  fluent = {
+    install_info = {
+      url = "https://github.com/outskirtslabs/fluent-tooling",
+      revision = "cb95e082c5a1fbef06e42bbc27a03a191720278c",
       queries = "queries",
     },
   },

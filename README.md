@@ -214,7 +214,7 @@ Aquí está la parte laboriosa, y conviene saberlo antes de empezar: **un lengua
 
 Casi siempre querrás las dos primeras: son las que hacen que un lenguaje se _sienta_ soportado. El formateador y el linter son opcionales, y en muchos lenguajes el propio LSP ya formatea.
 
-Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA, JQL, D2 y PlantUML, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim), [syntax/jql.vim](/syntax/jql.vim), [syntax/d2.vim](/syntax/d2.vim) y [syntax/plantuml.vim](/syntax/plantuml.vim). No hay nada que descomentar, se cargan solos. D2 tiene además un parser de Tree-sitter externo: si lo activas, sustituye a `syntax/d2.vim`, que queda de respaldo.
+Hay una quinta pieza que casi nunca hace falta tocar: el **resaltado clásico de Vim**. Cuando un lenguaje no tiene parser de Tree-sitter, el resaltado sale de un archivo `syntax/<lenguaje>.vim`, y normalmente ya viene en el runtime de Neovim. Las excepciones actuales son YARA, JQL, D2, PlantUML y Fluent, para los que Neovim no publica ninguno: por eso el repositorio incluye [syntax/yara.vim](/syntax/yara.vim), [syntax/jql.vim](/syntax/jql.vim), [syntax/d2.vim](/syntax/d2.vim), [syntax/plantuml.vim](/syntax/plantuml.vim) y [syntax/fluent.vim](/syntax/fluent.vim). No hay nada que descomentar, se cargan solos. D2 y Fluent tienen además un parser de Tree-sitter externo: si lo activas, sustituye a su `syntax/*.vim`, que queda de respaldo.
 
 Después de descomentar, dos comandos:
 
@@ -347,6 +347,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Erlang | `erlang` | `elp` | `erlfmt` | — | `erlang` |
 | F# | `fsharp` | `fsautocomplete` | `fantomas` | — | `fsharp` |
 | Fish | `fish` | `fish_lsp` | `fish_indent` | — | `fish` |
+| Fluent | `fluent` | — (no existe) | `fluent` (externo) | `ftl_lint` (externo) | `fluent` (externo, commit fijado; sin él resalta `syntax/fluent.vim`) |
 | Fortran | `fortran` | `fortls` | `fprettify` (externo) | — | `fortran` |
 | Gleam | `gleam` | — | `gleam` | — | — |
 | GLSL | `glsl` | `glsl_analyzer` | vía LSP | — | `glsl` |

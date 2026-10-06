@@ -59,6 +59,7 @@ Los nombres de la columna **LSP** son los identificadores que usa la configuraci
 | Erlang | `erlang` | `elp` | `erlfmt` | — | `erlang` |
 | F# | `fsharp` | `fsautocomplete` | `fantomas` | — | `fsharp` |
 | Fish | `fish` | `fish_lsp` | `fish_indent` | — | `fish` |
+| Fluent | `fluent` | — (no existe) | `fluent` (externo) | `ftl_lint` (externo) | `fluent` (externo, commit fijado; sin él resalta `syntax/fluent.vim`) |
 | Fortran | `fortran` | `fortls` | `fprettify` (externo) | — | `fortran` |
 | Gleam | `gleam` | — | `gleam` | — | — |
 | GLSL | `glsl` | `glsl_analyzer` | vía LSP | — | `glsl` |
@@ -166,6 +167,8 @@ No es exclusivo de Conform: `suricata_language_server` y `plantuml_lsp` usan el 
 | `nasmfmt` | NASM | `go install` | `~/go/bin` |
 | `plantuml-lsp` | PlantUML | `go install` | `~/go/bin` |
 | `fish_indent` | Fish | paquete `fish` del sistema | — |
+| `ftl-lint` | Fluent | `cargo install --git` | `~/.cargo/bin` |
+| `fluent` (formatter) | Fluent | paquete `python-fluent.syntax` o `pip install fluent.syntax` | — |
 | `suricata-language-server` | Suricata | `pip install` en un venv | `~/.venv/sls/bin` |
 | `suricata-check` | Suricata | `pip install` en un venv | `~/.venv/suricata-check/bin` |
 
@@ -632,6 +635,109 @@ Después, reiniciar el LSP. En F# la lista y el orden de archivos del `.fsproj` 
 `fish_lsp` es mecánico: su `cmd`/`root_markers` por defecto ya sirven, y el mapping de Mason ya existía en el catálogo pre-`next-languages` , solo faltaba activarlo en `M.languages` y `M.servers`.
 
 `fish_indent` viene con la propia shell Fish (paquete `fish` del sistema), no con Mason: sin la shell instalada no hay binario que resolver, aunque el LSP siga funcionando igual. En Arch, `pacman -S fish`. Entra por el mecanismo compartido de binarios ausentes, que avisa una vez si falta; es el único de los cinco que no necesita `paths`, porque un paquete del sistema sí queda en el `PATH`. Ver "Herramientas que Mason no instala" más arriba.
+
+### Fluent
+
+[Project Fluent](https://projectfluent.org/) es el formato de traducciones de Mozilla: ficheros `.ftl` con mensajes, términos (`-marca`), atributos (`.title`) y selectores de plural o género. No es un lenguaje con toolchain: no hay nada que compilar ni que instalar para _usarlo_, y lo que lo interpreta es la biblioteca de cada aplicación (`fluent-rs`, `@fluent/bundle`, `python-fluent`...).
+
+En Neovim tiene resaltado, diagnósticos de sintaxis y formateo, pero **no tiene LSP**. Nada de lo que usa está en Mason, así que `:MasonInstallAll` no instala nada para Fluent y `names.lua` no lleva ninguna entrada suya:
+
+| Pieza | Dónde | Sin ella |
+| --- | --- | --- |
+| Filetype `fluent` | de serie en Neovim (`.ftl`) | — |
+| Parser `fluent` | `"fluent"` en `M.languages`, con su origen en `M.custom_parsers` ([lua/lzy/treesitter.lua](/lua/lzy/treesitter.lua)) | resalta `syntax/fluent.vim`, y los bloques ` ```fluent ` de un markdown salen sin color |
+| Resaltado de respaldo | [syntax/fluent.vim](/syntax/fluent.vim) | sin resaltado mientras el parser no esté instalado: el runtime no trae ninguno |
+| `commentstring` | [after/ftplugin/fluent.lua](/after/ftplugin/fluent.lua) | `gc` falla con `commentstring is empty`: el runtime tampoco trae ftplugin |
+| Linter `ftl_lint` | [lua/lzy/nvim-lint.lua](/lua/lzy/nvim-lint.lua) | sin diagnósticos; necesita el binario `ftl-lint` |
+| Formatter `fluent` | [lua/lzy/conform.lua](/lua/lzy/conform.lua) | sin formato; necesita Python con `fluent.syntax` |
+
+El parser y el linter salen del mismo repositorio, [outskirtslabs/fluent-tooling](https://github.com/outskirtslabs/fluent-tooling); el formateador, de la biblioteca oficial de Mozilla.
+
+#### El parser
+
+No está en el catálogo de nvim-treesitter. Se activa descomentando `"fluent"` en `M.languages`, donde va marcado `-- custom`, y `:TSInstallAll` lo descarga y lo compila junto con sus queries; no necesita nada más que lo que ya pide cualquier parser ([tree-sitter-cli](/docs/tree-sitter-cli.md) y un [compilador de C](/docs/Compilador%20de%20C.md)). Va fijado a un commit (`revision` en `M.custom_parsers`), igual que el de D2 y por lo mismo: se actualiza a mano.
+
+Hay varias gramáticas de Fluent y se eligió ésta parseando con cada una el proyecto de prueba de más abajo, que es Fluent válido:
+
+| Gramática | Errores en ficheros válidos |
+| --- | --- |
+| `projectfluent/tree-sitter-fluent`, `tree-sitter/tree-sitter-fluent` | no traen queries de resaltado: descartadas sin compilar |
+| `thi8v/tree-sitter-fluent` | 25: no entiende atributos ni variantes |
+| `davidrios/tree-sitter-fluent-new` | 1: no admite números negativos (`{ -3.5 }`) |
+| `outskirtslabs/fluent-tooling` | 0 |
+
+La elegida deriva de la de `davidrios` y es además la única tolerante a errores a propósito: una entrada rota no descoloca el resaltado de las siguientes.
+
+#### El linter: `ftl-lint`
+
+Sin language server, es lo único que avisa de un `.ftl` roto antes de que la aplicación lo cargue. No está en Mason, ni en crates.io, ni en los repositorios de Arch ni en AUR: se compila con Cargo ([Cargo+Rust](/docs/Cargo+Rust.md)), sin privilegios.
+
+```bash
+cargo install --locked --git https://github.com/outskirtslabs/fluent-tooling fluent-lint --bin ftl-lint
+ftl-lint --version
+```
+
+Queda en `~/.cargo/bin`. Si ese directorio no está en el `PATH` de Neovim, la configuración lo busca ahí igualmente; y si no existe, avisa una vez por sesión con el comando de arriba. Se activa descomentando `fluent = { "ftl_lint" }` en `M.linters_by_ft`, y se ejecuta al abrir y al guardar.
+
+Lo que detecta es **sintaxis y estructura**, con los códigos de error de la propia especificación de Fluent: mensaje o término sin valor (`E0005`, `E0006`), selector sin variante por defecto o con dos (`E0010`, `E0015`), placeable o cadena sin cerrar (`E0003`, `E0020`), atributo sin valor (`E0012`), atributo de un término usado como valor (`E0019`) y entradas que no son nada (`E0002`). Tres límites, comprobados sobre el proyecto de prueba:
+
+- **No hace análisis semántico.** Una referencia a un mensaje o a un término que no existe (`{ no-existe }`) y un identificador repetido pasan sin diagnóstico. Tampoco compara idiomas: no dice qué le falta a `es` respecto a `en-US`.
+- **Un placeable sin cerrar se marca donde el parser se dio cuenta, no donde se abrió**: unas líneas más abajo, al empezar la siguiente entrada, o en la última línea del fichero. Si un `E0003` apunta a una línea que está bien, el `{` sin cerrar está antes.
+- Una llave de cierre suelta sale como `E0002` genérico, no como el `E0027` de la especificación.
+
+#### El formateador
+
+Fluent no tiene formateador publicado. El que usa esta configuración es el serializador de la biblioteca oficial de Mozilla, `fluent.syntax` (Python), envuelto en un script que vive en [lua/lzy/conform.lua](/lua/lzy/conform.lua) (`FLUENT_FORMAT`) y que Conform ejecuta con `python3 -c`. Necesita [Python](/docs/langs/Python.md) y esa biblioteca, que no está en Mason:
+
+```bash
+sudo pacman -S --needed python-fluent.syntax   # Arch, repo oficial extra
+pip install fluent.syntax                       # cualquier otro sistema
+```
+
+Normaliza los espacios alrededor de `=`, dentro de las llaves y entre argumentos, la sangría de atributos y variantes, las líneas en blanco de más y los espacios finales. **No toca el texto de la traducción**: `Hello,   world!` conserva sus tres espacios, porque son contenido.
+
+El script existe porque el serializador a secas (`serialize(parse(...))`) no sirve de formateador. Tres cosas, comprobadas sobre el proyecto de prueba:
+
+- **Borra las entradas rotas.** El parser devuelve como `Junk` lo que no entiende y el serializador, por defecto, no lo escribe: formatear un fichero con un error de sintaxis eliminaba justo la entrada que había que arreglar. El script **se niega a formatear un fichero con errores** y dice la línea y el código del primero; Conform lo muestra y el buffer queda intacto.
+- **Se come las líneas en blanco entre entradas.** El script conserva una donde el original tenía al menos una. No es solo estética: un comentario pegado a un mensaje pertenece a ese mensaje, y separado por una línea en blanco es un comentario suelto.
+- **Deja espacios finales** en las líneas en blanco de un texto multilínea.
+
+Como red de seguridad, antes de escribir vuelve a parsear el resultado y lo compara con el original: si no son el mismo árbol, falla y no cambia nada.
+
+La sangría es la de Fluent —cuatro espacios, con el `*` de la variante por defecto una columna antes— y no sigue [lua/user/indent.lua](/lua/user/indent.lua): la fija el serializador. Si falta la biblioteca, el formateo falla con el comando para instalarla; si falta Python, avisa una vez por sesión.
+
+#### Lo que no hay
+
+- **Formatter publicado: no existe.** El crate `fluent-fmt` es una biblioteca de 2021 sin ejecutable, y ni `fluent.syntax` ni `@fluent/syntax` (JavaScript) publican un comando. De ahí el script de arriba.
+- **LSP: no se integra ninguno.** nvim-lspconfig no trae configuración para Fluent. El único servidor que hay, `juliancoffeelab/fluent-lsp`, se compiló y se probó: da hover con la traducción de origen al lado y salta entre idiomas, pero no publica errores de sintaxis, exige un `fluent-lsp.toml` propio en la raíz y, sobre todo, **no tiene licencia** ni versiones publicadas. Se descarta hasta que la tenga.
+- **`moz-fluent-lint`** (PyPI `moz-fluent-linter`, de Mozilla) no es un linter de editor: recibe directorios y no ficheros, y lo que revisa son las convenciones de estilo de Mozilla (comillas tipográficas, longitud de los identificadores), no si el fichero parsea. Sobre un fichero roto responde `No errors found`. Sirve para CI, no para el buffer.
+
+#### Dos cosas que conviene saber
+
+- **`.ftl` es también la extensión de las plantillas FreeMarker**, y Neovim se la da toda a `fluent`, sin mirar el contenido. Una plantilla FreeMarker se abrirá como Fluent y, con el linter activo, llena de errores. Neovim no trae soporte de FreeMarker que se pierda por ello, pero si en un proyecto molesta, se le cambia el filetype con un modeline o con `vim.filetype.add` por ruta.
+- **Los comentarios son de línea completa**: `#`, `##` (de grupo) y `###` (de fichero), siempre en la columna 0 y con un espacio detrás. Un `#` a mitad de línea es texto de la traducción. `gc` usa `#`.
+
+El resaltado de respaldo sigue el mismo criterio que los demás `syntax/*.vim` del repositorio: es gramatical, no un catálogo. Una función se reconoce por ir en mayúsculas delante de `(`, y las referencias, las cadenas y los números solo justo detrás de `{` o entre paréntesis, porque el texto de una variante también va dentro de las llaves y ahí `"hola"` o `5` son texto. Un placeable sin cerrar termina donde empieza la siguiente entrada, así que no se traga el resto del fichero.
+
+#### Proyecto mínimo
+
+Fluent no es de proyectos: un `.ftl` suelto ya recibe resaltado y diagnósticos, sin `git init` ni fichero de configuración. Para probarlo de verdad conviene la estructura habitual, un directorio por idioma con los mismos nombres de fichero:
+
+```sh
+mkdir -p fluent-lab/locales/en-US fluent-lab/locales/es
+```
+
+Y dentro, un `.ftl` válido que recorra la sintaxis —términos con atributos, selectores, funciones con argumentos con nombre, términos parametrizados, escapes `—` y un número negativo—, que es el control: no debe dar ningún diagnóstico ni dejar nada sin color. Aparte, un fichero con un error por entrada para ver cada código; el más corto es un selector sin `*`:
+
+```fluent
+emails =
+	{ $count ->
+		[one] One email
+		[other] { $count } emails
+	}
+```
+
+Comprobación rápida: `:set filetype?` debe decir `fluent`, `:InspectTree` debe mostrar el árbol (si dice que no hay parser, falta `:TSInstallAll`) y `ftl-lint fichero.ftl` en una terminal debe dar los mismos errores que el buffer.
 
 ### Zsh
 
@@ -1394,6 +1500,7 @@ Hay varias extensiones que se normalizan deliberadamente para que LSP, formatter
 - `lhaskell` → parser Tree-sitter `haskell`.
 - `.yar`, `.yara` → `yara`, de serie en Neovim; sin parser Tree-sitter, resalta con [syntax/yara.vim](/syntax/yara.vim) porque el runtime no trae ninguno.
 - `.rules` → `hog` (Snort/Suricata), también de serie y ya con las excepciones de udev, polkit y ufw resueltas; no hay que añadir ningún mapeo propio.
+- `.ftl` → `fluent`, de serie en Neovim, pero sin `syntax/fluent.vim` ni ftplugin en el runtime: con el parser externo `fluent` resalta con Tree-sitter; sin él, con [syntax/fluent.vim](/syntax/fluent.vim). FreeMarker usa la misma extensión y también cae aquí (ver [Fluent](#fluent)).
 - `.d2` → `d2`, mapeo propio: el runtime no conoce la extensión. Con el parser externo `d2` resalta con Tree-sitter; sin él, con [syntax/d2.vim](/syntax/d2.vim).
 - `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` → `plantuml`, mapeo propio: el runtime no conoce ninguna. Sin parser Tree-sitter, resalta con [syntax/plantuml.vim](/syntax/plantuml.vim). `.uml` no se mapea (es también XMI de Eclipse UML2).
 - `.jql` → `jql`, mapeo propio: el runtime no conoce la extensión. Sin parser Tree-sitter ni LSP, resalta con [syntax/jql.vim](/syntax/jql.vim).
@@ -1422,7 +1529,7 @@ Al añadir o quitar soporte de un lenguaje, revisar como mínimo:
 1. Identificador de LSP y, si aplica, mapeo de paquete de Mason.
 2. `formatters_by_ft` y cualquier resolver de ejecutables/plugins externos.
 3. Parser de Tree-sitter y aliases de filetype.
-4. Si no hay parser, comprobar que el runtime de Neovim trae `syntax/<lenguaje>.vim`; si no lo trae, el lenguaje se abre sin ningún resaltado (caso de YARA, JQL, D2 y PlantUML).
+4. Si no hay parser, comprobar que el runtime de Neovim trae `syntax/<lenguaje>.vim`; si no lo trae, el lenguaje se abre sin ningún resaltado (caso de YARA, JQL, D2, PlantUML y Fluent).
 5. Detección de extensiones/filetypes no estándar.
 6. Dependencias del SDK/toolchain que Mason no instala.
 7. README y esta guía, sin introducir rutas personales, versiones locales ni estados de pruebas temporales.
@@ -1460,6 +1567,11 @@ Las versiones concretas observadas durante pruebas locales sólo deberían entra
 - [pug-lsp](https://github.com/opa-oz/pug-lsp)
 - [`asm-lsp`](https://github.com/bergercookie/asm-lsp)
 - [`tree-sitter-batch`](https://github.com/wharflab/tree-sitter-batch)
+- [Project Fluent](https://projectfluent.org/)
+- [Guía de sintaxis de Fluent](https://projectfluent.org/fluent/guide/)
+- [`fluent-tooling`: `tree-sitter-fluent` y `ftl-lint`](https://github.com/outskirtslabs/fluent-tooling)
+- [`fluent.syntax` (python-fluent)](https://github.com/projectfluent/python-fluent)
+- [`moz-fluent-linter`](https://github.com/mozilla-l10n/moz-fluent-linter)
 - [PlantUML](https://plantuml.com/)
 - [`plantuml-lsp`](https://github.com/ptdewey/plantuml-lsp)
 - [`tree-sitter-plantuml`](https://github.com/derivasoftware/tree-sitter-plantuml)

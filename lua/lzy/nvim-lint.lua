@@ -16,7 +16,7 @@ local M = {}
 
 M.linters_by_ft = {
   -- Descomenta si trabajas con SQL: da diagnósticos donde `sqls` no llega.
-  --   - Fuera por defecto porque `sqlfluff` necesita Python (Python es una 
+  --   - Fuera por defecto porque `sqlfluff` necesita Python (Python es una
   --     dependencia circunstancial de la configuración)
   --   - Conform lo tiene fuera por lo mismo (ver lzy.conform).
   -- sql = { "sqlfluff" },
@@ -26,6 +26,12 @@ M.linters_by_ft = {
   -- compila: esto opina sobre estilo y sobre lo que le falta a la firma para
   -- ser útil en producción. Ver language-dependencies.md.
   -- hog = { "suricata_check" },
+
+  -- Descomenta si trabajas con Fluent (`.ftl`): no hay language server, así que
+  -- sin esto los errores de sintaxis no se ven hasta que la aplicación carga el
+  -- fichero. Necesita `ftl-lint`, que no está en Mason. Ver
+  -- language-dependencies.md.
+  -- fluent = { "ftl_lint" },
 }
 
 -- suricata-check no está en Mason ni en el catálogo de nvim-lint, y su forma
@@ -46,6 +52,23 @@ local function suricata_check_bin()
   return bin
 end
 
+-- ftl-lint tampoco está en Mason ni en nvim-lint. Se instala con
+-- `cargo install`, que lo deja en `~/.cargo/bin`: suele estar en el `PATH`,
+-- pero solo porque rustup edita el rc de la shell.
+local ftl_bin
+local function ftl_lint_bin()
+  ftl_bin = ftl_bin
+    or require("hzsr.sys.executable").external {
+      bin = "ftl-lint",
+      paths = { "~/.cargo/bin" },
+      why = "los ficheros Fluent se quedan sin diagnósticos de sintaxis",
+      how = "Instálalo con `cargo install --locked --git "
+        .. "https://github.com/outskirtslabs/fluent-tooling fluent-lint --bin ftl-lint`.",
+    }
+
+  return ftl_bin
+end
+
 -- Linters que solo tienen sentido en ciertos proyectos. Si la condición falla,
 -- el linter no se ejecuta y no se publica nada: quedarse sin diagnósticos es
 -- mejor que llenar el buffer de falsos positivos o del error de la propia
@@ -62,8 +85,12 @@ M.conditions = {
   -- disco no hay nada que revisar. `available()` avisa una vez si falta el
   -- binario y devuelve false, así que no se ejecuta a ciegas.
   suricata_check = function(bufnr)
-    return vim.api.nvim_buf_get_name(bufnr) ~= ""
-      and suricata_check_bin().available()
+    return vim.api.nvim_buf_get_name(bufnr) ~= "" and suricata_check_bin().available()
+  end,
+
+  -- ftl-lint lee stdin, así que no necesita archivo en disco: solo el binario.
+  ftl_lint = function()
+    return ftl_lint_bin().available()
   end,
 }
 
@@ -190,6 +217,85 @@ function M.setup()
             source = "suricata-check",
             code = code,
             message = message,
+          }
+        end
+      end
+
+      return diagnostics
+    end,
+  }
+
+  -- ftl-lint tampoco lo trae nvim-lint. Se consume su salida JSON, que es la
+  -- interfaz estable (la legible por humanos puede cambiar). Comprobado
+  -- ejecutando la herramienta:
+  --
+  --   - Lee stdin con `-`, y entonces el `path` de cada diagnóstico es
+  --     `<stdin>`: no hay nada que casar con el nombre del buffer.
+  --   - Sale con 1 cuando hay diagnósticos; el JSON llega igual por stdout.
+  --   - Líneas y columnas son 0-indexadas, pero la columna cuenta caracteres
+  --     Unicode, no bytes, que es lo que espera `vim.diagnostic`: hay que
+  --     convertirla, o en una traducción con tildes el subrayado se desplaza.
+  --   - Cada diagnóstico trae varias etiquetas; la primaria es la que sitúa el
+  --     error, y su texto y el `help` dicen cómo arreglarlo.
+  lint.linters.ftl_lint = {
+    cmd = function()
+      return ftl_lint_bin().command()
+    end,
+    stdin = true,
+    append_fname = false,
+    stream = "stdout",
+    ignore_exitcode = true,
+    args = { "--format", "json", "-" },
+    parser = function(output, bufnr)
+      local ok, decoded = pcall(vim.json.decode, output or "")
+      if not ok or type(decoded) ~= "table" or decoded.schema_version ~= 1 then
+        return {}
+      end
+
+      local severities = {
+        error = vim.diagnostic.severity.ERROR,
+        warning = vim.diagnostic.severity.WARN,
+      }
+      local last = vim.api.nvim_buf_line_count(bufnr) - 1
+
+      -- El buffer puede haber cambiado entre el linteo y el parseo: todo se
+      -- recorta a lo que existe.
+      local function position(pos)
+        local lnum = math.max(math.min(pos.line, last), 0)
+        local text = vim.api.nvim_buf_get_lines(bufnr, lnum, lnum + 1, false)[1] or ""
+        local chars = vim.str_utfindex(text, "utf-32")
+        return lnum, vim.str_byteindex(text, "utf-32", math.min(pos.column, chars))
+      end
+
+      local diagnostics = {}
+
+      for _, item in ipairs(decoded.diagnostics or {}) do
+        local label = item.labels[1]
+        for _, candidate in ipairs(item.labels) do
+          if candidate.primary then
+            label = candidate
+            break
+          end
+        end
+
+        if label then
+          local lnum, col = position(label.span.start)
+          local end_lnum, end_col = position(label.span["end"])
+          local message = { item.message }
+          if label.message and label.message ~= "" then
+            message[#message + 1] = label.message
+          end
+          vim.list_extend(message, item.help or {})
+
+          diagnostics[#diagnostics + 1] = {
+            lnum = lnum,
+            col = col,
+            end_lnum = end_lnum,
+            end_col = end_col,
+            severity = severities[item.severity] or vim.diagnostic.severity.ERROR,
+            source = "ftl-lint",
+            code = item.code,
+            message = table.concat(message, ": "),
           }
         end
       end

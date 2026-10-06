@@ -56,6 +56,7 @@ local formatters_by_ft = {
   -- elixir = { "mix" },
   -- erlang = { "erlfmt" },
   -- fish = { "fish_indent" },
+  -- fluent = { "fluent" }, -- externo: Python con fluent.syntax
   -- fsharp = { "fantomas" }, -- F#
   -- gleam = { "gleam" },
   -- go = { "gofmt" },
@@ -135,7 +136,8 @@ local function project_wraps_prose(ctx)
 
   -- `max_line_length` de un `.editorconfig` llega aquí como `textwidth`, que
   -- Neovim rellena de serie. Es el ancho del proyecto aunque no use Prettier.
-  local editorconfig_width = ctx.buf and vim.api.nvim_buf_is_valid(ctx.buf)
+  local editorconfig_width = ctx.buf
+      and vim.api.nvim_buf_is_valid(ctx.buf)
       and vim.bo[ctx.buf].textwidth
     or 0
   local width = editorconfig_width > 0 and editorconfig_width or line_length
@@ -552,6 +554,61 @@ end
 
 --- Declara un formateador cuyo binario Mason no instala.
 ---
+-- Fluent no tiene formateador publicado: este es el serializador de la
+-- biblioteca oficial de Mozilla (`fluent.syntax`, Python), que reescribe cada
+-- entrada en su forma canónica. Tres cosas que el serializador a secas no hace
+-- y por las que no basta con `serialize(parse(...))`, todas comprobadas:
+--
+--   - Borra las entradas con errores de sintaxis: el parser las devuelve como
+--     `Junk` y por defecto no se serializan. Formatear un fichero roto se
+--     llevaría por delante justo lo que hay que arreglar, así que aquí se
+--     aborta con la línea y el código del primer error.
+--   - Se come las líneas en blanco entre entradas. Aquí se conserva una donde
+--     el original tenía al menos una; importa además para el significado: un
+--     comentario pegado a un mensaje es suyo, y separado es un comentario
+--     suelto.
+--   - Deja espacios finales en las líneas en blanco de un texto multilínea.
+--
+-- Antes de escribir se vuelve a parsear el resultado y se compara con el
+-- original: si no son el mismo árbol, no se cambia nada.
+local FLUENT_FORMAT = [==[
+import re
+import sys
+
+try:
+    from fluent.syntax import FluentParser, FluentSerializer, ast
+except ImportError:
+    sys.exit(
+        "falta la biblioteca fluent.syntax de Python. "
+        "En Arch: `sudo pacman -S python-fluent.syntax`; "
+        "en otro sistema: `pip install fluent.syntax`."
+    )
+
+source = sys.stdin.read()
+resource = FluentParser().parse(source)
+
+for entry in resource.body:
+    if isinstance(entry, ast.Junk):
+        note = entry.annotations[0]
+        line = source.count("\n", 0, note.span.start) + 1
+        sys.exit(f"línea {line}: {note.code} {note.message}")
+
+serializer = FluentSerializer()
+chunks = []
+previous = None
+for entry in resource.body:
+    if previous is not None and source.count("\n", previous.span.end, entry.span.start) > 1:
+        chunks.append("\n")
+    chunks.append(serializer.serialize_entry(entry).strip("\n") + "\n")
+    previous = entry
+result = re.sub(r"(?m)^[ \t]+$", "", "".join(chunks))
+
+if not FluentParser().parse(result).equals(resource, ignored_fields=["span"]):
+    sys.exit("el resultado no equivale al original; no se ha cambiado nada")
+
+sys.stdout.write(result)
+]==]
+
 --- Conform fusiona esto con su builtin cuando existe, así que solo se
 --- sustituyen `command` y `condition` y los `args` siguen viniendo de Conform.
 --- El binario se resuelve una vez por sesión —incluyendo los directorios de
@@ -782,7 +839,6 @@ local formatters = {
         table.insert(args, "--prose-wrap")
         table.insert(args, "never")
       end
-
 
       return args
     end,
@@ -1686,17 +1742,40 @@ local formatters = {
   --
   -- Solo atiende al filetype `nasm`, nunca a `asm`: ver la nota de dialectos
   -- en `formatters_by_ft`.
-  nasmfmt = vim.tbl_extend("error", external {
-    bin = "nasmfmt",
-    paths = { "~/go/bin" },
-    why = "el formato de NASM no se ejecuta",
-    how = "Instálalo con `go install github.com/yamnikov-oleg/nasmfmt@latest`.",
-  }, {
-    args = function(_, ctx)
-      return { "-ii", tostring(indent_for(ctx).width), "$FILENAME" }
-    end,
-    stdin = false,
-  }),
+  nasmfmt = vim.tbl_extend(
+    "error",
+    external {
+      bin = "nasmfmt",
+      paths = { "~/go/bin" },
+      why = "el formato de NASM no se ejecuta",
+      how = "Instálalo con `go install github.com/yamnikov-oleg/nasmfmt@latest`.",
+    },
+    {
+      args = function(_, ctx)
+        return { "-ii", tostring(indent_for(ctx).width), "$FILENAME" }
+      end,
+      stdin = false,
+    }
+  ),
+
+  -- Sin builtin en Conform: es el script FLUENT_FORMAT de arriba, por stdin. La
+  -- sangría es la de Fluent (cuatro espacios, con el `*` de la variante por
+  -- defecto una columna antes): la fija el serializador y no sigue
+  -- `user.indent`. Lo que falta casi nunca es Python sino la biblioteca, y eso
+  -- lo dice el propio script al fallar.
+  fluent = vim.tbl_extend(
+    "error",
+    external {
+      bin = vim.fn.has "win32" == 1 and "python" or "python3",
+      why = "el formato de Fluent no se ejecuta",
+      how = "Instala Python y su biblioteca `fluent.syntax` "
+        .. "(en Arch, `sudo pacman -S python-fluent.syntax`).",
+    },
+    {
+      args = { "-c", FLUENT_FORMAT },
+      stdin = true,
+    }
+  ),
 
   ocamlformat = {
     -- OCamlFormat decide estructuralmente la sangría y usa espacios. Sí expone
