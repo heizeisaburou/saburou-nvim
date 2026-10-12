@@ -14,10 +14,15 @@ describe("Conform Markdown pipeline", function()
 
   local function normalize(lines)
     local result
-    conform.formatters.markdown_reference_definitions.format(nil, nil, lines, function(err, value)
-      assert.is_nil(err)
-      result = value
-    end)
+    conform.formatters.markdown_reference_definitions.format(
+      nil,
+      nil,
+      lines,
+      function(err, value)
+        assert.is_nil(err)
+        result = value
+      end
+    )
     return result
   end
 
@@ -68,10 +73,15 @@ describe("Conform Markdown pipeline", function()
       or project { [".prettierrc"] = ('{ "printWidth": %d }'):format(width) }
 
     local result
-    conform.formatters.markdown_wrap.format(nil, wrap_contexts[width], lines, function(err, value)
-      assert.is_nil(err)
-      result = value
-    end)
+    conform.formatters.markdown_wrap.format(
+      nil,
+      wrap_contexts[width],
+      lines,
+      function(err, value)
+        assert.is_nil(err)
+        result = value
+      end
+    )
     return result
   end
 
@@ -153,8 +163,181 @@ describe("Conform Markdown pipeline", function()
       "markdown_frontmatter_restore",
       "markdown_reference_definitions",
       "markdown_wrap",
+      "markdown_code_blocks",
       "markdown_tabs",
     }, conform.formatters_by_ft.markdown)
+  end)
+
+  it("converts Markdown indentation to tabs without touching fenced code", function()
+    local previous = vim.bo.filetype
+    vim.bo.filetype = "markdown"
+
+    local result = run("markdown_tabs", {
+      "- uno",
+      "    - dos",
+      "        - tres",
+      "",
+      "    ```yaml",
+      "    needs:",
+      "      - name: a",
+      "        repo: x",
+      "    ```",
+      "",
+      "```python",
+      "def f(x):",
+      "  if x:",
+      "    return 1",
+      "        # ocho",
+      "```",
+      "",
+      "    - despues",
+    })
+
+    vim.bo.filetype = previous
+
+    assert.are.same({
+      "- uno",
+      "\t- dos",
+      "\t\t- tres",
+      "",
+      -- La sangría del fence es de la lista; lo de dentro, del YAML.
+      "\t```yaml",
+      "\tneeds:",
+      "\t  - name: a",
+      "\t    repo: x",
+      "\t```",
+      "",
+      "```python",
+      "def f(x):",
+      "  if x:",
+      "    return 1",
+      "        # ocho",
+      "```",
+      "",
+      "\t- despues",
+    }, result)
+  end)
+
+  describe("code blocks", function()
+    local failures
+
+    -- `markdown_code_blocks` formatea con lo que haya en `formatters_by_ft`:
+    -- aquí, dos formateadores de mentira para no depender de binarios.
+    local function format_blocks(lines)
+      vim.opt.runtimepath:prepend(vim.fn.stdpath "data" .. "/lazy/conform.nvim")
+      require("conform").setup {
+        formatters_by_ft = { hzsrupper = { "hzsr_upper" }, hzsrfail = { "hzsr_fail" } },
+        formatters = {
+          hzsr_upper = {
+            format = function(_, _, input, callback)
+              callback(nil, vim.tbl_map(string.upper, input))
+            end,
+          },
+          hzsr_fail = {
+            format = function(_, _, _, callback)
+              callback "roto"
+            end,
+          },
+        },
+      }
+
+      local notify = vim.notify
+      failures = {}
+      vim.notify = function(message)
+        failures[#failures + 1] = message
+      end
+
+      local result
+      conform.formatters.markdown_code_blocks.format(nil, nil, lines, function(err, value)
+        assert.is_nil(err)
+        result = value
+      end)
+      vim.wait(2000, function()
+        return result ~= nil
+      end)
+
+      vim.notify = notify
+      return result
+    end
+
+    it("formats each fence with its language formatter, keeping the container prefix", function()
+      local result = format_blocks {
+        "---",
+        "title: no es un bloque",
+        "---",
+        "",
+        "```hzsrupper",
+        "a:",
+        "  b",
+        "```",
+        "",
+        "- lista",
+        "",
+        "    ```hzsrupper",
+        "    c:",
+        "",
+        "      d",
+        "    ```",
+        "",
+        "> [!TIP]",
+        ">",
+        "> ```hzsrupper",
+        "> e:",
+        ">",
+        ">   f",
+        "> ```",
+      }
+
+      assert.are.same({
+        "---",
+        "title: no es un bloque",
+        "---",
+        "",
+        "```hzsrupper",
+        "A:",
+        "  B",
+        "```",
+        "",
+        "- lista",
+        "",
+        "    ```hzsrupper",
+        "    C:",
+        "",
+        "      D",
+        "    ```",
+        "",
+        "> [!TIP]",
+        ">",
+        "> ```hzsrupper",
+        "> E:",
+        ">",
+        ">   F",
+        "> ```",
+      }, result)
+      assert.are.same({}, failures)
+    end)
+
+    it("leaves alone what has no formatter and what its formatter rejects", function()
+      local source = {
+        "```desconocido",
+        "se  queda",
+        "```",
+        "",
+        "```hzsrfail",
+        "tambien  se queda",
+        "```",
+        "",
+        "```hzsrupper",
+        "este no",
+        "```",
+      }
+      local result = format_blocks(source)
+
+      source[10] = "ESTE NO"
+      assert.are.same(source, result)
+      assert.are.equal(1, #failures)
+      assert.is_truthy(failures[1]:find("hzsrfail (línea 5)", 1, true))
+    end)
   end)
 
   it("protects callouts nested in lists, including nested callouts", function()
@@ -273,26 +456,29 @@ describe("Conform Markdown pipeline", function()
     assert.are.equal("otro cuerpo", restored[12])
   end)
 
-  it("protects inline spoilers from Prettier without stealing escaped, code or table pipes", function()
-    local source = {
-      "before ||a very long hidden value with spaces|| after",
-      "\\||escaped|| and `||code||`",
-      "[||label||](other)",
-      "",
-      "| A | B |",
-      "| --- | --- |",
-      "| ||table|| | value |",
-    }
-    local prepared = run("markdown_spoilers_prepare", source)
-    assert.is_nil(prepared[1]:find("a very long hidden value", 1, true))
-    local token = prepared[1]:match "`S%d%d%d%d%dS`"
-    assert.is_not_nil(token)
-    assert.are.equal(9, vim.fn.strdisplaywidth(token))
-    assert.are.equal(source[2], prepared[2])
-    assert.are.equal(source[3], prepared[3])
-    assert.are.equal(source[7], prepared[7])
-    assert.are.same(source, run("markdown_spoilers_restore", prepared))
-  end)
+  it(
+    "protects inline spoilers from Prettier without stealing escaped, code or table pipes",
+    function()
+      local source = {
+        "before ||a very long hidden value with spaces|| after",
+        "\\||escaped|| and `||code||`",
+        "[||label||](other)",
+        "",
+        "| A | B |",
+        "| --- | --- |",
+        "| ||table|| | value |",
+      }
+      local prepared = run("markdown_spoilers_prepare", source)
+      assert.is_nil(prepared[1]:find("a very long hidden value", 1, true))
+      local token = prepared[1]:match "`S%d%d%d%d%dS`"
+      assert.is_not_nil(token)
+      assert.are.equal(9, vim.fn.strdisplaywidth(token))
+      assert.are.equal(source[2], prepared[2])
+      assert.are.equal(source[3], prepared[3])
+      assert.are.equal(source[7], prepared[7])
+      assert.are.same(source, run("markdown_spoilers_restore", prepared))
+    end
+  )
 
   it("collapses only Prettier-style multiline reference definitions", function()
     local input = {

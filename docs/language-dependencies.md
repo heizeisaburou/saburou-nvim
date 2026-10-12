@@ -306,7 +306,7 @@ No sustituir tabs por espacios a ciegas: las líneas de receta de Make usan tab 
 
 `marksman`, `markdown` y `markdown_inline` ya están activos, igual que la cadena de formato propia basada en Prettier. No hay dependencia de sistema. Para que Marksman trate varias notas como un workspace, usar `.marksman.toml` o `.git`; un directorio de archivos sueltos pierde parte de la navegación entre notas.
 
-El formatter no es Prettier sin más: protege callouts, frontmatter y spoilers, restaura esas estructuras, normaliza referencias, respeta la política de wrap del proyecto y termina con `markdown_tabs`. Por eso la comprobación correcta es formatear desde Neovim, no comparar únicamente `prettier --check`.
+El formatter no es Prettier sin más: protege callouts, frontmatter y spoilers, restaura esas estructuras, normaliza referencias, respeta la política de wrap del proyecto, formatea cada bloque de código con el formatter de su lenguaje (`markdown_code_blocks`) y termina con `markdown_tabs`. Por eso la comprobación correcta es formatear desde Neovim, no comparar únicamente `prettier --check`.
 
 ### PHP
 
@@ -834,8 +834,8 @@ Con la API nativa `vim.lsp.config`/`vim.lsp.enable` que usa esta configuración,
 ```lua
 julials = {
   cmd = function(dispatchers, config)
-	local env = config.root_dir or vim.fn.getcwd()
-	return vim.lsp.rpc.start({ "julia-lsp", env }, dispatchers)
+    local env = config.root_dir or vim.fn.getcwd()
+    return vim.lsp.rpc.start({ "julia-lsp", env }, dispatchers)
   end,
 }
 ```
@@ -1481,7 +1481,8 @@ Los wrappers `prettier_*` resuelven el directorio global de Node en runtime. Si 
 
 ## Detalles de formato
 
-- Markdown usa `prettier` y después `markdown_tabs`. La segunda pasada normaliza la sangría que Prettier deja con espacios en algunas estructuras incluso cuando se prefieren tabs.
+- Markdown usa `prettier` y después `markdown_tabs`. La segunda pasada normaliza la sangría que Prettier deja con espacios en algunas estructuras incluso cuando se prefieren tabs. Solo toca la estructura de Markdown: dentro de un bloque de código convierte la sangría del propio bloque (la de la lista que lo contiene) y deja el código byte a byte.
+- Los bloques de código de un Markdown los formatea `markdown_code_blocks` con el formatter que `formatters_by_ft` tenga activo para su lenguaje y con la política de sangría de ese lenguaje, como si fueran un archivo suelto: activar un lenguaje activa también sus bloques. Sin formatter activo el bloque queda como lo deje Prettier (que formatea por su cuenta los lenguajes que conoce, con la sangría de Markdown); si el formatter falla, el bloque se deja intacto y se avisa.
 - `rubocop` y `scalafmt` tienen un timeout de 10 segundos para evitar falsos fallos en el primer arranque.
 - `yaml.ansible` reutiliza la configuración de `yaml` y `yamlfmt`.
 - `edn` reutiliza `zprint`; `lhaskell` reutiliza `fourmolu`.

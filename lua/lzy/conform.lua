@@ -35,6 +35,7 @@ local formatters_by_ft = {
     "markdown_frontmatter_restore",
     "markdown_reference_definitions",
     "markdown_wrap",
+    "markdown_code_blocks",
     "markdown_tabs",
   }, -- mdformat (bug con tablas grandes)
   css = { "prettier" },
@@ -1685,31 +1686,298 @@ local formatters = {
     end,
   },
 
+  -- El interior de un fence es del lenguaje del bloque, no de Markdown: lo
+  -- formatea el formateador que `formatters_by_ft` tenga activo para ese
+  -- lenguaje, con la política de sangría de ese lenguaje, igual que si fuera un
+  -- archivo suelto. Activar un lenguaje activa también sus bloques.
+  --
+  -- Sin formateador activo el bloque se queda como lo dejó Prettier. Si el
+  -- formateador falla (un fragmento incompleto, lo normal en una nota) el
+  -- bloque se deja intacto, se avisa y el resto de la nota se formatea igual.
+  --
+  -- No se usa el `injected` de Conform, que hace esto mismo con Tree-sitter:
+  -- reformatea el frontmatter, trocea línea a línea los bloques que van dentro
+  -- de una cita o un callout y lee del buffer unas posiciones que Prettier ya
+  -- ha movido.
+  markdown_code_blocks = {
+    format = function(_, ctx, lines, callback)
+      local conform = require "conform"
+
+      -- Extensión del archivo temporal cuando no coincide con el filetype; hay
+      -- formateadores que deciden el parser por el nombre.
+      local extensions = {
+        clojure = "clj",
+        elixir = "ex",
+        erlang = "erl",
+        fortran = "f90",
+        fsharp = "fs",
+        haskell = "hs",
+        javascript = "js",
+        javascriptreact = "jsx",
+        julia = "jl",
+        kotlin = "kt",
+        ocaml = "ml",
+        perl = "pl",
+        python = "py",
+        ruby = "rb",
+        rust = "rs",
+        typescript = "ts",
+        typescriptreact = "tsx",
+      }
+
+      -- Filetype con formateador para el lenguaje de un fence. El lenguaje
+      -- puede venir como filetype (`python`) o como extensión (`py`, `yml`).
+      local function filetype_of(info)
+        local language = (info:match "^[%w_+#.-]+" or ""):lower()
+        if language == "" then
+          return nil
+        end
+
+        local filetype = conform.formatters_by_ft[language] and language
+          or vim.filetype.match { filename = "block." .. language }
+
+        -- `markdown` es esta misma cadena; sus fences ya los formatea Prettier.
+        if not filetype or filetype == "markdown" or not conform.formatters_by_ft[filetype] then
+          return nil
+        end
+
+        return filetype
+      end
+
+      -- Quita de una línea el prefijo del contenedor del fence (la sangría de
+      -- una lista, el `> ` de una cita). Devuelve nil si la línea ya no
+      -- pertenece a ese contenedor.
+      local function peel(line, prefix)
+        if line:sub(1, #prefix) == prefix then
+          return line:sub(#prefix + 1)
+        end
+        if line == (prefix:gsub("%s+$", "")) then
+          return ""
+        end
+        return nil
+      end
+
+      local blocks = {}
+      local open
+
+      for index, line in ipairs(lines) do
+        local inner = open and peel(line, open.prefix)
+
+        if open and not inner then
+          open = nil -- el contenedor terminó sin cerrar el fence: no se toca
+        end
+
+        if open then
+          local _, marker, info = markdown_fence(inner)
+          if
+            marker
+            and marker:sub(1, 1) == open.char
+            and #marker >= open.length
+            and info == ""
+          then
+            if open.filetype and #open.lines > 0 then
+              open.last = index - 1
+              blocks[#blocks + 1] = open
+            end
+            open = nil
+          else
+            open.lines[#open.lines + 1] = inner
+          end
+        else
+          local prefix = line:match "^[%s>]*"
+          local _, marker, info = markdown_fence(line:sub(#prefix + 1))
+          if marker and info and not info:find("`", 1, true) then
+            open = {
+              prefix = prefix,
+              char = marker:sub(1, 1),
+              length = #marker,
+              language = info:match "^%S*",
+              filetype = filetype_of(info),
+              first = index + 1,
+              lines = {},
+            }
+          end
+        end
+      end
+
+      if #blocks == 0 then
+        callback(nil, lines)
+        return
+      end
+
+      local pending = #blocks
+      local failed = {}
+
+      local function finish()
+        local out = {}
+        local index = 1
+        local next_block = 1
+
+        while index <= #lines do
+          local block = blocks[next_block]
+          if block and index == block.first then
+            local blank = (block.prefix:gsub("%s+$", ""))
+            for _, line in ipairs(block.formatted or block.lines) do
+              out[#out + 1] = line == "" and blank or block.prefix .. line
+            end
+            index = block.last + 1
+            next_block = next_block + 1
+          else
+            out[#out + 1] = lines[index]
+            index = index + 1
+          end
+        end
+
+        if #failed > 0 then
+          table.sort(failed, function(a, b)
+            return a.line < b.line
+          end)
+          vim.notify(
+            "Bloques de código sin formatear (su formateador falló): "
+              .. table.concat(
+                vim.tbl_map(function(block)
+                  return ("%s (línea %d)"):format(block.language, block.line)
+                end, failed),
+                ", "
+              ),
+            vim.log.levels.WARN,
+            { title = "Conform" }
+          )
+        end
+
+        callback(nil, out)
+      end
+
+      for number, block in ipairs(blocks) do
+        -- Buffer de contexto: de él salen el filetype (y con él la política de
+        -- sangría del lenguaje) y el nombre de archivo que ven los
+        -- formateadores. Se crea sin autocomandos para no despertar LSP ni
+        -- plugins por un buffer que dura un instante.
+        local buf = vim.api.nvim_create_buf(false, true)
+        local eventignore = vim.o.eventignore
+        vim.o.eventignore = "all"
+        pcall(
+          vim.api.nvim_buf_set_name,
+          buf,
+          ("%s.%d.%s"):format(
+            ctx and ctx.filename or "block",
+            number,
+            extensions[block.filetype] or block.filetype
+          )
+        )
+        vim.bo[buf].filetype = block.filetype
+        vim.o.eventignore = eventignore
+        vim.b[buf].hzsr_code_block = { first_line = block.lines[1] }
+
+        local by_ft = conform.formatters_by_ft[block.filetype]
+        if type(by_ft) == "function" then
+          by_ft = by_ft(buf)
+        end
+
+        local names = vim.tbl_map(function(formatter)
+          return formatter.name
+        end, conform.resolve_formatters(
+          by_ft,
+          buf,
+          false,
+          by_ft.stop_after_first or false
+        ))
+
+        local function done(err, formatted)
+          if err then
+            failed[#failed + 1] = { language = block.language, line = block.first - 1 }
+          elseif formatted and #formatted > 0 then
+            while #formatted > 1 and formatted[#formatted] == "" do
+              formatted[#formatted] = nil
+            end
+            block.formatted = formatted
+          end
+
+          pcall(vim.api.nvim_buf_delete, buf, { force = true })
+          pending = pending - 1
+          if pending == 0 then
+            finish()
+          end
+        end
+
+        if #names == 0 then
+          done()
+        else
+          conform.format_lines(
+            names,
+            vim.deepcopy(block.lines),
+            { async = true, bufnr = buf, quiet = true },
+            vim.schedule_wrap(done)
+          )
+        end
+      end
+    end,
+  },
+
   -- Segunda pasada porque el printer de Markdown de Prettier no respeta
   -- useTabs en listas y bloques. Es Lua puro para no depender de herramientas
   -- externas; con width = 4 conserva la semántica CommonMark.
+  --
+  -- Dentro de un fence solo es Markdown la sangría del propio fence (la del
+  -- ítem de lista que lo contiene); lo que hay más allá es del código y se deja
+  -- byte a byte. Convertirlo rompía los lenguajes que no admiten tabs (YAML,
+  -- Fluent, F#) y dejaba mezclado cualquier bloque sangrado a un ancho que no
+  -- fuera múltiplo de `width` (Python lo rechaza con TabError).
   markdown_tabs = {
     format = function(_, ctx, lines, callback)
       local config = indent_for(ctx)
       local normalized = {}
+      local fence_char, fence_length, fence_columns
 
-      for index, line in ipairs(lines) do
-        local leading = line:match "^[\t ]*" or ""
+      -- Columnas que ocupa la sangría hasta `limit`, y lo que queda de ella
+      -- sin convertir. Un tab que cruza el límite cuenta entero.
+      local function measure(leading, limit)
         local columns = 0
 
-        for char in leading:gmatch "." do
-          if char == "\t" then
+        for index = 1, #leading do
+          if limit and columns >= limit then
+            return columns, leading:sub(index)
+          end
+          if leading:sub(index, index) == "\t" then
             columns = columns + config.width - (columns % config.width)
           else
             columns = columns + 1
           end
         end
 
-        local tabs = math.floor(columns / config.width)
-        local spaces = columns % config.width
-        normalized[index] = string.rep("\t", tabs)
-          .. string.rep(" ", spaces)
-          .. line:sub(#leading + 1)
+        return columns, ""
+      end
+
+      for index, line in ipairs(lines) do
+        local leading = line:match "^[\t ]*" or ""
+        local content = line:sub(#leading + 1)
+        local _, marker, info = markdown_fence(content)
+        local limit = nil
+        local opens = not fence_char and marker and info and not info:find("`", 1, true)
+
+        if fence_char then
+          if
+            marker
+            and marker:sub(1, 1) == fence_char
+            and #marker >= fence_length
+            and info == ""
+          then
+            fence_char, fence_length, fence_columns = nil, nil, nil
+          else
+            limit = fence_columns
+          end
+        end
+
+        local columns, verbatim = measure(leading, limit)
+
+        if opens and marker then
+          fence_char, fence_length, fence_columns = marker:sub(1, 1), #marker, columns
+        end
+
+        normalized[index] = string.rep("\t", math.floor(columns / config.width))
+          .. string.rep(" ", columns % config.width)
+          .. verbatim
+          .. content
       end
 
       callback(nil, normalized)
@@ -1997,13 +2265,18 @@ local formatters = {
     stdin = true,
     args = function(_, ctx)
       local config = indent_for(ctx)
+      -- En un bloque de código de Markdown (`markdown_code_blocks`) el `---`
+      -- solo se conserva si el ejemplo ya lo traía: añadirlo a un fragmento
+      -- sería cambiar el ejemplo.
+      local block = ctx and ctx.buf and vim.b[ctx.buf].hzsr_code_block
+      local document_start = not block or block.first_line == "---"
       return {
         "-formatter",
         "retain_line_breaks_single=true",
         "-formatter",
         "indent=" .. tostring(config.width),
         "-formatter",
-        "include_document_start=true",
+        "include_document_start=" .. tostring(document_start),
         "-",
       }
     end,
