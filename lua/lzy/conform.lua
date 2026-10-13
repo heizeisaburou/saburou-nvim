@@ -1900,15 +1900,51 @@ local formatters = {
           end
         end
 
+        -- Los bloques formateados antes de que `markdown_tabs` respetara los
+        -- fences tienen su sangría convertida a tabs, y en YAML o en un Python
+        -- mezclado eso ya no parsea. Si el formateador rechaza un bloque con
+        -- tabs de sangría, se reintenta una vez deshaciendo esa conversión
+        -- (un tab por cada `width` columnas de Markdown).
+        local function untabbed()
+          local width = indent_for(ctx).width
+          local found = false
+          local expanded = vim.tbl_map(function(line)
+            local leading = line:match "^[\t ]*"
+            if not leading:find("\t", 1, true) then
+              return line
+            end
+
+            found = true
+            local columns = 0
+            for char in leading:gmatch "." do
+              columns = columns + (char == "\t" and width - (columns % width) or 1)
+            end
+            return string.rep(" ", columns) .. line:sub(#leading + 1)
+          end, block.lines)
+
+          return found and expanded or nil
+        end
+
+        local function run(input, retry)
+          conform.format_lines(
+            names,
+            input,
+            { async = true, bufnr = buf, quiet = true },
+            vim.schedule_wrap(function(err, formatted)
+              local expanded = err and retry and untabbed()
+              if expanded then
+                run(expanded, false)
+              else
+                done(err, formatted)
+              end
+            end)
+          )
+        end
+
         if #names == 0 then
           done()
         else
-          conform.format_lines(
-            names,
-            vim.deepcopy(block.lines),
-            { async = true, bufnr = buf, quiet = true },
-            vim.schedule_wrap(done)
-          )
+          run(vim.deepcopy(block.lines), true)
         end
       end
     end,

@@ -226,8 +226,24 @@ describe("Conform Markdown pipeline", function()
     local function format_blocks(lines)
       vim.opt.runtimepath:prepend(vim.fn.stdpath "data" .. "/lazy/conform.nvim")
       require("conform").setup {
-        formatters_by_ft = { hzsrupper = { "hzsr_upper" }, hzsrfail = { "hzsr_fail" } },
+        formatters_by_ft = {
+          hzsrupper = { "hzsr_upper" },
+          hzsrfail = { "hzsr_fail" },
+          hzsrnotabs = { "hzsr_no_tabs" },
+        },
         formatters = {
+          -- Como YAML: rechaza la sangría con tabs.
+          hzsr_no_tabs = {
+            format = function(_, _, input, callback)
+              for _, line in ipairs(input) do
+                if line:match "^ *\t" then
+                  callback "tabs"
+                  return
+                end
+              end
+              callback(nil, input)
+            end,
+          },
           hzsr_upper = {
             format = function(_, _, input, callback)
               callback(nil, vim.tbl_map(string.upper, input))
@@ -313,6 +329,29 @@ describe("Conform Markdown pipeline", function()
         ">",
         ">   F",
         "> ```",
+      }, result)
+      assert.are.same({}, failures)
+    end)
+
+    it("repairs a block whose indentation an older run turned into tabs", function()
+      -- El ancho con el que se deshacen los tabs es el de Markdown.
+      local previous = vim.bo.filetype
+      vim.bo.filetype = "markdown"
+      local result = format_blocks {
+        "```hzsrnotabs",
+        "needs:",
+        "\t- name: a",
+        "\t  repo: x",
+        "```",
+      }
+      vim.bo.filetype = previous
+
+      assert.are.same({
+        "```hzsrnotabs",
+        "needs:",
+        "    - name: a",
+        "      repo: x",
+        "```",
       }, result)
       assert.are.same({}, failures)
     end)
