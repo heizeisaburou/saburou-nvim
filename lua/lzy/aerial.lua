@@ -14,9 +14,17 @@ end
 ---
 --- `Constant` y `Variable` están para que se vean las constantes de módulo: las
 --- `const` y los `var` de paquete de Go, los objetos de configuración de
---- TypeScript. Lo que declara una función entra también por aquí, porque
---- `filter_kind` sólo mira la clase y no sabe dónde vive el símbolo; eso se
---- descarta después, en `post_parse_symbol`.
+--- TypeScript. `Object` es lo mismo en Lua: `lua_ls` entrega como `Object` toda
+--- tabla escrita con llaves (`local opts = { ... }`, `M.opts = { ... }`), y como
+--- `Variable` sólo lo que sale de una expresión. Lo que declara una función
+--- entra también por aquí, porque `filter_kind` sólo mira la clase y no sabe
+--- dónde vive el símbolo; eso se descarta después, en `post_parse_symbol`.
+---
+--- Hay que dejar pasar aquí todo lo que pueda contener algo que se quiera
+--- ocultar: si un símbolo no pasa este filtro, aerial lo quita pero sube sus
+--- hijos al nivel de arriba, y entonces `post_parse_symbol` ya no ve dentro de
+--- qué estaban. Así se colaba el campo `keywords = keywords` de `M.opts`: sin
+--- `Object` en la lista, aparecía suelto en el nivel superior.
 local kinds = {
   "Class",
   "Constant",
@@ -25,6 +33,7 @@ local kinds = {
   "Function",
   "Interface",
   "Module",
+  "Object",
   "Method",
   "Struct",
   "Property", -- Salen los get pero también las variables this, etc.
@@ -46,6 +55,7 @@ local opaque_parents = {
   Constructor = true,
   Function = true,
   Method = true,
+  Object = true,
   Property = true, -- `vtsls` entrega los getters como Property, no como Method
   Variable = true,
 }
@@ -53,6 +63,7 @@ local opaque_parents = {
 --- Clases que sólo interesan si se declaran al nivel del módulo o de un tipo.
 local nested_kinds = {
   Constant = true,
+  Object = true,
   Property = true,
   Variable = true,
 }
@@ -82,7 +93,7 @@ local function declares_type(line)
   local rest = line:gsub("^%s*", "")
   rest = rest:gsub("^export%s+", "")
   rest = rest:gsub("^declare%s+", "")
-  return rest:match("^type%s") ~= nil
+  return rest:match "^type%s" ~= nil
 end
 
 -- Devuelve la tabla de configuración para aerial.nvim
@@ -149,7 +160,21 @@ local opts = {
       end
     end
 
-    -- FILTRO 3: En TypeScript los alias de tipo llegan como `Variable`, sin
+    -- FILTRO 3: `lua_ls` entrega como símbolo lo que se pasa a una llamada:
+    -- una función anónima (`pcall(function() ... end)`) sale con el nombre de
+    -- la llamada, `pcall`, y una tabla (`setup({ ... })`) también. Ninguna de
+    -- las dos se declara: son argumentos. Se reconocen porque su `detail`
+    -- empieza por `->`; al ocultarlas se ocultan también sus hijos.
+    if
+      ctx.backend_name == "lsp"
+      and ctx.lang == "lua_ls"
+      and type(ctx.symbol.detail) == "string"
+      and vim.startswith(ctx.symbol.detail, "->")
+    then
+      return false
+    end
+
+    -- FILTRO 4: En TypeScript los alias de tipo llegan como `Variable`, sin
     -- nada que los separe de un `const`. Se reconocen por el texto y se les
     -- cambia la clase a `Interface`, que es lo que ya hace el respaldo de
     -- Tree-sitter, para que compartan icono y resaltado con las interfaces.
@@ -162,7 +187,7 @@ local opts = {
       item.kind = "Interface"
     end
 
-    -- FILTRO 4: Ocultar si el nombre termina con "callback"
+    -- FILTRO 5: Ocultar si el nombre termina con "callback"
     -- La función string.match busca un patrón en la cadena.
     -- El patrón "%s*callback$" busca la palabra "callback" al final del nombre,
     -- permitiendo cualquier cantidad de espacios antes de ella.
@@ -170,7 +195,7 @@ local opts = {
       return false -- Oculta el símbolo si coincide
     end
 
-    -- FILTRO 5: Ocultar nombres que empiezan por [ o {
+    -- FILTRO 6: Ocultar nombres que empiezan por [ o {
     -- El patrón "^[\[{]" busca el carácter [ o { al principio de la cadena.
     -- El `[` necesita ser escapado con `\` dentro de `[]`.
     if string.match(item.name, "^[[{]") then
