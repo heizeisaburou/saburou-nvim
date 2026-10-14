@@ -16,6 +16,15 @@ Cada lenguaje tiene tres variantes:
 - **`con_estilo/`**: lo mismo, ajustado a mano para que quede bien.
 - **`con_plantilla/`**: los diagramas de `sin_estilo/` con una plantilla de estilos compartida al lado, que se aplica al renderizar o con una línea de import. Sirve para ver cuánto se puede arreglar sin tocar cada diagrama.
 
+Cada carpeta tiene el código y el PNG de los tres diagramas:
+
+| Lenguaje | Sin estilo | Con estilo | Con plantilla |
+| --- | --- | --- | --- |
+| [D2](d2/) | [d2/sin_estilo/](d2/sin_estilo/) | [d2/con_estilo/](d2/con_estilo/) | [d2/con_plantilla/](d2/con_plantilla/) |
+| [DOT](dot/) | [dot/sin_estilo/](dot/sin_estilo/) | [dot/con_estilo/](dot/con_estilo/) | [dot/con_plantilla/](dot/con_plantilla/) |
+| [Mermaid](mermaid/) | [mermaid/sin_estilo/](mermaid/sin_estilo/) | [mermaid/con_estilo/](mermaid/con_estilo/) | [mermaid/con_plantilla/](mermaid/con_plantilla/) |
+| [PlantUML](plantuml/) | [plantuml/sin_estilo/](plantuml/sin_estilo/) | [plantuml/con_estilo/](plantuml/con_estilo/) | [plantuml/con_plantilla/](plantuml/con_plantilla/) |
+
 | Lenguaje | Clases | Flujo | Casos de uso |
 | --- | --- | --- | --- |
 | [D2](d2/) | nativo (`shape: class`) | nativo | imitado: personas, óvalos y un contenedor |
@@ -99,6 +108,64 @@ Casi todo está empatado. Hay dos excepciones, y las dos dicen mucho: las clases
 - **Mermaid** sin estilo trae su propio tema con colores. Su punto débil son los actores: el círculo (`((Autor))`) sale enorme incluso en un diagrama de dos nodos, así que con estilo son cajas con un 👤.
 - **PlantUML** sin estilo tiene el aspecto UML clásico y es el único con casos de uso de verdad, monigotes incluidos. Con estilo cambia mucho con pocas líneas de `skinparam`.
 - En los cuatro, los casos de uso sin estilo salen apretados: todos dibujan de arriba abajo, y este diagrama pide ir de izquierda a derecha.
+
+## Cómo quedan
+
+Los tres diagramas en su variante `con_estilo/`. Los de las otras dos variantes están en sus carpetas, con el mismo nombre.
+
+### Clases
+
+**D2**
+
+![Clases en D2](d2/con_estilo/clases.png)
+
+**DOT**
+
+![Clases en DOT](dot/con_estilo/clases.png)
+
+**Mermaid**
+
+![Clases en Mermaid](mermaid/con_estilo/clases.png)
+
+**PlantUML**
+
+![Clases en PlantUML](plantuml/con_estilo/clases.png)
+
+### Flujo
+
+**D2**
+
+![Flujo en D2](d2/con_estilo/flujo.png)
+
+**DOT**
+
+![Flujo en DOT](dot/con_estilo/flujo.png)
+
+**Mermaid**
+
+![Flujo en Mermaid](mermaid/con_estilo/flujo.png)
+
+**PlantUML**
+
+![Flujo en PlantUML](plantuml/con_estilo/flujo.png)
+
+### Casos de uso
+
+**D2**
+
+![Casos de uso en D2](d2/con_estilo/casos_de_uso.png)
+
+**DOT**
+
+![Casos de uso en DOT](dot/con_estilo/casos_de_uso.png)
+
+**Mermaid**
+
+![Casos de uso en Mermaid](mermaid/con_estilo/casos_de_uso.png)
+
+**PlantUML**
+
+![Casos de uso en PlantUML](plantuml/con_estilo/casos_de_uso.png)
 
 ## Regenerar los PNG
 

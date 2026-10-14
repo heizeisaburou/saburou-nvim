@@ -310,6 +310,11 @@ Como regla general, los prefijos agrupan operaciones relacionadas:
 - `<leader>n` contiene las acciones de Markdown y Nyabsidian.
 - `<leader>c` contiene varias acciones de edición y las transferencias manuales del clipboard: `<leader>cs` copia de Neovim al sistema y `<leader>cn` copia del sistema a Neovim.
 
+## Guías prácticas
+
+- [Etiquetas de comentarios](/docs/Etiquetas%20de%20comentarios.md): qué palabra poner en un comentario para marcar lo que falta, lo provisional o lo que hay que vigilar (`TODO`, `PROVISIONAL`, `HACK`…), y cómo elegir entre las que se parecen.
+- [Muestras de grafos](/docs/graph_samples/Muestras%20de%20grafos.md): los mismos diagramas escritos en D2, DOT, Mermaid y PlantUML, para elegir lenguaje viendo a la vez lo que cuesta escribirlos y cómo quedan.
+
 ## Lenguajes soportados
 
 Esta matriz también aparece en [language-dependencies.md](/docs/language-dependencies.md#matriz-de-soporte), donde se documenta lo que no cabe en una tabla: dependencias de sistema, instalación y las rarezas de cada herramienta. Las dos copias son canónicas, se actualizan juntas y un test comprueba que sean idénticas.
