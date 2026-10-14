@@ -25,9 +25,23 @@ M.keys = {
 -- abajo empiezan por `/` en vez de por dos puntos para que no aparezcan en el
 -- buscador de etiquetas ni se resalten.
 --
--- Van agrupadas por para qué sirven y, dentro de cada grupo, de más a menos
--- urgente. Lo que importa es elegir bien entre las que se parecen, así que cada
--- una dice cuándo usarla y cuándo usar otra.
+-- Van en seis grupos. Para elegir, se responden estas preguntas en orden y vale
+-- la primera que diga que sí:
+--   1. ¿Es un parche: código ya puesto que toca o rodea algo por un camino que
+--      no es el normal?                                         → Parches
+--   2. ¿Queda trabajo por hacer?                                → Pendiente
+--   3. ¿Hay que tener cuidado antes de tocarlo?                 → Avisos
+--   4. ¿Solo da contexto?                                       → Información
+--   5. ¿No es serio?                                            → Desahogo
+--   6. ¿Solo marca una sección del código?                      → Marcadores
+-- El orden va de lo que más conviene poder encontrar después a lo que menos.
+-- Los parches van primero porque casi todos dejan algo pendiente (quitarlos,
+-- revisarlos), y su etiqueta dice además qué puede romperse, que es lo que
+-- importa al tocarlos. El desahogo va casi al final porque un chiste no quita
+-- que haya trabajo: si lo hay, manda la etiqueta seria.
+--
+-- Dentro de cada grupo van de más a menos urgente, y cada etiqueta dice cuándo
+-- usarla y en qué se diferencia de las que se le parecen.
 --
 -- `merge_keywords` está desactivado: el plugin trae sus propias palabras y,
 -- fusionadas con estas, INFO acababa resolviéndose como alias de NOTE.
@@ -35,9 +49,91 @@ M.keys = {
 --
 -- La guía completa, con cómo elegir entre las que se parecen, está en
 -- `docs/Etiquetas de comentarios.md`. Si cambia una etiqueta, cambian las dos.
-local keywords = {
-  -- --- Pendiente: trabajo que falta -------------------------------------------
 
+-- Parches: tocan o rodean algo por un camino que no es el normal.
+--
+-- Todos son código que ya funciona. Se elige con estas preguntas, en orden:
+--   1. ¿Se toca código de otro (un plugin, una biblioteca, Neovim)?
+--      - Se sustituyen sus funciones desde fuera, al ejecutar  → MONKEYPATCH
+--      - Se edita una copia de su código que vive en el repo   → PATCH
+--   2. ¿No se toca, pero se rodea un fallo suyo hasta que lo
+--      arreglen?                                               → UPSTREAM
+--   3. ¿Es cosa nuestra?
+--      - Arreglo urgente de algo que se rompió en uso          → HOTFIX
+--      - Truco por un camino no previsto, que puede romperse   → HACK
+-- La técnica va antes que la causa porque lo que más importa al leer un
+-- parche es qué lo puede romper. Tocar el código de otro se rompe en cuanto
+-- ese otro cambia, aunque el motivo fuera un fallo suyo: un fallo de un
+-- plugin arreglado con un monkey patch es MONKEYPATCH, y la incidencia se
+-- enlaza en el texto.
+local patch_keywords = {
+  -- Un monkey patch es cambiar el código de otro desde fuera mientras el
+  -- programa corre, sin tocar sus archivos: se sustituye una de sus funciones
+  -- por una nuestra. En Lua basta con asignar
+  -- `require("plugin").funcion = function() ... end`. Quien lea el código del
+  -- plugin no sabrá que aquí se cambia, y se rompe en cuanto el plugin cambie
+  -- esa función por dentro. Duck punching es otro nombre para lo mismo.
+  --   /MONKEYPATCH: se sustituye `open` del picker de obsidian.nvim para que
+  --   use nuestras opciones de Telescope.
+  MONKEYPATCH = {
+    icon = " ",
+    color = "warning",
+    alt = { "MONKEY_PATCH", "MONKEYPATCHED", "DUCKPUNCH" },
+  },
+
+  -- Código de otro copiado en el repo y modificado, o un archivo `.patch` que
+  -- se aplica sobre el suyo. Un parche es eso: un cambio que se pone encima del
+  -- código original. Al actualizar desde el original hay que volver a aplicar
+  -- el cambio, así que conviene decir de qué versión viene y qué se cambió.
+  --   /PATCH: copiado de mini.nvim 0.14; solo cambia el cálculo del ancho.
+  -- No es `MONKEYPATCH`: aquí el código de otro se edita; allí se sustituye
+  -- desde fuera sin tocar sus archivos.
+  PATCH = {
+    icon = " ",
+    color = "warning",
+    alt = { "PATCHED" },
+  },
+
+  -- Rodeo para un fallo de una dependencia (un plugin, una herramienta, el
+  -- propio Neovim) que se quita cuando lo arreglen ellos. "Upstream" es el
+  -- proyecto original del que dependemos, "río arriba". Conviene enlazar la
+  -- incidencia y decir cuándo se puede quitar. Un workaround es justo eso: un
+  -- rodeo para esquivar un fallo que no es nuestro.
+  --   /UPSTREAM: render-markdown#123; quitar cuando salga la 8.14.
+  -- Su código no se toca; si se tocara, sería `MONKEYPATCH` o `PATCH`.
+  UPSTREAM = {
+    icon = " ",
+    color = "warning",
+    alt = { "WORKAROUND" },
+  },
+
+  -- Arreglo urgente de algo que se rompió en pleno uso, hecho deprisa y lo más
+  -- pequeño posible para que vuelva a funcionar ya; pide revisarlo con calma
+  -- después. "Hot" porque se aplica en caliente, con todo en marcha. QUICKFIX
+  -- es "arreglo rápido", y no tiene que ver con la lista quickfix de Vim.
+  --   /HOTFIX: se ignoran las notas sin título, que tumbaban el picker; falta
+  --   ver por qué llegan así.
+  -- No es `FIX`: aquello sigue roto; esto ya funciona. No es `DEBT`: la deuda
+  -- es un atajo elegido con calma; esto es una urgencia.
+  HOTFIX = {
+    icon = " ",
+    color = "warning",
+    alt = { "QUICKFIX", "HOTPATCH" },
+  },
+
+  -- Un hack es un truco: conseguir que algo funcione por un camino que el
+  -- sistema no tenía previsto. No tiene nada que ver con atacar ni vulnerar
+  -- nada; la palabra viene de la jerga de programadores, donde un hack es una
+  -- solución ingeniosa. Aquí marca uno que se apoya en algo que no debería (un
+  -- detalle interno de un plugin, un comportamiento no documentado), así que
+  -- puede dejar de funcionar sin aviso.
+  --   /HACK: se lee un campo privado de render-markdown.
+  -- No es `UPSTREAM`: no esquiva un fallo de nadie, es un atajo nuestro.
+  HACK = { icon = " ", color = "warning" },
+}
+
+-- Pendiente: trabajo que falta.
+local pending_keywords = {
   -- Está mal: falla, da un resultado incorrecto o rompe algo.
   --   /FIX: con un `.md` vacío devuelve nil y el llamante no lo comprueba.
   FIX = {
@@ -85,7 +181,7 @@ local keywords = {
   DEBT = {
     icon = "󱖫 ",
     color = "warning",
-    alt = { "QUICKFIX", "UGLY" },
+    alt = { "UGLY" },
   },
 
   -- Hay que reestructurarlo: funciona, pero la forma estorba (está duplicado,
@@ -152,9 +248,10 @@ local keywords = {
     color = "hint",
     alt = { "NEXT", "ROADMAP", "UPCOMING", "PROPOSAL" },
   },
+}
 
-  -- --- Avisos: cuidado al tocar esto ------------------------------------------
-
+-- Avisos: cuidado al tocar esto.
+local warning_keywords = {
   -- Afecta a la seguridad o a la privacidad.
   --   /SECURITY: el token se escribe en el log.
   SECURITY = {
@@ -167,29 +264,6 @@ local keywords = {
   -- XXX es una convención antigua con el mismo sentido: "ojo aquí".
   --   /WARN: el orden importa; prettier tiene que ir antes que la restauración.
   WARN = { icon = " ", color = "warning", alt = { "WARNING", "XXX" } },
-
-  -- Un hack es un truco: conseguir que algo funcione por un camino que el
-  -- sistema no tenía previsto. No tiene nada que ver con atacar ni vulnerar
-  -- nada; la palabra viene de la jerga de programadores, donde un hack es una
-  -- solución ingeniosa. Aquí marca uno que se apoya en algo que no debería (un
-  -- detalle interno de un plugin, un comportamiento no documentado), así que
-  -- puede dejar de funcionar sin aviso.
-  --   /HACK: se lee un campo privado de render-markdown.
-  HACK = { icon = " ", color = "warning" },
-
-  -- Parche para un fallo de una dependencia (un plugin, una herramienta, el
-  -- propio Neovim) que se quita cuando lo arreglen ellos. "Upstream" es el
-  -- proyecto original del que dependemos, "río arriba". Conviene enlazar la
-  -- incidencia y decir cuándo se puede quitar. Un workaround es justo eso: un
-  -- rodeo para esquivar un fallo que no es nuestro.
-  --   /UPSTREAM: render-markdown#123; quitar cuando salga la 8.14.
-  -- No es `HACK`: el hack es un truco nuestro que puede romperse; esto es
-  -- culpa de otro y tiene fecha de caducidad.
-  UPSTREAM = {
-    icon = " ",
-    color = "warning",
-    alt = { "WORKAROUND" },
-  },
 
   -- Suposición de la que depende el código y que nadie ha comprobado. Deja
   -- escrita la conjetura para poder verificarla más adelante o para
@@ -211,9 +285,10 @@ local keywords = {
     color = "warning",
     alt = { "OLD", "OBSOLETE", "REMOVE" },
   },
+}
 
-  -- --- Información: contexto, sin trabajo pendiente ---------------------------
-
+-- Información: contexto, sin trabajo pendiente.
+local info_keywords = {
   -- Explicación de por qué el código es así. COMM es la abreviatura de
   -- "comment", comentario.
   --   /NOTE: Obsidian guarda las fechas en UTC.
@@ -284,9 +359,10 @@ local keywords = {
     color = "comment",
     alt = { "COMPLETED", "FINISHED", "OK", "CHECKED" },
   },
+}
 
-  -- --- Desahogo: fuera de registro -------------------------------------------
-
+-- Desahogo: fuera de registro.
+local venting_keywords = {
   -- Lo que no es serio ni pretende serlo. El programador está harto, lleva
   -- semanas dando vueltas a lo mismo y lo deja de cualquier manera para poder
   -- avanzar; o suelta un chiste malo; o da con un truco tan absurdo que no
@@ -306,9 +382,10 @@ local keywords = {
     color = "ok",
     alt = { "WTF", "MAGIC", "MEH" },
   },
+}
 
-  -- --- Marcadores de estructura: señalan secciones del código -----------------
-
+-- Marcadores de estructura: señalan secciones del código.
+local marker_keywords = {
   -- Encabezado de un grupo de cosas relacionadas.
   --   /CATEGORY: atajos de ventanas.
   CATEGORY = { icon = "", color = "type", alt = { "GROUP", "CAT", "GRP" } },
@@ -342,6 +419,18 @@ local keywords = {
     alt = { "SETTERS", "SET", "STORE" },
   },
 }
+
+-- El plugin las quiere todas en una sola tabla. Con "error", una palabra clave
+-- repetida en dos grupos falla al cargar en vez de pisar a la otra en silencio.
+local keywords = vim.tbl_extend(
+  "error",
+  patch_keywords,
+  pending_keywords,
+  warning_keywords,
+  info_keywords,
+  venting_keywords,
+  marker_keywords
+)
 
 M.opts = {
   signs = true, -- iconos en la columna de signos
@@ -414,6 +503,65 @@ local function refresh_leading_padding_highlights()
   end
 end
 
+-- El primer `:` de una etiqueta (`:TODO:`) forma parte del bloque de color: en
+-- la línea de la etiqueta se pinta como relleno del fondo, y en las líneas que
+-- la continúan se pinta con el color del texto, igual que lo que tiene a la
+-- derecha. Sin esto, esa columna quedaba sin color debajo de los dos puntos:
+--
+--   -- :TODO: texto
+--   --  ?resto del comentario      <- la `?` quedaba fuera del bloque
+--
+-- Qué líneas continúan una etiqueta lo decide el plugin, y aquí se repite su
+-- misma regla para no pintar una línea que él no pinta: la línea sigue si es
+-- un comentario y tiene algún carácter en la columna de la palabra clave. La
+-- primera que no lo cumple corta el bloque, y las de detrás ya no se pintan.
+
+--- Marcas de la columna del `:` en las líneas dadas, que empiezan en `first`.
+--- Devuelve también si la última línea deja un bloque abierto, porque entonces
+--- las siguientes pueden seguir perteneciéndole.
+---@param bufnr integer
+---@param lines string[]
+---@param first integer
+---@param block? { keyword: string, start: integer, colon: integer }
+---@return { row: integer, col: integer, hl: string }[] marks
+---@return { keyword: string, start: integer, colon: integer }? block
+local function leading_padding_marks(bufnr, lines, first, block)
+  local config = require "todo-comments.config"
+  local highlight = require "todo-comments.highlight"
+  local options = config.options.highlight
+  local marks = {}
+
+  for offset, line in ipairs(lines) do
+    local row = first + offset - 1
+    -- Cuando `match` lanza (config del plugin aún sin inicializar) el pcall
+    -- deja en `start` el mensaje de error; hay que comprobar `ok` primero.
+    local ok, start, _, keyword = pcall(highlight.match, line)
+
+    if ok and start then
+      -- Una etiqueta nueva cierra el bloque anterior, tenga `:` delante o no.
+      block = nil
+      local colon = start - 2
+      if colon >= 0 and line:sub(colon + 1, colon + 1) == ":" then
+        keyword = config.keywords[keyword] or keyword
+        marks[#marks + 1] = { row = row, col = colon, hl = "TodoLeadingPadding" .. keyword }
+        block = { keyword = keyword, start = start, colon = colon }
+      end
+    elseif block then
+      if
+        options.multiline
+        and highlight.is_comment(bufnr, row, block.start)
+        and line:find(options.multiline_pattern, block.start)
+      then
+        marks[#marks + 1] = { row = row, col = block.colon, hl = "TodoFg" .. block.keyword }
+      else
+        block = nil
+      end
+    end
+  end
+
+  return marks, block
+end
+
 ---@param bufnr integer
 ---@param first? integer
 ---@param last? integer
@@ -422,34 +570,56 @@ local function update_leading_padding(bufnr, first, last)
     return
   end
 
-  local config = require "todo-comments.config"
+  local count = vim.api.nvim_buf_line_count(bufnr)
+  local context = require("todo-comments.config").options.highlight.multiline_context or 10
+  first = math.max((first or 0) - context, 0)
+  last = math.min((last or count) + context, count)
+
+  -- Qué es comentario lo dice Tree-sitter, y puede que todavía no haya
+  -- analizado el texto nuevo (al entrar en el buffer, nada más escribir): sin
+  -- esto, las continuaciones no se verían como comentario.
+  if vim.treesitter.highlighter.active[bufnr] then
+    pcall(function()
+      vim.treesitter.get_parser(bufnr):parse()
+    end)
+  end
+
+  -- Si `first` cae en mitad de un bloque, su etiqueta está más arriba: se busca
+  -- para no tratar sus líneas como sueltas.
   local highlight = require "todo-comments.highlight"
-  first = first or 0
-  last = last or vim.api.nvim_buf_line_count(bufnr)
+  for row = first - 1, math.max(first - 200, 0), -1 do
+    local line = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1]
+    local ok, start = pcall(highlight.match, line)
+    if ok and start then
+      first = row
+      break
+    end
+  end
+
+  -- Y si el último bloque sigue abierto al llegar a `last`, se sigue leyendo
+  -- hasta que se cierre.
+  local marks, block =
+    leading_padding_marks(bufnr, vim.api.nvim_buf_get_lines(bufnr, first, last, false), first)
+  while block and last < count do
+    local next_last = math.min(last + 50, count)
+    local more
+    more, block = leading_padding_marks(
+      bufnr,
+      vim.api.nvim_buf_get_lines(bufnr, last, next_last, false),
+      last,
+      block
+    )
+    vim.list_extend(marks, more)
+    last = next_last
+  end
 
   vim.api.nvim_buf_clear_namespace(bufnr, leading_padding_namespace, first, last)
-
-  local lines = vim.api.nvim_buf_get_lines(bufnr, first, last, false)
-  for offset, line in ipairs(lines) do
-    local ok, start, _, keyword = pcall(highlight.match, line)
-    -- Cuando `match` lanza (config del plugin aún sin inicializar) el pcall
-    -- deja en `start` el mensaje de error; hay que comprobar `ok` primero.
-    local colon_col = ok and start and start - 2 or -1
-
-    if ok and keyword and colon_col >= 0 and line:sub(colon_col + 1, colon_col + 1) == ":" then
-      keyword = config.keywords[keyword] or keyword
-      vim.api.nvim_buf_set_extmark(
-        bufnr,
-        leading_padding_namespace,
-        first + offset - 1,
-        colon_col,
-        {
-          end_col = colon_col + 1,
-          hl_group = "TodoLeadingPadding" .. keyword,
-          priority = 501,
-        }
-      )
-    end
+  for _, mark in ipairs(marks) do
+    vim.api.nvim_buf_set_extmark(bufnr, leading_padding_namespace, mark.row, mark.col, {
+      end_col = mark.col + 1,
+      hl_group = mark.hl,
+      priority = 501,
+    })
   end
 end
 
@@ -477,6 +647,9 @@ local function setup_leading_padding()
 
   update_leading_padding(vim.api.nvim_get_current_buf())
 end
+
+-- Para los specs.
+M._update_leading_padding = update_leading_padding
 
 function M.setup()
   require("todo-comments").setup(M.opts)

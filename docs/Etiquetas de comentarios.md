@@ -12,12 +12,30 @@ Se escriben en mayúsculas y entre dos puntos, uno a cada lado de la palabra. En
 
 Cada etiqueta tiene alias que valen lo mismo, con el mismo color y el mismo icono: `BUG` es `FIX`, `TEMP` es `PROVISIONAL`. La configuración está en [`lua/lzy/todo-comments.lua`](/lua/lzy/todo-comments.lua), que también explica cada una en su comentario. Este documento es la versión larga: cuándo usar cada una y cómo elegir entre las que se parecen.
 
+## Cómo elegir
+
+Hay seis grupos. Se responden estas preguntas en orden y vale la primera que diga que sí:
+
+1. ¿Es un parche: código ya puesto que toca o rodea algo por un camino que no es el normal? → [Parches](#parches)
+2. ¿Queda trabajo por hacer? → [Pendiente](#pendiente)
+3. ¿Hay que tener cuidado antes de tocarlo? → [Avisos](#avisos)
+4. ¿Solo da contexto? → [Información](#información)
+5. ¿No es serio? → [Desahogo](#desahogo)
+6. ¿Solo marca una sección del código? → [Marcadores de estructura](#marcadores-de-estructura)
+
+El orden va de lo que más conviene poder encontrar después a lo que menos. Los parches van primero porque casi todos dejan algo pendiente (quitarlos, revisarlos), y su etiqueta dice además qué puede romperse, que es lo que importa al tocarlos. El desahogo va casi al final porque un chiste no quita que haya trabajo: si lo hay, manda la etiqueta seria.
+
 ## Cuál elegir
 
-Lo que importa no es saberse la lista, sino elegir bien entre las que se parecen. Empieza por la primera pregunta que tenga respuesta:
+Lo que importa no es saberse la lista, sino elegir bien entre las que se parecen. La tabla sigue el orden de los grupos y vale la primera fila que encaje.
 
 | Si… | Usa |
 | --- | --- |
+| sustituye funciones de otro desde fuera, al ejecutar | `MONKEYPATCH` |
+| edita una copia del código de otro que vive en el repo | `PATCH` |
+| rodea un fallo de una dependencia sin tocar su código | `UPSTREAM` |
+| arregla deprisa algo nuestro que se rompió en uso | `HOTFIX` |
+| es un truco nuestro que puede romperse | `HACK` |
 | está mal: falla o da un resultado incorrecto | `FIX` |
 | falta hacerlo y se sabe qué es | `TODO` |
 | falta hacerlo, pero ahora no se puede porque depende de algo de fuera | `BLOCKED` |
@@ -28,8 +46,6 @@ Lo que importa no es saberse la lista, sino elegir bien entre las que se parecen
 | funciona y está bien, aunque podría estar mejor | `IMPROVE` |
 | es una idea nueva para más adelante | `FUTURE` |
 | depende de algo que nadie ha comprobado | `ASSUME` |
-| esquiva un fallo de una dependencia | `UPSTREAM` |
-| es un truco nuestro que puede romperse | `HACK` |
 | se sabe que no hace algo, y se ha decidido así | `LIMIT` |
 | no es serio | `XD` |
 
@@ -44,13 +60,17 @@ Las cuatro que dicen "esto no es lo definitivo" se distinguen por qué se sabe y
 | `STUB`        | no, solo aparenta    | da igual: es un sustituto  |
 | `PLACEHOLDER` | no hay nada          | no se ha decidido qué va   |
 
-Las tres que dicen "esto es raro" se distinguen por de quién es la culpa y por si puede romperse:
+Los cinco parches se distinguen por qué tocan y qué los rompe:
 
-|            | De quién es            | ¿Puede romperse?            |
-| ---------- | ---------------------- | --------------------------- |
-| `HACK`     | nuestro                | sí, sin aviso               |
-| `UPSTREAM` | de una dependencia     | se quita cuando la arreglen |
-| `XD`       | nuestro, y no es serio | no tiene por qué            |
+|  | ¿Toca código de otro? | ¿Por qué existe? | ¿Qué lo rompe? |
+| --- | --- | --- | --- |
+| `MONKEYPATCH` | sí: lo sustituye al ejecutar | cualquier motivo | que el otro cambie esa función por dentro |
+| `PATCH` | sí: edita una copia | cualquier motivo | actualizar desde el original sin volver a aplicarlo |
+| `UPSTREAM` | no | un fallo de una dependencia | nada: se quita cuando lo arreglen |
+| `HOTFIX` | no | algo nuestro que se rompió | nada, pero pide revisarlo con calma |
+| `HACK` | no | un atajo nuestro, sin fallo | que cambie aquello en lo que se apoya |
+
+Si lo absurdo de un truco es lo que llama la atención, pero no puede romperse, no es `HACK` sino `XD`.
 
 Y las tres que dicen "esto podría ser distinto" se distinguen por si hay que hacer algo:
 
@@ -59,6 +79,80 @@ Y las tres que dicen "esto podría ser distinto" se distinguen por si hay que ha
 | `REFACTOR` | sí: la forma estorba                          |
 | `IMPROVE`  | no hace falta: se podría, y ahora no compensa |
 | `LIMIT`    | no: se ha decidido dejarlo así                |
+
+## Parches
+
+Tocan o rodean algo por un camino que no es el normal. Todos son código que ya funciona. Se elige con estas preguntas, en orden:
+
+1. ¿Se toca código de otro (un plugin, una biblioteca, Neovim)?
+	- Se sustituyen sus funciones desde fuera, al ejecutar → `MONKEYPATCH`
+	- Se edita una copia de su código que vive en el repo → `PATCH`
+2. ¿No se toca, pero se rodea un fallo suyo hasta que lo arreglen? → `UPSTREAM`
+3. ¿Es cosa nuestra?
+	- Arreglo urgente de algo que se rompió en uso → `HOTFIX`
+	- Truco por un camino no previsto, que puede romperse → `HACK`
+
+La técnica va antes que la causa porque lo que más importa al leer un parche es qué lo puede romper. Tocar el código de otro se rompe en cuanto ese otro cambia, aunque el motivo fuera un fallo suyo: un fallo de un plugin arreglado con un monkey patch es `MONKEYPATCH`, y la incidencia se enlaza en el texto.
+
+### MONKEYPATCH
+
+Un _monkey patch_ es cambiar el código de otro desde fuera mientras el programa corre, sin tocar sus archivos: se sustituye una de sus funciones por una nuestra. En Lua basta con asignar `require("plugin").funcion = function() ... end`. Quien lea el código del plugin no sabrá que aquí se cambia, y se rompe en cuanto el plugin cambie esa función por dentro.
+
+Alias: `MONKEY_PATCH`, `MONKEYPATCHED`, `DUCKPUNCH`. _Duck punching_ es otro nombre para lo mismo.
+
+```text
+/MONKEYPATCH: se sustituye `open` del picker de obsidian.nvim para que use
+nuestras opciones de Telescope.
+```
+
+### PATCH
+
+Código de otro copiado en el repo y modificado, o un archivo `.patch` que se aplica sobre el suyo. Un _parche_ es eso: un cambio que se pone encima del código original. Al actualizar desde el original hay que volver a aplicar el cambio, así que conviene decir de qué versión viene y qué se cambió.
+
+Alias: `PATCHED`.
+
+```text
+/PATCH: copiado de mini.nvim 0.14; solo cambia el cálculo del ancho.
+```
+
+No es `MONKEYPATCH`: aquí el código de otro se edita; allí se sustituye desde fuera sin tocar sus archivos.
+
+### UPSTREAM
+
+Rodeo para un fallo de una dependencia (un plugin, una herramienta, el propio Neovim) que se quita cuando lo arreglen ellos. _Upstream_ es el proyecto original del que dependemos, "río arriba". Conviene enlazar la incidencia y decir cuándo se puede quitar.
+
+Alias: `WORKAROUND`. Un _workaround_ es justo eso: un rodeo para esquivar un fallo que no es nuestro.
+
+```text
+/UPSTREAM: render-markdown#123; quitar cuando salga la 8.14.
+```
+
+Su código no se toca; si se tocara, sería `MONKEYPATCH` o `PATCH`.
+
+### HOTFIX
+
+Arreglo urgente de algo que se rompió en pleno uso, hecho deprisa y lo más pequeño posible para que vuelva a funcionar ya; pide revisarlo con calma después. _Hot_ porque se aplica en caliente, con todo en marcha.
+
+Alias: `QUICKFIX`, `HOTPATCH`. _Quickfix_ es "arreglo rápido", y no tiene que ver con la lista quickfix de Vim.
+
+```text
+/HOTFIX: se ignoran las notas sin título, que tumbaban el picker; falta ver
+por qué llegan así.
+```
+
+No es `FIX`: aquello sigue roto; esto ya funciona. No es `DEBT`: la deuda es un atajo elegido con calma; esto es una urgencia.
+
+### HACK
+
+Un _hack_ es un truco: conseguir que algo funcione por un camino que el sistema no tenía previsto. No tiene nada que ver con atacar ni vulnerar nada; la palabra viene de la jerga de programadores, donde un hack es una solución ingeniosa.
+
+Aquí marca uno que se apoya en algo que no debería, como un detalle interno de un plugin o un comportamiento no documentado, así que puede dejar de funcionar sin aviso.
+
+```text
+/HACK: se lee un campo privado de render-markdown.
+```
+
+No es `UPSTREAM`: no esquiva un fallo de nadie, es un atajo nuestro.
 
 ## Pendiente
 
@@ -110,7 +204,7 @@ No es `DEBT`: en la deuda la buena ya se conoce y no se ha hecho; aquí todavía
 
 Atajo feo hecho a sabiendas: se sabe cuál es la solución buena y no se ha hecho todavía. Es lo que se llama _deuda técnica_: se ahorra tiempo ahora a cambio de un trabajo que habrá que pagar más adelante.
 
-Alias: `QUICKFIX`, `UGLY`.
+Alias: `UGLY`.
 
 ```text
 /DEBT: se copia la tabla entera en cada llamada; habría que cachearla.
@@ -213,28 +307,6 @@ Alias: `WARNING`, `XXX`. _XXX_ es una convención antigua con el mismo sentido: 
 ```text
 /WARN: el orden importa; prettier tiene que ir antes que la restauración.
 ```
-
-### HACK
-
-Un _hack_ es un truco: conseguir que algo funcione por un camino que el sistema no tenía previsto. No tiene nada que ver con atacar ni vulnerar nada; la palabra viene de la jerga de programadores, donde un hack es una solución ingeniosa.
-
-Aquí marca uno que se apoya en algo que no debería, como un detalle interno de un plugin o un comportamiento no documentado, así que puede dejar de funcionar sin aviso.
-
-```text
-/HACK: se lee un campo privado de render-markdown.
-```
-
-### UPSTREAM
-
-Parche para un fallo de una dependencia (un plugin, una herramienta, el propio Neovim) que se quita cuando lo arreglen ellos. _Upstream_ es el proyecto original del que dependemos, "río arriba". Conviene enlazar la incidencia y decir cuándo se puede quitar.
-
-Alias: `WORKAROUND`. Un _workaround_ es justo eso: un rodeo para esquivar un fallo que no es nuestro.
-
-```text
-/UPSTREAM: render-markdown#123; quitar cuando salga la 8.14.
-```
-
-No es `HACK`: el hack es un truco nuestro que puede romperse; esto es culpa de otro y tiene fecha de caducidad.
 
 ### ASSUME
 
