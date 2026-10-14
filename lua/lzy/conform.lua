@@ -1959,6 +1959,17 @@ local formatters = {
   -- byte a byte. Convertirlo rompía los lenguajes que no admiten tabs (YAML,
   -- Fluent, F#) y dejaba mezclado cualquier bloque sangrado a un ancho que no
   -- fuera múltiplo de `width` (Python lo rechaza con TabError).
+  --
+  -- Lo mismo vale para el bloque de código sangrado, el que no lleva fence y se
+  -- marca con cuatro espacios: solo esos cuatro son Markdown. Sin parser, se
+  -- reconoce con una regla que se apoya en cómo deja el texto Prettier, que
+  -- pone siempre una línea en blanco antes de cada bloque: una línea sangrada
+  -- `width` columnas o más, justo tras una línea en blanco y sin ninguna lista
+  -- abierta, abre un bloque de código; lo cierra la primera línea con menos
+  -- sangría. Una lista sigue abierta hasta la primera línea sin sangría que no
+  -- sea un ítem. Dentro de una lista la sangría es de la lista, y un bloque
+  -- sangrado dentro de un ítem se sigue convirtiendo entero: es raro, y
+  -- distinguirlo pediría el parser.
   markdown_tabs = {
     format = function(_, ctx, lines, callback)
       local config = indent_for(ctx)
@@ -1984,6 +1995,19 @@ local formatters = {
         return columns, ""
       end
 
+      -- Ítem de lista; `* * *` y `---` son reglas horizontales, no ítems.
+      local function list_item(content)
+        if content:match "^([-*_])%s*%1%s*%1[-*_%s]*$" then
+          return false
+        end
+        return content:match "^[-*+]%s"
+          or content:match "^[-*+]$"
+          or content:match "^%d+[.)]%s"
+          or content:match "^%d+[.)]$"
+      end
+
+      local list_open, indented_code, after_blank = false, false, true
+
       for index, line in ipairs(lines) do
         local leading = line:match "^[\t ]*" or ""
         local content = line:sub(#leading + 1)
@@ -2002,7 +2026,31 @@ local formatters = {
           else
             limit = fence_columns
           end
+        elseif content ~= "" then
+          local depth = measure(leading)
+
+          if indented_code and depth < config.width then
+            indented_code = false
+          end
+          if
+            not indented_code
+            and not opens
+            and after_blank
+            and not list_open
+            and depth >= config.width
+          then
+            indented_code = true
+          end
+
+          if indented_code then
+            limit = config.width
+          elseif list_item(content) then
+            list_open = true
+          elseif depth == 0 then
+            list_open = false
+          end
         end
+        after_blank = content == ""
 
         local columns, verbatim = measure(leading, limit)
 
@@ -2206,6 +2254,7 @@ local formatters = {
       return { "-i", config.style == "tabs" and "0" or tostring(config.width) }
     end,
   },
+
 
   -- sqlfluff solo entra donde el proyecto declara su dialecto; si no, formatea
   -- pg_format. El criterio vive en `lzy.sqlfluff` porque lo comparte con

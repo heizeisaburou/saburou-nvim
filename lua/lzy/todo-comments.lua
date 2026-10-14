@@ -333,8 +333,8 @@ local info_keywords = {
   -- Limitación conocida y aceptada a propósito: se sabe y no hay intención de
   -- quitarla, porque no compensa o porque es el precio de otra cosa. Evita que
   -- alguien la tome por un fallo y la "arregle".
-  --   /LIMIT: los bloques de código sangrados sin delimitador siguen pasando a
-  --   tabs; sin un parser no se distinguen de una lista.
+  --   /LIMIT: un bloque de código sangrado dentro de un ítem de lista sigue
+  --   pasando a tabs; sin un parser no se distingue de la propia lista.
   -- No es `IMPROVE`: aquello se podría mejorar; esto se ha decidido dejarlo.
   LIMIT = {
     icon = " ",

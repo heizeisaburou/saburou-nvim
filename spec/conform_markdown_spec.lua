@@ -218,6 +218,63 @@ describe("Conform Markdown pipeline", function()
     }, result)
   end)
 
+  it("converts only the marker of an indented code block, never its content", function()
+    local previous = vim.bo.filetype
+    vim.bo.filetype = "markdown"
+
+    local result = run("markdown_tabs", {
+      "Un párrafo.",
+      "",
+      "    needs:",
+      "      - name: a",
+      "        repo: x",
+      "",
+      "    sigue el bloque",
+      "",
+      "- uno",
+      "    - dos",
+      "",
+      "    sigue el item uno",
+      "",
+      "Fuera de la lista.",
+      "",
+      "    def f():",
+      "        return 1",
+      "",
+      "---",
+      "",
+      "    tras una regla",
+    })
+
+    vim.bo.filetype = previous
+
+    assert.are.same({
+      "Un párrafo.",
+      "",
+      -- Los cuatro primeros espacios marcan el bloque; el resto es del YAML.
+      "\tneeds:",
+      "\t  - name: a",
+      "\t    repo: x",
+      "",
+      "\tsigue el bloque",
+      "",
+      -- Con una lista abierta, la sangría es de la lista.
+      "- uno",
+      "\t- dos",
+      "",
+      "\tsigue el item uno",
+      "",
+      "Fuera de la lista.",
+      "",
+      "\tdef f():",
+      "\t    return 1",
+      "",
+      "---",
+      "",
+      "\ttras una regla",
+    }, result)
+  end)
+
   describe("code blocks", function()
     local failures
 

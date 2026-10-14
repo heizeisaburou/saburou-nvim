@@ -1481,7 +1481,7 @@ Los wrappers `prettier_*` resuelven el directorio global de Node en runtime. Si 
 
 ## Detalles de formato
 
-- Markdown usa `prettier` y después `markdown_tabs`. La segunda pasada normaliza la sangría que Prettier deja con espacios en algunas estructuras incluso cuando se prefieren tabs. Solo toca la estructura de Markdown: dentro de un bloque de código convierte la sangría del propio bloque (la de la lista que lo contiene) y deja el código byte a byte.
+- Markdown usa `prettier` y después `markdown_tabs`. La segunda pasada normaliza la sangría que Prettier deja con espacios en algunas estructuras incluso cuando se prefieren tabs. Solo toca la estructura de Markdown: dentro de un bloque de código convierte la sangría del propio bloque (la de la lista que lo contiene, o los cuatro espacios que marcan un bloque sangrado) y deja el código byte a byte.
 - Los bloques de código de un Markdown los formatea `markdown_code_blocks` con el formatter que `formatters_by_ft` tenga activo para su lenguaje y con la política de sangría de ese lenguaje, como si fueran un archivo suelto: activar un lenguaje activa también sus bloques. Sin formatter activo el bloque queda como lo deje Prettier (que formatea por su cuenta los lenguajes que conoce, con la sangría de Markdown); si el formatter falla, el bloque se deja intacto y se avisa.
 - `rubocop` y `scalafmt` tienen un timeout de 10 segundos para evitar falsos fallos en el primer arranque.
 - `yaml.ansible` reutiliza la configuración de `yaml` y `yamlfmt`.
