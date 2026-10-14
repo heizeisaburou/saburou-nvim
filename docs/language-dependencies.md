@@ -406,7 +406,7 @@ Dependencias de sistema:
 - `nasmfmt` **no está en Mason ni tiene builtin en Conform**. Se instala con Go y queda fuera del `PATH` en muchos sistemas, así que la config lo resuelve también por ruta:
 
 	```bash
-	go install github.com/yamnikov-oleg/nasmfmt@latest   # deja el binario en ~/go/bin
+	go install github.com/yamnikov-oleg/nasmfmt@latest # deja el binario en ~/go/bin
 	```
 
 	Reescribe el archivo in situ y no lee stdin (`stdin = false`, `$FILENAME`). Solo admite indentación por espacios: se le pasa `-ii` con el ancho de la política general, y con estilo tabs se aplica igualmente ese ancho en espacios. Comprobado que no altera la directiva `asmsyntax` de la primera línea, así que formatear no rompe la detección de dialecto.
@@ -560,8 +560,8 @@ Neovim ejecuta el servidor a través de `dart language-server --protocol=lsp`; b
 Lo primero es el propio D2, que es el que convierte el `.d2` en imagen. Sin él no hay diagrama, se use el editor que se use. También es el formatter:
 
 ```bash
-sudo pacman -S --needed d2   # repo oficial extra; no está en Mason
-d2 diagrama.d2 diagrama.svg  # renderizar
+sudo pacman -S --needed d2  # repo oficial extra; no está en Mason
+d2 diagrama.d2 diagrama.svg # renderizar
 ```
 
 En Neovim, D2 tiene resaltado y formatter, pero **no tiene LSP**: no hay ningún servidor de D2, así que los errores no se ven hasta que se formatea o se renderiza. Su parser de Tree-sitter **no está en el catálogo** de nvim-treesitter: es externo, y esta configuración lo registra. Todo sale de aquí:
@@ -690,8 +690,8 @@ Lo que detecta es **sintaxis y estructura**, con los códigos de error de la pro
 Fluent no tiene formateador publicado. El que usa esta configuración es el serializador de la biblioteca oficial de Mozilla, `fluent.syntax` (Python), envuelto en un script que vive en [lua/lzy/conform.lua](/lua/lzy/conform.lua) (`FLUENT_FORMAT`) y que Conform ejecuta con `python3 -c`. Necesita [Python](/docs/langs/Python.md) y esa biblioteca, que no está en Mason:
 
 ```bash
-sudo pacman -S --needed python-fluent.syntax   # Arch, repo oficial extra
-pip install fluent.syntax                       # cualquier otro sistema
+sudo pacman -S --needed python-fluent.syntax # Arch, repo oficial extra
+pip install fluent.syntax                    # cualquier otro sistema
 ```
 
 Normaliza los espacios alrededor de `=`, dentro de las llaves y entre argumentos, la sangría de atributos y variantes, las líneas en blanco de más y los espacios finales. **No toca el texto de la traducción**: `Hello,   world!` conserva sus tres espacios, porque son contenido.
@@ -792,7 +792,7 @@ Proyecto mínimo:
 mkdir proyecto && cd proyecto
 npm init -y
 npm install graphql
-cat > .graphqlrc.yml <<'EOF'
+cat > .graphqlrc.yml << 'EOF'
 schema: schema.graphql
 documents: queries/**/*.graphql
 EOF
@@ -875,8 +875,8 @@ En Windows puede definirse la misma variable de entorno apuntando al directorio 
 Para convertir el `.mmd` en imagen hace falta `mmdc`, de `mermaid-cli`. La configuración no lo usa: sólo resalta, y sin él se edita igual.
 
 ```bash
-sudo pacman -S --needed mermaid-cli   # repo oficial extra; arrastra chromium como dependencia
-mmdc -i diagrama.mmd -o diagrama.png  # renderizar (.svg o .pdf según la extensión)
+sudo pacman -S --needed mermaid-cli  # repo oficial extra; arrastra chromium como dependencia
+mmdc -i diagrama.mmd -o diagrama.png # renderizar (.svg o .pdf según la extensión)
 ```
 
 `mmdc` dibuja abriendo el diagrama en un navegador headless (Puppeteer), por eso trae `chromium`. Sin instalar nada también funciona con `npx -y @mermaid-js/mermaid-cli`, pero **por sí solo falla** porque Puppeteer no encuentra navegador. Hay dos arreglos: apuntarlo a un Chromium que ya esté instalado con `-p puppeteer.json`, donde el JSON contiene `{ "executablePath": "/usr/bin/brave" }`, o dejar que descargue el suyo con `npx puppeteer browsers install chrome-headless-shell` (unos 260 MB en `~/.cache/puppeteer`, más otros 450 MB del paquete en `~/.npm/_npx`).
@@ -991,8 +991,8 @@ Proyecto mínimo: el `root_dir` busca `*.lpi`, `*.lpk` o `.git`, así que basta 
 Lo primero es el propio PlantUML, que es el que convierte el `.puml` en imagen. Sin él no hay diagrama, se use el editor que se use. Además, en Neovim lo usa el LSP para los diagnósticos:
 
 ```bash
-sudo pacman -S --needed plantuml   # repo oficial extra; depende de java-runtime>=8
-plantuml -tsvg diagrama.puml       # renderizar (-tpng para PNG)
+sudo pacman -S --needed plantuml # repo oficial extra; depende de java-runtime>=8
+plantuml -tsvg diagrama.puml     # renderizar (-tpng para PNG)
 ```
 
 Y el servidor de lenguaje, `plantuml-lsp`. No está en Mason, y en Arch tampoco hay paquete: ni en los repositorios oficiales, ni en AUR, ni en Chaotic-AUR. Se compila con Go (1.22 o superior), que sí está en el repositorio oficial `extra`:
@@ -1000,7 +1000,7 @@ Y el servidor de lenguaje, `plantuml-lsp`. No está en Mason, y en Arch tampoco 
 ```bash
 # Arch
 sudo pacman -S --needed go
-go install github.com/ptdewey/plantuml-lsp@latest   # deja el binario en ~/go/bin
+go install github.com/ptdewey/plantuml-lsp@latest # deja el binario en ~/go/bin
 
 # Cualquier otro sistema con Go instalado
 go install github.com/ptdewey/plantuml-lsp@latest
