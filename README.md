@@ -259,7 +259,7 @@ Todo lo demás se sigue formateando: listas, tablas, énfasis, definiciones de r
 
 Si un proyecto concreto sí quiere prosa ajustada, lo pide en su propia configuración y gana sobre la nuestra:
 
-```json
+```jsonc
 // .prettierrc
 { "proseWrap": "always", "printWidth": 80 }
 ```
