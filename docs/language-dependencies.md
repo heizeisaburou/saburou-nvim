@@ -190,6 +190,8 @@ sudo pacman -S --needed bash
 
 Mason instala `bash-language-server` y `shfmt`. El LSP usa `.git` como raíz, por lo que un script suelto tendrá resaltado y formato pero no servidor hasta que esté dentro de un repositorio. Comprobación mínima: `bash -n archivo.sh`.
 
+Estilo de `shfmt`: la sangría es la de la política general (`lua/user/indent.lua`, 2 espacios), salvo que el `.editorconfig` del proyecto fije la sangría de los `.sh`; si la fija entera, manda el proyecto, y si la fija a medias se completa con la nuestra. Las redirecciones van pegadas, que es como se escriben: `2>/dev/null`, `>&2`. Por eso no se usa `-sr`, que en `shfmt` es todo o nada: dejaría `cat > archivo` más bonito, pero también `2> /dev/null`. Lo que queda raro sin él es `cat >archivo <<'EOF'`, y se acepta. Tampoco hay forma de que respete `cmd || { echo error; exit 1; }` en una línea: un grupo con más de una orden siempre lo parte en varias. Si una línea así importa, se reescribe con una función (`cmd || die "error"`).
+
 ### C y C++
 
 Activar `clangd`, `clang_format` y los parsers `c`/`cpp`. Mason cubre el LSP y `clang-format`; el compilador y el sistema de build pertenecen al sistema:
@@ -792,7 +794,7 @@ Proyecto mínimo:
 mkdir proyecto && cd proyecto
 npm init -y
 npm install graphql
-cat > .graphqlrc.yml << 'EOF'
+cat >.graphqlrc.yml <<'EOF'
 schema: schema.graphql
 documents: queries/**/*.graphql
 EOF

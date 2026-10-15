@@ -2255,9 +2255,13 @@ local formatters = {
   -- exista no basta: sin regla de sangría, shfmt usa tabs; con `space` y sin
   -- `indent_size`, 8 espacios; con `indent_size` y sin estilo, tabs
   -- (comprobado). En esos casos se le pasa la sangría que sí fije el
-  -- proyecto, completada con la nuestra, más `-sr`, que deja un espacio tras
-  -- las redirecciones: `cat > archivo`. Las claves propias de shfmt
+  -- proyecto, completada con la nuestra. Las claves propias de shfmt
   -- (`binary_next_line`…) se pierden ahí: Neovim no las expone.
+  --
+  -- Sin `-sr` a propósito: es todo o nada, y por dejar `cat > archivo` bonito
+  -- convertía `2>/dev/null`, que es como se escribe, en `2> /dev/null`. El
+  -- precio es `cat >archivo <<'EOF'`, y se acepta. Tampoco hay forma de que
+  -- deje `cmd || { a; b; }` en una línea: shfmt siempre lo parte.
   shfmt = {
     append_args = function(_, ctx)
       local project = vim.b[ctx.buf].editorconfig or {}
@@ -2268,7 +2272,7 @@ local formatters = {
 
       local config = indent_for(ctx)
       local tabs = style == nil and config.style == "tabs"
-      return { "-i", tabs and "0" or tostring(width or config.width), "-sr" }
+      return { "-i", tabs and "0" or tostring(width or config.width) }
     end,
   },
 
