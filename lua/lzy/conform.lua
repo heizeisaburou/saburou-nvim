@@ -2250,22 +2250,25 @@ local formatters = {
 
   -- shfmt no tiene archivo de configuración propio: lee el `.editorconfig`,
   -- pero sólo si no recibe ninguna opción de formato. Pasarle cualquiera hace
-  -- que lo ignore entero (comprobado), así que con `.editorconfig` en el
-  -- proyecto no se le pasa nada y manda el proyecto. Sin él, nuestros valores;
-  -- `-sr` deja un espacio tras las redirecciones: `cat > archivo`.
+  -- que lo ignore entero (comprobado), así que, cuando el `.editorconfig` fija
+  -- la sangría de este archivo, no se le pasa nada y manda el proyecto. Que
+  -- exista no basta: sin regla de sangría, shfmt usa tabs; con `space` y sin
+  -- `indent_size`, 8 espacios; con `indent_size` y sin estilo, tabs
+  -- (comprobado). En esos casos se le pasa la sangría que sí fije el
+  -- proyecto, completada con la nuestra, más `-sr`, que deja un espacio tras
+  -- las redirecciones: `cat > archivo`. Las claves propias de shfmt
+  -- (`binary_next_line`…) se pierden ahí: Neovim no las expone.
   shfmt = {
     append_args = function(_, ctx)
-      local project = vim.fs.find(".editorconfig", {
-        path = ctx.dirname,
-        upward = true,
-        type = "file",
-      })[1]
-      if project then
+      local project = vim.b[ctx.buf].editorconfig or {}
+      local style, width = project.indent_style, tonumber(project.indent_size)
+      if style == "tab" or (style == "space" and width) then
         return {}
       end
 
       local config = indent_for(ctx)
-      return { "-i", config.style == "tabs" and "0" or tostring(config.width), "-sr" }
+      local tabs = style == nil and config.style == "tabs"
+      return { "-i", tabs and "0" or tostring(width or config.width), "-sr" }
     end,
   },
 
